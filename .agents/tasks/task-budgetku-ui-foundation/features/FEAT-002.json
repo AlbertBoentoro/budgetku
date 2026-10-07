@@ -1,0 +1,28 @@
+{
+  "id": "FEAT-002",
+  "type": "refactor",
+  "description": "Remove the Supabase starter/demo UI and repoint the root route. Delete the demo components and the tutorial folder, delete app/protected/ entirely, and rewrite app/page.tsx as a minimal auth-aware redirect (authenticated -> /dashboard, else -> /auth/login). This is a same-pattern cleanup batched into one feature. Independent of FEAT-001; must leave the build green on its own. Note: /dashboard does not exist until FEAT-003, but redirect targets are resolved at request time so the build stays green.",
+  "status": "completed",
+  "steps": [
+    "Delete these files: components/deploy-button.tsx, components/hero.tsx, components/next-logo.tsx, components/supabase-logo.tsx, components/env-var-warning.tsx, and the entire components/tutorial/ folder (code-block.tsx, connect-supabase-steps.tsx, fetch-data-steps.tsx, sign-up-user-steps.tsx, tutorial-step.tsx).",
+    "Delete the app/protected/ folder: app/protected/layout.tsx and app/protected/page.tsx. (Study app/protected/page.tsx's Suspense + getClaims auth-guard pattern before deleting — FEAT-003 reuses it.) Nothing may remain under /protected.",
+    "Rewrite app/page.tsx as a Server Component with no starter imports: `import { redirect } from 'next/navigation'; import { createClient } from '@/lib/supabase/server'; export default async function Home() { const supabase = await createClient(); const { data } = await supabase.auth.getClaims(); redirect(data?.claims ? '/dashboard' : '/auth/login'); }`. No marketing/tutorial/nav/footer content.",
+    "Do NOT modify lib/utils.ts: keep both cn and hasEnvVars exported (hasEnvVars is imported by lib/supabase/proxy.ts). Do NOT touch lib/supabase/*, app/auth/*, components/theme-switcher.tsx, or the auth form components.",
+    "After deletions, grep the repo (excluding node_modules, .next, .agents) for any remaining imports of the deleted modules and fix any that remain so the build is clean."
+  ],
+  "acceptance_criteria": [
+    "The listed demo components and components/tutorial/ no longer exist; app/protected/ no longer exists.",
+    "app/page.tsx contains only the redirect logic and imports (createClient, redirect) with no reference to deleted components.",
+    "grep for 'deploy-button', 'env-var-warning', 'next-logo', 'supabase-logo', 'components/hero', 'components/tutorial', and '/protected' (excluding node_modules/.next/.agents) returns no live source references.",
+    "`npm run build` exits 0 and the Route table no longer lists /protected.",
+    "`npm run lint` reports no errors (no unused imports/vars from the removals).",
+    "lib/utils.ts still exports hasEnvVars; app/auth/* and components/theme-switcher.tsx unchanged and still build."
+  ],
+  "verification": [
+    "Run `npm run build`; confirm exit 0 and /protected absent from the Route table.",
+    "Run `npm run lint`; confirm no errors.",
+    "grep (exclude node_modules/.next/.agents) for the deleted-module names and '/protected'; confirm zero live references."
+  ],
+  "blocked_reason": null,
+  "findings": "DELETED: components/{deploy-button,hero,next-logo,supabase-logo,env-var-warning}.tsx, components/tutorial/ (5 files), app/protected/ (layout.tsx + page.tsx). app/page.tsx rewritten to request-time auth redirect.\n\nBUILD QUIRK (user-approved deviation from the literal snippet): the FEAT-002 page.tsx snippet (createClient+getClaims at top level, no Suspense) FAILS `next build` under Next 16.4.0 cacheComponents — getClaims() reads cookies outside a <Suspense> boundary and PPR can't prerender '/'. FIX APPLIED: added `export const instant = false` to app/page.tsx, making '/' a request-time blocking route (shows as 'ƒ' Dynamic in the Route table). This is the minimal correct fix for a redirect-only page. FEAT-003's /dashboard uses the SAME auth-guard pattern but renders UI, so it must wrap the getClaims() call in a Suspense-wrapped async child (the old protected/page.tsx pattern) rather than instant=false.\n\nAUTH REDIRECT TARGETS (user-approved): login-form.tsx + update-password-form.tsx (router.push) and sign-up-form.tsx (emailRedirectTo) previously pointed to the now-deleted /protected; all three repointed to /dashboard so users land on the canonical authed route. Auth LOGIC unchanged. These are the only edits made to the 'do-not-touch auth form components', explicitly approved by the parent because /protected no longer exists.\n\nORPHANED (left intact, harmless): components/auth-button.tsx is now unreferenced (was only used by the deleted page/layout). It imports nothing deleted and still builds; a future feature can remove it if desired.\n\nLINT NOTE: `npm run lint` (eslint .) reports ~21k errors but ALL are from the gitignored .next/ build output plus a pre-existing tailwind.config.ts require() rule — NONE from this feature. Verified clean: `npx eslint app/page.tsx components/{login,sign-up,update-password}-form.tsx` exits 0. eslint.config.mjs lacks an ignores entry for .next/; fixing that is out of scope here (config likely owned by FEAT-001).\n\nVERIFIED: build exit 0, /protected absent from Route table, /manifest.webmanifest present; grep (excl node_modules/.next/.agents) for deleted-module names and '/protected' = zero live refs."
+}
