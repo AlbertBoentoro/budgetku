@@ -51,11 +51,50 @@ export default {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+        income: {
+          DEFAULT: "hsl(var(--income))",
+          foreground: "hsl(var(--income-foreground))",
+        },
+        expense: {
+          DEFAULT: "hsl(var(--expense))",
+          foreground: "hsl(var(--expense-foreground))",
+        },
+        account: {
+          blue: {
+            DEFAULT: "hsl(var(--accent-blue))",
+            foreground: "hsl(var(--accent-blue-foreground))",
+          },
+          violet: {
+            DEFAULT: "hsl(var(--accent-violet))",
+            foreground: "hsl(var(--accent-violet-foreground))",
+          },
+          emerald: {
+            DEFAULT: "hsl(var(--accent-emerald))",
+            foreground: "hsl(var(--accent-emerald-foreground))",
+          },
+          amber: {
+            DEFAULT: "hsl(var(--accent-amber))",
+            foreground: "hsl(var(--accent-amber-foreground))",
+          },
+          rose: {
+            DEFAULT: "hsl(var(--accent-rose))",
+            foreground: "hsl(var(--accent-rose-foreground))",
+          },
+          slate: {
+            DEFAULT: "hsl(var(--accent-slate))",
+            foreground: "hsl(var(--accent-slate-foreground))",
+          },
+        },
       },
       borderRadius: {
+        "2xl": "calc(var(--radius) + 8px)",
+        xl: "calc(var(--radius) + 4px)",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        soft: "0 1px 2px 0 rgb(0 0 0 / 0.03), 0 1px 3px 0 rgb(0 0 0 / 0.04)",
       },
     },
   },
