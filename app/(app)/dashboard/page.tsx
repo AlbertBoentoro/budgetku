@@ -14,51 +14,60 @@ import { BalanceCard } from "@/components/finance/balance-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { SectionHeader } from "@/components/shared/section-header";
 
-// Static placeholder data only — the data layer arrives in a later feature.
+// Static demo data only — the real data layer arrives in a later feature.
+// Account balances sum to DEMO_TOTAL_BALANCE (kept internally consistent).
 const accounts = [
-  { name: "Checking", balance: 4820.5, accent: "blue" as const, icon: Wallet },
   {
-    name: "Savings",
-    balance: 7210.0,
+    name: "Rekening giro",
+    balance: 4820000,
+    accent: "blue" as const,
+    icon: Wallet,
+  },
+  {
+    name: "Tabungan",
+    balance: 7210000,
     accent: "emerald" as const,
     icon: PiggyBank,
   },
   {
-    name: "Credit",
-    balance: -315.17,
+    name: "Kartu kredit",
+    balance: -315000,
     accent: "violet" as const,
     icon: CreditCard,
   },
-  { name: "Cash", balance: 630.34, accent: "amber" as const, icon: Banknote },
+  { name: "Tunai", balance: 630000, accent: "amber" as const, icon: Banknote },
 ];
+
+// 4820000 + 7210000 - 315000 + 630000 = 12345000
+const DEMO_TOTAL_BALANCE = 12345000;
 
 const recentActivity = [
   {
     id: "1",
-    label: "Salary",
-    date: "Mar 1",
-    value: 3200,
+    label: "Gaji",
+    date: "1 Mar",
+    value: 3200000,
     tone: "income" as const,
   },
   {
     id: "2",
-    label: "Groceries",
-    date: "Mar 3",
-    value: -84.21,
+    label: "Belanja",
+    date: "3 Mar",
+    value: -84000,
     tone: "expense" as const,
   },
   {
     id: "3",
-    label: "Electricity",
-    date: "Mar 4",
-    value: -62.5,
+    label: "Listrik",
+    date: "4 Mar",
+    value: -62000,
     tone: "expense" as const,
   },
   {
     id: "4",
-    label: "Refund",
-    date: "Mar 5",
-    value: 29.99,
+    label: "Pengembalian dana",
+    date: "5 Mar",
+    value: 30000,
     tone: "income" as const,
   },
 ];
@@ -66,13 +75,21 @@ const recentActivity = [
 export default function DashboardPage() {
   return (
     <>
-      <AppHeader title="Home" subtitle="Your money at a glance" />
+      <AppHeader title="Beranda" />
       <PageContainer>
-        <BalanceCard balance={12345.67} />
+        <BalanceCard
+          balance={DEMO_TOTAL_BALANCE}
+          subtitle={
+            // Demo indicator — remove once the real data layer lands.
+            <span className="inline-flex items-center rounded-full border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              Data contoh
+            </span>
+          }
+        />
 
         <section className="flex flex-col gap-3">
-          <SectionHeader title="Accounts" />
-          <div className="grid grid-cols-2 gap-3">
+          <SectionHeader title="Rekening" />
+          <div className="grid grid-cols-1 min-[375px]:grid-cols-2 gap-3">
             {accounts.map((account) => (
               <AccountCard
                 key={account.name}
@@ -86,12 +103,12 @@ export default function DashboardPage() {
         </section>
 
         <section className="flex flex-col gap-3">
-          <SectionHeader title="Recent activity" />
+          <SectionHeader title="Transaksi terakhir" />
           {recentActivity.length === 0 ? (
             <EmptyState
               icon={Receipt}
-              title="No transactions yet"
-              description="Your recent activity will show up here."
+              title="Belum ada transaksi"
+              description="Transaksi terakhirmu akan muncul di sini."
             />
           ) : (
             <ul className="flex flex-col divide-y rounded-2xl border bg-card">
@@ -106,7 +123,12 @@ export default function DashboardPage() {
                       {item.date}
                     </span>
                   </div>
-                  <AmountText value={item.value} tone={item.tone} size="sm" />
+                  <AmountText
+                    value={item.value}
+                    tone={item.tone}
+                    size="sm"
+                    signed
+                  />
                 </li>
               ))}
             </ul>

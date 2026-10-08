@@ -16,7 +16,7 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        "flex items-start justify-between gap-4 px-4 pt-[env(safe-area-inset-top)]",
+        "flex items-start justify-between gap-4 px-4",
         className,
       )}
     >

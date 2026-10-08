@@ -20,11 +20,11 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
-  { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { href: "/accounts", label: "Accounts", icon: Wallet },
-  { href: "/budget", label: "Budget", icon: PieChart },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard", label: "Beranda", icon: Home },
+  { href: "/transactions", label: "Transaksi", icon: ArrowLeftRight },
+  { href: "/accounts", label: "Rekening", icon: Wallet },
+  { href: "/budget", label: "Anggaran", icon: PieChart },
+  { href: "/settings", label: "Pengaturan", icon: Settings },
 ];
 
 export function BottomNav() {
@@ -44,7 +44,8 @@ export function BottomNav() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex flex-col items-center gap-1 py-2 text-xs transition-colors",
+                  "flex flex-col items-center gap-1 rounded-lg py-2 text-xs transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   active ? "text-foreground" : "text-muted-foreground",
                 )}
               >

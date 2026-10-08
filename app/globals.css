@@ -28,9 +28,9 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --income: 152 45% 42%;
+    --income: 152 45% 35%;
     --income-foreground: 0 0% 100%;
-    --expense: 0 60% 55%;
+    --expense: 0 60% 53%;
     --expense-foreground: 0 0% 100%;
     --accent-blue: 214 40% 56%;
     --accent-blue-foreground: 0 0% 100%;
@@ -38,7 +38,7 @@
     --accent-violet-foreground: 0 0% 100%;
     --accent-emerald: 160 36% 44%;
     --accent-emerald-foreground: 0 0% 100%;
-    --accent-amber: 38 55% 56%;
+    --accent-amber: 38 55% 47%;
     --accent-amber-foreground: 0 0% 100%;
     --accent-rose: 346 46% 60%;
     --accent-rose-foreground: 0 0% 100%;
