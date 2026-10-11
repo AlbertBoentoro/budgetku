@@ -30,7 +30,12 @@ export default function AppLayout({
           <AuthGuard>{children}</AuthGuard>
         </Suspense>
       </main>
-      <BottomNav />
+      {/* BottomNav reads usePathname (runtime-only). Wrapping it in Suspense
+          lets dynamic routes (e.g. /accounts/[id]/edit) still prerender the
+          shell; the rendered nav and its behavior are unchanged. */}
+      <Suspense>
+        <BottomNav />
+      </Suspense>
     </div>
   );
 }

@@ -43,3 +43,6 @@ next-env.d.ts
 
 # anti-slop workflow task artifacts (keep .agents/skills/ tracked)
 /.agents/tasks/
+
+# supabase CLI local link metadata (may contain pooler/connection URL)
+/supabase/.temp/
