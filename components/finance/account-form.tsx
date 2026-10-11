@@ -163,7 +163,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
           aria-invalid={fieldErrors.account_type ? true : undefined}
           aria-describedby={fieldErrors.account_type ? typeErrId : undefined}
           className={cn(
-            "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+            "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
           )}
         >
           {ACCOUNT_TYPES.map((t) => (

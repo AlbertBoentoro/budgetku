@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus, PieChart } from "lucide-react";
+import { Plus, PieChart, Target } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -32,7 +32,19 @@ export default function BudgetPage({
 }) {
   return (
     <>
-      <AppHeader title="Anggaran" />
+      <AppHeader
+        title="Anggaran"
+        action={
+          // Goals (Target tabungan) lives under Budget: both are money
+          // planning. Reachable here instead of taking a bottom-nav slot.
+          <Button asChild variant="ghost" size="sm" className="h-9">
+            <Link href="/goals">
+              <Target aria-hidden />
+              Target tabungan
+            </Link>
+          </Button>
+        }
+      />
       <PageContainer>
         <Suspense fallback={<BudgetLoading />}>
           <BudgetContent searchParams={searchParams} />

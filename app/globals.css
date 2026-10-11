@@ -97,4 +97,17 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Native <select> controls and their option lists default to transparent
+     backgrounds and no explicit text color, which renders as effectively
+     white-on-white on some platforms (readable only on hover). Pin both the
+     control and its options to the theme tokens. The .dark block redefines
+     --foreground/--background, so this one rule serves both themes. */
+  select {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
+  }
+  select option {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
+  }
 }

@@ -39,7 +39,7 @@ type FieldErrors = Partial<
 
 // Same native-select styling used across the app (account/transaction forms).
 const selectClassName =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
 const idrPreview = new Intl.NumberFormat("id-ID", {
   style: "currency",

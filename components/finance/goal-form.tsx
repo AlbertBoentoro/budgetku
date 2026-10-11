@@ -36,7 +36,7 @@ type FieldErrors = Partial<
 
 // Same native-select/date styling used across the app (account/budget forms).
 const controlClassName =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
 // Status options shown on edit (sentence-case Indonesian labels).
 const STATUS_OPTIONS = [

@@ -22,7 +22,7 @@ interface ContributionFormProps {
 type FieldErrors = Partial<Record<"amount" | "contributed_at", string>>;
 
 const controlClassName =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
 const idrPreview = new Intl.NumberFormat("id-ID", {
   style: "currency",

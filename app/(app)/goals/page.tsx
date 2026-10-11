@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus, Target } from "lucide-react";
+import { Plus, Target, ArrowLeft } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -20,7 +20,19 @@ import { GoalsLoading } from "@/app/(app)/goals/loading";
 export default function GoalsPage() {
   return (
     <>
-      <AppHeader title="Target tabungan" />
+      <AppHeader
+        title="Target tabungan"
+        action={
+          // Goals is reached from Budget (not the bottom nav), so offer a
+          // clear way back to Anggaran.
+          <Button asChild variant="ghost" size="sm" className="h-9">
+            <Link href="/budget">
+              <ArrowLeft aria-hidden />
+              Anggaran
+            </Link>
+          </Button>
+        }
+      />
       <PageContainer>
         <Suspense fallback={<GoalsLoading />}>
           <GoalsContent />

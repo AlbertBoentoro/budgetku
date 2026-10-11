@@ -16,7 +16,9 @@ import type {
   TransactionFormInput,
   ActionResult,
 } from "@/app/(app)/transactions/actions";
+import { FREQUENCIES } from "@/lib/recurring";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -46,7 +48,9 @@ type FieldErrors = Partial<
     | "account_id"
     | "category_id"
     | "destination_account_id"
-    | "transaction_type",
+    | "transaction_type"
+    | "frequency"
+    | "end_date",
     string
   >
 >;
@@ -54,7 +58,7 @@ type FieldErrors = Partial<
 // Same native-select styling the account form and filters use, kept identical
 // so every select in the app matches.
 const selectClassName =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
 const idrPreview = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -125,6 +129,20 @@ export function TransactionForm({
   );
   const [merchant, setMerchant] = useState(initialValues?.merchant ?? "");
 
+  // Recurrence is create-only. Monthly is the common default for gajian/tagihan.
+  // By default the schedule has no end date (see `indefinite` below); the user
+  // can instead pick a Berakhir date. interval_count is fixed at 1 (no interval
+  // field).
+  const isCreate = mode === "create";
+  const [recurring, setRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<string>("monthly");
+  // Indefinite defaults to checked: it preserves today's behaviour (the create
+  // flow stored end_date = null) and matches the common "berulang sampai waktu
+  // yang tidak ditentukan" case. The Berakhir field only appears, and is only
+  // required, when the user opts into a bounded schedule.
+  const [indefinite, setIndefinite] = useState(true);
+  const [endDate, setEndDate] = useState("");
+
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -140,6 +158,14 @@ export function TransactionForm({
   const accountErrId = useId();
   const categoryErrId = useId();
   const destinationErrId = useId();
+  const recurringId = useId();
+  const recurringHelpId = useId();
+  const frequencyId = useId();
+  const frequencyErrId = useId();
+  const indefiniteId = useId();
+  const indefiniteHelpId = useId();
+  const endDateId = useId();
+  const endDateErrId = useId();
 
   const isTransfer = transactionType === "transfer";
   const isIncome = transactionType === "income";
@@ -225,12 +251,29 @@ export function TransactionForm({
       }
     }
 
+    if (isCreate && recurring) {
+      if (!frequency) {
+        errors.frequency = "Pilih frekuensi yang tersedia.";
+      }
+      // Mirrors the server: only a bounded schedule needs an end date, and it
+      // cannot fall before the transaction date (the recurrence start).
+      if (!indefinite) {
+        if (!endDate) {
+          errors.end_date = "Tanggal berakhir wajib diisi.";
+        } else if (endDate < transactionAt) {
+          errors.end_date =
+            "Tanggal berakhir tidak boleh sebelum tanggal transaksi.";
+        }
+      }
+    }
+
     if (Object.keys(errors).length > 0 || amount === null) {
       return { errors, input: null };
     }
 
     const trimmedDescription = description.trim();
     const trimmedMerchant = merchant.trim();
+    const useRecurring = isCreate && recurring;
 
     return {
       errors,
@@ -243,6 +286,11 @@ export function TransactionForm({
         transaction_at: transactionAt,
         description: trimmedDescription.length > 0 ? trimmedDescription : null,
         merchant: trimmedMerchant.length > 0 ? trimmedMerchant : null,
+        recurring: useRecurring,
+        frequency: useRecurring ? frequency : null,
+        interval_count: useRecurring ? 1 : null,
+        recurring_indefinite: useRecurring ? indefinite : undefined,
+        end_date: useRecurring && !indefinite ? endDate : null,
       },
     };
   }
@@ -448,6 +496,138 @@ export function TransactionForm({
           autoComplete="off"
         />
       </div>
+
+      {isCreate ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id={recurringId}
+              checked={recurring}
+              onCheckedChange={(checked) => {
+                const next = checked === true;
+                setRecurring(next);
+                if (!next) {
+                  setFieldErrors((prev) => ({
+                    ...prev,
+                    frequency: undefined,
+                    end_date: undefined,
+                  }));
+                }
+              }}
+              aria-describedby={recurringHelpId}
+              className="mt-1 size-5"
+            />
+            <div className="flex flex-col gap-1">
+              <Label htmlFor={recurringId} className="font-medium">
+                Transaksi berulang
+              </Label>
+              <p id={recurringHelpId} className="text-sm text-muted-foreground">
+                Simpan jadwalnya, lalu catat setiap kejadian berikutnya dari
+                halaman Transaksi berulang.
+              </p>
+            </div>
+          </div>
+
+          {recurring ? (
+            <div className="flex flex-col gap-4 rounded-md border border-input p-4">
+              <h2 className="text-sm font-medium">Pengaturan berulang</h2>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor={frequencyId}>Frekuensi</Label>
+                <select
+                  id={frequencyId}
+                  value={frequency}
+                  onChange={(e) => setFrequency(e.target.value)}
+                  aria-invalid={fieldErrors.frequency ? true : undefined}
+                  aria-describedby={
+                    fieldErrors.frequency ? frequencyErrId : undefined
+                  }
+                  className={cn(selectClassName)}
+                >
+                  {FREQUENCIES.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+                {fieldErrors.frequency ? (
+                  <p
+                    id={frequencyErrId}
+                    role="alert"
+                    className="text-sm text-destructive"
+                  >
+                    {fieldErrors.frequency}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id={indefiniteId}
+                  checked={indefinite}
+                  onCheckedChange={(checked) => {
+                    const next = checked === true;
+                    setIndefinite(next);
+                    if (next) {
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        end_date: undefined,
+                      }));
+                    }
+                  }}
+                  aria-describedby={indefiniteHelpId}
+                  className="mt-1 size-5"
+                />
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor={indefiniteId} className="font-medium">
+                    Sampai waktu yang tidak ditentukan
+                  </Label>
+                  <p
+                    id={indefiniteHelpId}
+                    className="text-sm text-muted-foreground"
+                  >
+                    Aktif secara bawaan. Hilangkan centang untuk memilih tanggal
+                    berakhir.
+                  </p>
+                </div>
+              </div>
+
+              {!indefinite ? (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor={endDateId}>Berakhir</Label>
+                  <Input
+                    id={endDateId}
+                    type="date"
+                    value={endDate}
+                    min={transactionAt}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        end_date: undefined,
+                      }));
+                    }}
+                    className="h-11"
+                    aria-invalid={fieldErrors.end_date ? true : undefined}
+                    aria-describedby={
+                      fieldErrors.end_date ? endDateErrId : undefined
+                    }
+                  />
+                  {fieldErrors.end_date ? (
+                    <p
+                      id={endDateErrId}
+                      role="alert"
+                      className="text-sm text-destructive"
+                    >
+                      {fieldErrors.end_date}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {formError ? (
         <p

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { isTransactionType } from "@/lib/transactions";
+import { computeNextDueDate, isFrequency } from "@/lib/recurring";
 
 export interface TransactionFormInput {
   transaction_type: string;
@@ -14,6 +15,36 @@ export interface TransactionFormInput {
   transaction_at: string;
   description?: string | null;
   merchant?: string | null;
+  // Recurrence is opt-in from the create form via a checkbox. When `recurring`
+  // is true, a recurring_transactions template is created alongside the normal
+  // transaction. These fields are ignored on update.
+  recurring?: boolean;
+  frequency?: string | null;
+  interval_count?: number | null;
+  // Recurrence end date (YYYY-MM-DD). Only meaningful when `recurring` is true
+  // and `recurring_indefinite` is false. When indefinite is true the schedule
+  // has no end and this is stored as null.
+  end_date?: string | null;
+  recurring_indefinite?: boolean;
+}
+
+// Matches a canonical "YYYY-MM-DD" and confirms it is a real calendar date (so
+// "2026-13-40" is rejected). Mirrors the recurring/goals action validators.
+function isValidDateString(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.toISOString().slice(0, 10) === value;
+}
+
+// Normalizes a transaction_at (ISO timestamp or plain date) to a date-only
+// "YYYY-MM-DD" string so the recurring template's start/next-due math stays on
+// the same UTC date-only basis as lib/recurring.ts.
+function toDateOnly(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toISOString().slice(0, 10);
 }
 
 export type ActionResult =
@@ -60,6 +91,29 @@ function validate(input: TransactionFormInput): Record<string, string> {
     } else if (input.destination_account_id === input.account_id) {
       fieldErrors.destination_account_id =
         "Rekening tujuan harus berbeda dari rekening sumber.";
+    }
+  }
+
+  // Recurrence validation only runs when the user ticked "Transaksi berulang".
+  // The transaction's own date (transaction_at) is the recurrence start.
+  if (input.recurring) {
+    if (!input.frequency || !isFrequency(input.frequency)) {
+      fieldErrors.frequency = "Pilih frekuensi yang tersedia.";
+    }
+
+    // The schedule is open-ended when "Sampai waktu yang tidak ditentukan" is
+    // checked; only a bounded schedule (indefinite === false) needs an end
+    // date, and it must not fall before the start date.
+    if (input.recurring_indefinite === false) {
+      const start = toDateOnly(input.transaction_at);
+      if (!input.end_date) {
+        fieldErrors.end_date = "Tanggal berakhir wajib diisi.";
+      } else if (!isValidDateString(input.end_date)) {
+        fieldErrors.end_date = "Tanggal berakhir tidak valid.";
+      } else if (isValidDateString(start) && input.end_date < start) {
+        fieldErrors.end_date =
+          "Tanggal berakhir tidak boleh sebelum tanggal transaksi.";
+      }
     }
   }
 
@@ -162,6 +216,25 @@ async function guardTransaction(
   return null;
 }
 
+// Resolves a category's display name for the recurring template fallback name.
+// Returns null on any failure so name derivation falls through to the generic
+// label rather than throwing.
+async function fetchCategoryName(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  categoryId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("id", categoryId)
+    .or(`user_id.eq.${userId},user_id.is.null`)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data.name;
+}
+
 // Builds the insert/update payload. Transfers carry a destination and no
 // category; income/expense carry a category and no destination. Money is stored
 // unscaled and currency is always IDR.
@@ -214,7 +287,79 @@ export async function createTransaction(
     };
   }
 
+  // When "Transaksi berulang" was ticked, also create one recurring template.
+  // The transaction above is already recorded for the picked date, so the
+  // template's start_date is that date and next_due_date is the occurrence
+  // AFTER it. interval_count is fixed at 1 (the form offers no interval field);
+  // auto_create is false because no scheduler exists (occurrences are recorded
+  // manually from the Transaksi berulang page).
+  if (input.recurring) {
+    const isTransfer = input.transaction_type === "transfer";
+    const start = toDateOnly(input.transaction_at);
+    const frequency = input.frequency ?? "";
+    const now = new Date().toISOString();
+
+    // Name derivation (no fabricated data): description -> merchant -> category
+    // name -> a generic honest label. The user can rename later from the list.
+    const trimmedDescription = input.description?.trim();
+    const trimmedMerchant = input.merchant?.trim();
+    let name = trimmedDescription || trimmedMerchant || "";
+    if (!name && !isTransfer && input.category_id) {
+      const categoryName = await fetchCategoryName(
+        supabase,
+        user.id,
+        input.category_id,
+      );
+      if (categoryName) name = categoryName;
+    }
+    if (!name) name = "Transaksi berulang";
+
+    const { error: recurringError } = await supabase
+      .from("recurring_transactions")
+      .insert({
+        user_id: user.id,
+        name,
+        account_id: input.account_id,
+        destination_account_id: isTransfer
+          ? input.destination_account_id ?? null
+          : null,
+        category_id: isTransfer ? null : input.category_id ?? null,
+        transaction_type: input.transaction_type,
+        amount: input.amount,
+        frequency,
+        interval_count: 1,
+        start_date: start,
+        // Indefinite recurrence stores null (the user ends it later by pausing
+        // or deleting from the Transaksi berulang page). A bounded schedule
+        // stores the picked end date. The DB end_date column is unchanged.
+        end_date:
+          input.recurring_indefinite === false && input.end_date
+            ? toDateOnly(input.end_date)
+            : null,
+        next_due_date: computeNextDueDate(frequency, 1, start),
+        last_generated_at: now,
+        auto_create: false,
+        is_active: true,
+        description: trimmedDescription ? trimmedDescription : null,
+        merchant: trimmedMerchant ? trimmedMerchant : null,
+      });
+
+    if (recurringError) {
+      // The transaction was saved; only the recurring template failed (e.g. an
+      // unexpected CHECK constraint). We do not alter the schema here, we report
+      // honestly so the user can retry creating the schedule from /recurring.
+      revalidatePath("/transactions");
+      revalidatePath("/recurring");
+      return {
+        ok: false,
+        message:
+          "Transaksi tersimpan, tetapi jadwal berulang gagal dibuat. Coba buat jadwalnya lagi.",
+      };
+    }
+  }
+
   revalidatePath("/transactions");
+  if (input.recurring) revalidatePath("/recurring");
   return { ok: true };
 }
 
