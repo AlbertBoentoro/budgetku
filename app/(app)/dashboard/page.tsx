@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus, Receipt, Wallet } from "lucide-react";
+import { BarChart3, Plus, Receipt, Wallet } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -48,7 +48,19 @@ function formatDate(value: string): string {
 export default function DashboardPage() {
   return (
     <>
-      <AppHeader title="Beranda" />
+      <AppHeader
+        title="Beranda"
+        action={
+          // Single entry point to the reports screen. Reports is not a
+          // bottom-nav destination, so it is reached from the dashboard.
+          <Button asChild variant="ghost" size="sm" className="h-9">
+            <Link href="/reports">
+              <BarChart3 aria-hidden />
+              Laporan
+            </Link>
+          </Button>
+        }
+      />
       <PageContainer>
         <Suspense fallback={<DashboardLoading />}>
           <DashboardContent />
