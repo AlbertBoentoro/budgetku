@@ -20,13 +20,13 @@ export function AppHeader({
         className,
       )}
     >
-      <div className="flex flex-col gap-0.5 pt-4">
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+      <div className="flex flex-col gap-0.5">
+        <h1 className="text-headline-lg text-on-surface">{title}</h1>
         {subtitle ? (
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          <p className="text-body-sm text-on-surface-variant">{subtitle}</p>
         ) : null}
       </div>
-      {action ? <div className="shrink-0 pt-4">{action}</div> : null}
+      {action ? <div className="shrink-0">{action}</div> : null}
     </header>
   );
 }
