@@ -1,33 +1,34 @@
 # Budgetku design direction
 
 ## Source and status
-The active direction is the **Stitch design system** (step 1 of a 12-screen redesign). It supersedes the prior minimal black/white/neutral direction that used Geist and lucide-only icons. The anti-slop honesty principles are retained: meaning is never carried by color alone, controls exist only where the feature exists, and sample data is labeled as demo. Indonesian copy and IDR `Rp` presentation are unchanged.
+The active direction is **Calm Ledger** — clean white surfaces on a neutral Slate ramp with navy / emerald / red accents. It supersedes the earlier light-blue Stitch surface family (the token NAMES from that step are retained; only the values changed) and the original minimal black/white/neutral direction. The anti-slop honesty principles are retained: meaning is never carried by color alone, controls exist only where the feature exists, and sample data is labeled as demo. Indonesian copy and IDR `Rp` presentation are unchanged.
 
-Status: the **foundation** (tokens, Inter font, Material Symbols icon infrastructure, globals base layer, and the global shell — fixed header, bottom nav, page container) is implemented. Individual feature screens are NOT yet converted; they still render with the previous classes and lucide icons and migrate in later steps. The Stitch mockups are light-only; the dark theme is a documented derived approximation (see below).
+Status: the **foundation** (tokens, Inter font, Material Symbols icon infrastructure, globals base layer, and the global shell — fixed header, bottom nav, page container) is implemented on the Calm Ledger palette. Individual feature screens are NOT yet converted; they still render with the previous classes and lucide icons but inherit the new palette through the shared tokens, and migrate per-screen in later steps. Light is the shipped target; the dark theme is a provisional non-audited approximation (see below).
 
 ## Identity and audience
-Budgetku helps Indonesian users understand everyday personal finances. Character: calm, precise, approachable. The Stitch visual language is Material-style: light-blue tinted surfaces, a prominent Rupiah balance, restrained accents, and readable transaction rows.
+Budgetku helps Indonesian users understand everyday personal finances. Character: calm, precise, approachable. The current visual language is **Calm Ledger**: clean white surfaces on a neutral Slate ramp (no blue tint), a prominent navy Rupiah balance, restrained emerald/red accents, and readable transaction rows. This supersedes the earlier light-blue Stitch surface family.
 
 ## Token system
-Tokens live in `app/globals.css` as `H S% L%` triplets and are consumed via `hsl(var(--x))` in `tailwind.config.ts`, the globals `<select>` base rule, and chart `fill="hsl(var(--income))"`. Each triplet is converted from an authoritative Stitch hex, noted inline in `globals.css`. This keeps one consistent approach (HSL triplets) and avoids churn to chart/base-layer consumers.
+Tokens live in `app/globals.css` as `H S% L%` triplets and are consumed via `hsl(var(--x))` in `tailwind.config.ts`, the globals `<select>` base rule, and chart `fill="hsl(var(--income))"`. Each triplet is converted from an authoritative Calm Ledger hex, noted inline in `globals.css`. This keeps one consistent approach (HSL triplets) and avoids churn to chart/base-layer consumers. Token NAMES are unchanged from the Stitch step; only the VALUES moved to Calm Ledger.
 
-### Stitch → project semantic mapping (light)
-- `--background` / `--surface` ← surface `#f8f9ff`
-- `--foreground` / `--on-surface` ← on-surface `#0b1c30`
-- `--card` / `--popover` ← surface-container-lowest `#ffffff`
-- `--primary` ← `#000000`; `--primary-foreground` / `--on-primary` ← `#ffffff`
-- `--secondary` ← `#006c4a` (also drives `--income`); `--secondary-foreground` ← `#ffffff`
-- `--muted` ← surface-container-low `#eff4ff`; `--muted-foreground` / `--on-surface-variant` ← `#45464d`
-- `--accent` ← surface-container `#e5eeff`; `--accent-foreground` ← on-surface `#0b1c30`
-- `--destructive` / `--error` ← `#ba1a1a` (also drives `--expense`); `--destructive-foreground` ← `#ffffff`
-- `--border` / `--input` / `--outline-variant` ← outline-variant `#c6c6cd`
-- `--ring` ← primary `#000000`
-- `--income` ← `#006c4a`, `--expense` ← `#ba1a1a` (AmountText tone logic; always paired with sign/text)
+### Calm Ledger → project semantic mapping (light)
+Palette: navy `#0F172A`, emerald `#059669`, red `#DC2626`, slate neutrals, on a clean Slate ramp (`50 #F8FAFC`, `100 #F1F5F9`, `200 #E2E8F0`, `300 #CBD5E1`, `400 #94A3B8`, `500 #64748B`, `600 #475569`, `700 #334155`, `800 #1E293B`, `900 #0F172A`).
+- `--background` / `--surface` ← slate-50 `#F8FAFC`; cards (`--card` / `--popover` / `--surface-container-lowest`) ← `#FFFFFF`
+- `--foreground` / `--on-surface` ← slate-900 `#0F172A`
+- `--primary` / `--ring` / `--surface-tint` ← navy `#0F172A`; `--primary-foreground` / `--on-primary` ← `#FFFFFF`
+- `--secondary` ← emerald `#059669`; `--secondary-foreground` ← `#FFFFFF`
+- `--muted` / `--accent` / `--surface-container` ← slate-100 `#F1F5F9`; `--muted-foreground` / `--on-surface-variant` ← slate-600 `#475569`
+- `--destructive` / `--error` ← red `#DC2626`; `--destructive-foreground` ← `#FFFFFF`
+- `--border` / `--input` / `--outline-variant` / `--surface-container-high` ← slate-200 `#E2E8F0`; `--outline` ← slate-400 `#94A3B8`
+- Surface scale: `low ← #F8FAFC`, `container ← #F1F5F9`, `high ← #E2E8F0`, `highest ← #CBD5E1`, `bright ← #FFFFFF`, `dim/variant` as above
+- `--income` ← emerald-700 `#047857`, `--expense` ← red-700 `#B91C1C` (AmountText TEXT tone; always paired with sign/label)
 
-New additive Stitch role tokens are available as Tailwind classes verbatim: the `surface-container-*` scale, `surface-bright/dim/variant/tint`, `on-surface` / `on-surface-variant`, `outline` / `outline-variant`, and the primary/secondary/tertiary/error `fixed`/`inverse`/`container` families (e.g. `bg-surface-container-lowest`, `text-on-surface-variant`, `text-outline`). The `--accent-*` account palette is unchanged this step and migrates per-screen later.
+**Fill vs text contrast decision (D3).** The bright accents `#059669` (emerald) and `#DC2626` (red) are kept for FILLS with white text (buttons, chips, raised nav). But small TEXT needs AA 4.5:1 on white, and `#059669` text on white is only ~3.8:1. So the finance TEXT tokens are darkened: `--income` = emerald-700 `#047857` (5.48:1 on white, 5.24:1 on slate-50 — PASS) and `--expense` = red-700 `#B91C1C` (6.47:1 on white, 6.18:1 on slate-50 — PASS). Measured ratios (WCAG 2.x): on-surface `#0F172A` on `#F8FAFC` 17.06:1; on-surface-variant `#475569` on white 7.58:1; red fill `#DC2626` + white text 4.83:1 (PASS); emerald fill `#059669` + white text 3.77:1 (large/bold only — use on bold button text, not small labels). `--outline` `#94A3B8` on white is 2.56:1, below the 3:1 non-text target, so it is only for non-essential hairlines; functional borders use `--border`/`--outline-variant` (slate-200).
 
-### Dark theme (derived approximation)
-The mockups are light-only. `.dark` is derived from the Stitch inverse tokens and tuned for AA: `--background`/`--surface` ← inverse-surface `#213145`, `--foreground` ← inverse-on-surface `#eaf1ff`, `--primary` ← inverse-primary `#bec6e0` with a dark `--primary-foreground`, surfaces stepped lighter than the background, and `--income` (`#68dba9`) / `--expense` (`#ffb4ab`) lightened to hold AA on dark. It is marked as a derived approximation in `globals.css`, not an author-supplied Stitch dark palette.
+The additive role tokens remain available as Tailwind classes verbatim: the `surface-container-*` scale, `surface-bright/dim/variant/tint`, `on-surface` / `on-surface-variant`, `outline` / `outline-variant`, and the primary/secondary/tertiary/error `fixed`/`inverse`/`container` families (e.g. `bg-surface-container-lowest`, `text-on-surface-variant`, `text-outline`). The `--accent-*` account palette and `--chart-*` categorical palette are unchanged this step and migrate per-screen later.
+
+### Dark theme (provisional)
+LIGHT (Calm Ledger) is the shipped target for this step. `.dark` is a PROVISIONAL, non-audited dark-slate approximation that only keeps the next-themes toggle working: `--background`/`--surface` ← slate-900 `#0F172A`, `--foreground` ← slate-50 `#F8FAFC`, `--card` ← slate-800 `#1E293B`, `--primary` ← slate-300 `#CBD5E1` with a dark `--primary-foreground`, surfaces stepped lighter than the background, and `--income` (`#34D399`) / `--expense` (`#F87171`) lightened for dark. It is marked provisional in `globals.css` and will be refined in a later step; its per-pairing AA is not yet verified.
 
 ## Typography, spacing, radius
 - **Font:** Inter via `next/font/google` (weights 400/500/600/700), self-hosted, exposed as `--font-sans` and wired to Tailwind `font-sans` / the base body. Geist is removed. No CDN link, no npm dependency added.
@@ -40,7 +41,7 @@ Material Symbols Outlined is loaded via a Google Fonts stylesheet `<link>` in `a
 
 ## Shell
 - **Fixed top header** (`app/(app)/layout.tsx`): `bg-surface/80 backdrop-blur-xl`, holds the "Budgetku" wordmark and a settings icon-button linking to `/settings`. This is the new entry point for Pengaturan after it left the bottom nav. `<main>` top padding clears the fixed bar; `AuthGuard` and `BottomNav` stay inside `<Suspense>` for PPR.
-- **Bottom nav** (`components/layout/bottom-nav.tsx`): `bg-surface/90 backdrop-blur-xl`, safe-area padding, Material Symbols icons, active `text-primary` / inactive `text-on-surface-variant`. Mockup order: **Beranda, Transaksi, Anggaran, Laporan, Rekening** (all routes resolve; `/reports` already exists). Pengaturan is intentionally not in the nav.
+- **Bottom nav** (`components/layout/bottom-nav.tsx`): `bg-surface/90 backdrop-blur-xl`, safe-area padding, Material Symbols icons, active `text-primary` + `font-semibold` / inactive `text-on-surface-variant`, 44px tap targets. Five slots with a raised center action: **Beranda** (`/dashboard`), **Transaksi** (`/transactions`), **Catat** (center, raised circular filled-navy FAB linking to `/transactions/new` with a white `add` glyph and a small "Catat" label), **Anggaran** (`/budget`), **Rekening** (`/accounts`). Laporan moved out of the nav to a Beranda quick action (the `/reports` route still exists). Pengaturan is intentionally not in the nav (reachable via the header gear).
 - **Per-screen `AppHeader`** maps the title to `text-headline-lg` and subtitle to `text-body-sm text-on-surface-variant`; the `action` slot API is unchanged. `PageContainer` keeps the bottom padding that clears the fixed nav.
 - **shadcn primitives** (button/card/input) inherit the new tokens through semantic classes with no API changes.
 

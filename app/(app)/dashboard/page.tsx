@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { BarChart3, Plus, Receipt, Wallet } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -8,59 +7,50 @@ import {
   getAccountTypeMeta,
   type AccountRow,
 } from "@/lib/accounts";
-import { currentMonthParam } from "@/lib/budgets";
+import {
+  computeBudgetTotals,
+  computeCategorySpending,
+  computeItemUsage,
+  currentMonthParam,
+  fetchBudgetForMonth,
+  fetchBudgetItems,
+  formatMonthLabel,
+  toMonthStorage,
+  type BudgetItemView,
+  type CategoryRow as BudgetCategoryRow,
+} from "@/lib/budgets";
 import {
   buildTransactionListQuery,
   computeMonthIncomeExpense,
-  getTransactionTypeMeta,
   type CategoryRow,
   type TransactionRow,
 } from "@/lib/transactions";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { AccountCard } from "@/components/finance/account-card";
-import { AmountText } from "@/components/finance/amount-text";
-import { BalanceCard } from "@/components/finance/balance-card";
-import { EmptyState } from "@/components/shared/empty-state";
-import { SectionHeader } from "@/components/shared/section-header";
+import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
+import { NetBalanceCard } from "@/components/dashboard/net-balance-card";
+import { QuickActions } from "@/components/dashboard/quick-actions";
+import { BudgetOverviewCard } from "@/components/dashboard/budget-overview-card";
+import {
+  DashboardAccountCard,
+  accountTypeGlyph,
+} from "@/components/dashboard/dashboard-account-card";
+import { RecentTransactionRow } from "@/components/dashboard/recent-transaction-row";
 import { DashboardLoading } from "@/app/(app)/dashboard/loading";
 
 // How many account cards the dashboard shows before linking to the full list.
 // The dashboard is a glance view, not the accounts manager, so a few cards keep
-// it uncluttered; the rest live on /accounts via the "Lihat semua" link.
-const ACCOUNT_CARD_LIMIT = 4;
-
-// Date-only formatter (e.g. "4 Mar 2025"), matching the ledger row so recent
-// transactions read the same on the dashboard as on the transactions page.
-const dateFormatter = new Intl.DateTimeFormat("id-ID", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return dateFormatter.format(date);
-}
+// it uncluttered; the rest live on /accounts via the "Lihat Semua" link.
+const ACCOUNT_CARD_LIMIT = 6;
 
 export default function DashboardPage() {
+  // The per-screen title stays as the Beranda header. The Laporan entry now
+  // lives in Quick Actions below, so the old header action is removed to avoid
+  // two controls for the same destination.
   return (
     <>
-      <AppHeader
-        title="Beranda"
-        action={
-          // Single entry point to the reports screen. Reports is not a
-          // bottom-nav destination, so it is reached from the dashboard.
-          <Button asChild variant="ghost" size="sm" className="h-9">
-            <Link href="/reports">
-              <BarChart3 aria-hidden />
-              Laporan
-            </Link>
-          </Button>
-        }
-      />
+      <AppHeader title="Beranda" />
       <PageContainer>
         <Suspense fallback={<DashboardLoading />}>
           <DashboardContent />
@@ -85,7 +75,7 @@ async function DashboardContent() {
   }
 
   // One accounts query feeds both views: the grand total (all accounts honoring
-  // include_in_total) and the card grid (non-archived only). No N+1.
+  // include_in_total) and the card row (non-archived only). No N+1.
   const { data: accountsData, error: accountsError } = await supabase
     .from("accounts")
     .select("*")
@@ -147,6 +137,86 @@ async function DashboardContent() {
   }
   const net = income - expense;
 
+  // Current-month budget summary. Replicates the budget page compose pattern
+  // (no new shared helper) and is guarded in its own block so a budget failure
+  // degrades to an incomplete notice rather than crashing the dashboard.
+  let hasBudget = false;
+  let budgetPlanned = 0;
+  let budgetSpent = 0;
+  let budgetRemaining = 0;
+  let budgetBarPercent = 0;
+  let budgetIncomplete = false;
+  try {
+    const budget = await fetchBudgetForMonth(
+      supabase,
+      user.id,
+      toMonthStorage(month),
+    );
+    if (budget) {
+      hasBudget = true;
+      const items = await fetchBudgetItems(supabase, user.id, budget.id);
+
+      // De-duplicate defensively by category_id (first item per category wins).
+      const seenCategories = new Set<string>();
+      const uniqueItems = items.filter((item) => {
+        if (seenCategories.has(item.category_id)) return false;
+        seenCategories.add(item.category_id);
+        return true;
+      });
+
+      const categoryNameById = new Map<string, string>();
+      const categoryIds = uniqueItems.map((item) => item.category_id);
+      if (categoryIds.length > 0) {
+        const { data: cats } = await supabase
+          .from("categories")
+          .select("id, name")
+          .in("id", categoryIds);
+        for (const c of (cats ?? []) as Pick<
+          BudgetCategoryRow,
+          "id" | "name"
+        >[]) {
+          categoryNameById.set(c.id, c.name);
+        }
+      }
+
+      let spending = new Map<string, number>();
+      try {
+        spending = await computeCategorySpending(
+          supabase,
+          user.id,
+          month,
+          categoryIds,
+        );
+      } catch {
+        budgetIncomplete = true;
+      }
+
+      const views: BudgetItemView[] = uniqueItems.map((item) => {
+        const planned = Number(item.planned_amount);
+        const spent = spending.get(item.category_id) ?? 0;
+        return {
+          ...item,
+          categoryName: categoryNameById.get(item.category_id) ?? null,
+          usage: computeItemUsage(planned, spent),
+        };
+      });
+
+      const totals = computeBudgetTotals(views);
+      budgetPlanned = totals.planned;
+      budgetSpent = totals.spent;
+      budgetRemaining = totals.remaining;
+      // Same clamp as computeItemUsage.barPercent, applied to the totals:
+      // computeItemUsage(planned, spent) yields barPercent = clamp(spent/planned).
+      budgetBarPercent = computeItemUsage(
+        totals.planned,
+        totals.spent,
+      ).barPercent;
+    }
+  } catch {
+    budgetIncomplete = true;
+  }
+  const monthLabel = formatMonthLabel(month);
+
   // Recent transactions: reuse the ledger's exact newest-first ordering, then
   // keep the top few. A failed fetch degrades to an empty list + a quiet flag.
   const { data: recentData, error: recentError } =
@@ -196,88 +266,56 @@ async function DashboardContent() {
   }
 
   return (
-    <>
-      <div className="flex flex-col gap-2">
-        <BalanceCard balance={grandTotal} />
-        {balancesIncomplete ? (
-          <p role="alert" className="text-sm text-muted-foreground">
-            Saldo mungkin belum lengkap. Coba muat ulang.
-          </p>
-        ) : null}
-      </div>
+    <div className="flex flex-col gap-6">
+      <NetBalanceCard
+        balance={grandTotal}
+        incomplete={balancesIncomplete}
+        income={income}
+        expense={expense}
+        net={net}
+        monthIncomplete={monthIncomplete}
+      />
 
-      {/* This-month summary. Meaning is carried by label + sign + tone together,
-          never color alone: income reads "+Rp", expense reads "-Rp" (value
-          negated to match the ledger convention). */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader title="Bulan ini" />
-        {monthIncomplete ? (
-          <p role="alert" className="text-sm text-muted-foreground">
-            Ringkasan bulan ini belum bisa dimuat. Coba muat ulang.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 min-[375px]:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1 rounded-2xl border bg-card p-4 shadow-soft">
-              <span className="text-sm text-muted-foreground">
-                Pemasukan bulan ini
-              </span>
-              <AmountText value={income} tone="income" size="lg" signed />
-            </div>
-            <div className="flex flex-col gap-1 rounded-2xl border bg-card p-4 shadow-soft">
-              <span className="text-sm text-muted-foreground">
-                Pengeluaran bulan ini
-              </span>
-              <AmountText value={-expense} tone="expense" size="lg" signed />
-            </div>
-            <div className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-soft min-[375px]:col-span-2">
-              <span className="text-sm text-muted-foreground">Selisih</span>
-              <AmountText
-                value={net}
-                tone={net > 0 ? "income" : net < 0 ? "expense" : "default"}
-                size="md"
-                signed
-              />
-            </div>
-          </div>
-        )}
-      </section>
+      <QuickActions />
+
+      <BudgetOverviewCard
+        monthLabel={monthLabel}
+        hasBudget={hasBudget}
+        planned={budgetPlanned}
+        spent={budgetSpent}
+        remaining={budgetRemaining}
+        barPercent={budgetBarPercent}
+        incomplete={budgetIncomplete}
+        createHref={`/budget/new?month=${month}`}
+      />
 
       <section className="flex flex-col gap-3">
-        <SectionHeader
-          title="Rekening"
-          action={
-            activeAccounts.length > ACCOUNT_CARD_LIMIT ? (
-              <Button asChild variant="ghost" size="sm" className="h-8">
-                <Link href="/accounts">Lihat semua</Link>
-              </Button>
-            ) : null
-          }
+        <SectionHeaderRow
+          title="Rekening & Dompet"
+          linkLabel={activeAccounts.length > 0 ? "Lihat Semua" : null}
+          href="/accounts"
         />
         {activeAccounts.length === 0 ? (
-          <div className="flex flex-col items-center gap-4">
-            <EmptyState
-              icon={Wallet}
-              title="Belum ada rekening"
-              description="Tambahkan rekening pertamamu untuk mulai mencatat saldo."
-            />
-            <Button asChild className="h-11">
-              <Link href="/accounts/new">
-                <Plus aria-hidden />
-                Tambah rekening
-              </Link>
-            </Button>
-          </div>
+          <EmptyPanel
+            glyph="account_balance_wallet"
+            title="Belum ada rekening"
+            description="Tambahkan rekening pertamamu untuk mulai mencatat saldo."
+            actionLabel="Tambah rekening"
+            actionHref="/accounts/new"
+          />
         ) : (
-          <div className="grid grid-cols-1 min-[375px]:grid-cols-2 gap-3">
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
             {activeAccounts.slice(0, ACCOUNT_CARD_LIMIT).map((account) => {
               const meta = getAccountTypeMeta(account.account_type);
               return (
-                <AccountCard
+                <DashboardAccountCard
                   key={account.id}
                   name={account.name}
-                  balance={balances.get(account.id) ?? account.initial_balance}
-                  accent={meta.accent}
-                  icon={meta.icon}
+                  typeLabel={meta.label}
+                  glyph={accountTypeGlyph(account.account_type)}
+                  balance={
+                    balances.get(account.id) ?? account.initial_balance
+                  }
                 />
               );
             })}
@@ -286,36 +324,25 @@ async function DashboardContent() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionHeader
-          title="Transaksi terakhir"
-          action={
-            recentRows.length > 0 ? (
-              <Button asChild variant="ghost" size="sm" className="h-8">
-                <Link href="/transactions">Lihat semua</Link>
-              </Button>
-            ) : null
-          }
+        <SectionHeaderRow
+          title="Transaksi Terbaru"
+          linkLabel={recentRows.length > 0 ? "Semua Transaksi" : null}
+          href="/transactions"
         />
         {recentIncomplete ? (
-          <p role="alert" className="text-sm text-muted-foreground">
+          <p role="alert" className="text-body-sm text-on-surface-variant">
             Transaksi terakhir belum bisa dimuat. Coba muat ulang.
           </p>
         ) : recentRows.length === 0 ? (
-          <div className="flex flex-col items-center gap-4">
-            <EmptyState
-              icon={Receipt}
-              title="Belum ada transaksi"
-              description="Catat pemasukan atau pengeluaran pertamamu untuk melihatnya di sini."
-            />
-            <Button asChild className="h-11">
-              <Link href="/transactions/new">
-                <Plus aria-hidden />
-                Tambah transaksi
-              </Link>
-            </Button>
-          </div>
+          <EmptyPanel
+            glyph="receipt_long"
+            title="Belum ada transaksi"
+            description="Catat pemasukan atau pengeluaran pertamamu untuk melihatnya di sini."
+            actionLabel="Tambah transaksi"
+            actionHref="/transactions/new"
+          />
         ) : (
-          <ul className="flex flex-col divide-y rounded-2xl border bg-card">
+          <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
             {recentRows.map((transaction) => (
               <RecentTransactionRow
                 key={transaction.id}
@@ -342,77 +369,67 @@ async function DashboardContent() {
           </ul>
         )}
       </section>
-    </>
+    </div>
   );
 }
 
-interface RecentTransactionRowProps {
-  transaction: TransactionRow;
-  accountName: string | null;
-  destinationAccountName: string | null;
-  categoryName: string | null;
+// Section header row with an optional "see all" link, styled with Stitch
+// tokens and type scale.
+function SectionHeaderRow({
+  title,
+  linkLabel,
+  href,
+}: {
+  title: string;
+  linkLabel: string | null;
+  href: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <h2 className="text-title-md text-on-surface">{title}</h2>
+      {linkLabel ? (
+        <Link
+          href={href}
+          className="rounded-md px-1 text-label-md text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {linkLabel}
+        </Link>
+      ) : null}
+    </div>
+  );
 }
 
-// Read-only recent-transaction row. It reuses AmountText, getTransactionTypeMeta,
-// and the same sign/tone/label conventions as the ledger row, but carries no
-// edit/delete actions (the dashboard is a glance view; actions live on
-// /transactions). It never fabricates a label: merchant, then description, then
-// category, then the type label.
-function RecentTransactionRow({
-  transaction,
-  accountName,
-  destinationAccountName,
-  categoryName,
-}: RecentTransactionRowProps) {
-  const meta = getTransactionTypeMeta(transaction.transaction_type);
-  const Icon = meta.icon;
-  const isTransfer = transaction.transaction_type === "transfer";
-  const isExpense = transaction.transaction_type === "expense";
-  const isIncome = transaction.transaction_type === "income";
-
-  const primaryLabel =
-    transaction.merchant ||
-    transaction.description ||
-    categoryName ||
-    meta.label;
-
-  // Expense negated so it reads "-Rp"; income positive so it reads "+Rp"; a
-  // transfer stays neutral with no sign. The stored amount is never scaled.
-  const amountValue = isExpense ? -transaction.amount : transaction.amount;
-  const amountTone = isIncome ? "income" : isExpense ? "expense" : "default";
-
-  const metaParts = [
-    categoryName,
-    accountName,
-    formatDate(transaction.transaction_at),
-  ].filter(Boolean);
-
+// Honest empty state with a Material Symbol glyph and a primary action link.
+function EmptyPanel({
+  glyph,
+  title,
+  description,
+  actionLabel,
+  actionHref,
+}: {
+  glyph: string;
+  title: string;
+  description: string;
+  actionLabel: string;
+  actionHref: string;
+}) {
   return (
-    <li className="flex items-center gap-3 px-4 py-3">
-      <Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-medium">{primaryLabel}</span>
-        {isTransfer ? (
-          <span className="truncate text-sm text-muted-foreground">
-            {(accountName ?? "Rekening") +
-              " \u2192 " +
-              (destinationAccountName ?? "Rekening") +
-              " \u00b7 " +
-              formatDate(transaction.transaction_at)}
-          </span>
-        ) : (
-          <span className="truncate text-sm text-muted-foreground">
-            {metaParts.join(" \u00b7 ")}
-          </span>
-        )}
+    <div className="flex flex-col items-center gap-3 rounded-xl bg-surface-container-lowest p-6 text-center shadow-sm">
+      <span className="flex size-12 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+        <Icon name={glyph} size={26} />
+      </span>
+      <div className="flex flex-col gap-1">
+        <p className="text-title-md text-on-surface">{title}</p>
+        <p className="text-body-sm text-on-surface-variant">{description}</p>
       </div>
-      <AmountText
-        value={amountValue}
-        tone={amountTone}
-        size="sm"
-        signed={!isTransfer}
-      />
-    </li>
+      <Link
+        href={actionHref}
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 text-label-md text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+      >
+        <Icon name="add" size={18} />
+        {actionLabel}
+      </Link>
+    </div>
   );
 }
 
@@ -422,7 +439,7 @@ function DashboardError({ message }: { message: string }) {
       role="alert"
       className="flex flex-col items-center gap-4 py-10 text-center"
     >
-      <p className="max-w-xs text-sm text-muted-foreground">{message}</p>
+      <p className="max-w-xs text-body-sm text-on-surface-variant">{message}</p>
       <Button asChild variant="outline" className="h-11">
         <Link href="/dashboard">Muat ulang</Link>
       </Button>

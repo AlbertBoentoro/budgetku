@@ -6,7 +6,6 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import {
-  TRANSACTION_TYPES,
   isTransactionType,
   parseIdrInput,
   type AccountRow,
@@ -18,9 +17,12 @@ import type {
 } from "@/app/(app)/transactions/actions";
 import { FREQUENCIES } from "@/lib/recurring";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TransactionTypeSwitcher } from "@/components/transactions/transaction-type-switcher";
+import { TransactionFieldRow } from "@/components/transactions/transaction-field-row";
+import { ToggleSwitch } from "@/components/transactions/toggle-switch";
 
 export interface TransactionFormInitialValues {
   transaction_type: string;
@@ -189,6 +191,34 @@ export function TransactionForm({
       ? null
       : idrPreview.format(parsedAmount);
 
+  // Type-dependent hero label. Transfer has no income/expense direction.
+  const amountLabel = isIncome
+    ? "Nominal Pemasukan"
+    : isTransfer
+      ? "Nominal Transfer"
+      : "Nominal Pengeluaran";
+
+  // Preset chips add a round figure to the current amount by parsing what is
+  // there, adding the delta, and writing back a plain digit string so the
+  // existing parseIdrInput/preview keep working. Reset clears the field. This
+  // mutates the single source of truth (amountInput); it never fakes a value.
+  function addPreset(delta: number) {
+    const current = parseIdrInput(amountInput) ?? 0;
+    const next = current + delta;
+    setAmountInput(String(next));
+    setFieldErrors((prev) => ({ ...prev, amount: undefined }));
+  }
+
+  function resetAmount() {
+    setAmountInput("");
+  }
+
+  const PRESETS = [
+    { label: "+20rb", delta: 20000 },
+    { label: "+50rb", delta: 50000 },
+    { label: "+100rb", delta: 100000 },
+  ] as const;
+
   // Switching type clears the fields that no longer apply so a hidden value is
   // never submitted (mirrors the server, which nulls them anyway).
   function handleTypeChange(nextType: string) {
@@ -323,184 +353,255 @@ export function TransactionForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
       <div className="flex flex-col gap-2">
-        <span id={typeLabelId} className="text-sm font-medium">
+        <span id={typeLabelId} className="text-body-md font-medium text-on-surface">
           Jenis transaksi
         </span>
-        <div
-          role="group"
-          aria-labelledby={typeLabelId}
-          className="grid grid-cols-3 gap-2"
-        >
-          {TRANSACTION_TYPES.map((type) => {
-            const selected = transactionType === type.value;
-            const Icon = type.icon;
-            return (
-              <button
-                key={type.value}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => handleTypeChange(type.value)}
-                className={cn(
-                  "flex h-11 items-center justify-center gap-1.5 rounded-md border px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                  selected
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-input bg-transparent text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon className="size-4 shrink-0" aria-hidden />
-                {type.label}
-              </button>
-            );
-          })}
-        </div>
+        <TransactionTypeSwitcher
+          value={transactionType}
+          onChange={handleTypeChange}
+          labelId={typeLabelId}
+        />
+        {fieldErrors.transaction_type ? (
+          <p role="alert" className="text-body-sm text-destructive">
+            {fieldErrors.transaction_type}
+          </p>
+        ) : null}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={amountId}>Nominal</Label>
-        <Input
-          id={amountId}
-          value={amountInput}
-          onChange={(e) => setAmountInput(e.target.value)}
-          inputMode="numeric"
-          className="h-11 tabular-nums"
-          placeholder="0"
-          aria-invalid={fieldErrors.amount ? true : undefined}
-          aria-describedby={fieldErrors.amount ? amountErrId : undefined}
-        />
+      {/* Hero amount card: a large "Rp" prefix + the SAME amount input rendered
+          at display size, with functional preset chips. No fake caret, no
+          perpetual animation, no decorative glow. */}
+      <div className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+        <Label
+          htmlFor={amountId}
+          className="text-label-md uppercase text-on-surface-variant"
+        >
+          {amountLabel}
+        </Label>
+        <div className="flex items-baseline justify-center gap-1">
+          <span
+            aria-hidden
+            className="text-currency-display font-semibold text-on-surface-variant"
+          >
+            Rp
+          </span>
+          <Input
+            id={amountId}
+            value={amountInput}
+            onChange={(e) => setAmountInput(e.target.value)}
+            inputMode="numeric"
+            className="h-auto border-0 bg-transparent p-0 text-center text-[2.75rem] font-bold leading-[1.1] tracking-tight tabular-nums shadow-none focus-visible:ring-0 md:text-[2.75rem]"
+            placeholder="0"
+            aria-invalid={fieldErrors.amount ? true : undefined}
+            aria-describedby={fieldErrors.amount ? amountErrId : undefined}
+          />
+        </div>
         {amountPreview ? (
-          <p className="text-sm text-muted-foreground tabular-nums">
+          <p className="text-center text-body-sm text-on-surface-variant tabular-nums">
             {amountPreview}
           </p>
         ) : null}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => addPreset(preset.delta)}
+              className="flex h-9 items-center rounded-full bg-surface-container-low px-3 text-body-sm font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {preset.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={resetAmount}
+            className="flex h-9 items-center rounded-full px-3 text-body-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Reset
+          </button>
+        </div>
         {fieldErrors.amount ? (
-          <p id={amountErrId} role="alert" className="text-sm text-destructive">
+          <p
+            id={amountErrId}
+            role="alert"
+            className="text-center text-body-sm text-destructive"
+          >
             {fieldErrors.amount}
           </p>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={accountFieldId}>Dari rekening</Label>
-        <select
-          id={accountFieldId}
-          value={accountId}
-          onChange={(e) => handleAccountChange(e.target.value)}
-          aria-invalid={fieldErrors.account_id ? true : undefined}
-          aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
-          className={cn(selectClassName)}
+      {/* Field rows grouped in one card with dividers. Every control keeps its
+          existing value/onChange/id/aria wiring and show-hide conditionals. */}
+      <div className="flex flex-col divide-y divide-border rounded-xl bg-surface-container-lowest shadow-sm">
+        <TransactionFieldRow
+          icon="account_balance_wallet"
+          htmlFor={accountFieldId}
+          label="Rekening sumber"
+          error={
+            fieldErrors.account_id ? (
+              <p
+                id={accountErrId}
+                role="alert"
+                className="text-body-sm text-destructive"
+              >
+                {fieldErrors.account_id}
+              </p>
+            ) : null
+          }
         >
-          {accounts.map((account) => (
-            <option key={account.id} value={account.id}>
-              {account.name}
-            </option>
-          ))}
-        </select>
-        {fieldErrors.account_id ? (
-          <p id={accountErrId} role="alert" className="text-sm text-destructive">
-            {fieldErrors.account_id}
-          </p>
-        ) : null}
-      </div>
-
-      {isTransfer ? (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={destinationFieldId}>Ke rekening</Label>
           <select
-            id={destinationFieldId}
-            value={destinationAccountId}
-            onChange={(e) => setDestinationAccountId(e.target.value)}
-            aria-invalid={fieldErrors.destination_account_id ? true : undefined}
-            aria-describedby={
-              fieldErrors.destination_account_id ? destinationErrId : undefined
-            }
+            id={accountFieldId}
+            value={accountId}
+            onChange={(e) => handleAccountChange(e.target.value)}
+            aria-invalid={fieldErrors.account_id ? true : undefined}
+            aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
             className={cn(selectClassName)}
           >
-            <option value="">Pilih rekening tujuan</option>
-            {destinationOptions.map((account) => (
+            {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
               </option>
             ))}
           </select>
-          {fieldErrors.destination_account_id ? (
-            <p
-              id={destinationErrId}
-              role="alert"
-              className="text-sm text-destructive"
-            >
-              {fieldErrors.destination_account_id}
-            </p>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={categoryFieldId}>Kategori</Label>
-          <select
-            id={categoryFieldId}
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            aria-invalid={fieldErrors.category_id ? true : undefined}
-            aria-describedby={fieldErrors.category_id ? categoryErrId : undefined}
-            className={cn(selectClassName)}
+        </TransactionFieldRow>
+
+        {isTransfer ? (
+          <TransactionFieldRow
+            icon="sync_alt"
+            htmlFor={destinationFieldId}
+            label="Rekening tujuan"
+            error={
+              fieldErrors.destination_account_id ? (
+                <p
+                  id={destinationErrId}
+                  role="alert"
+                  className="text-body-sm text-destructive"
+                >
+                  {fieldErrors.destination_account_id}
+                </p>
+              ) : null
+            }
           >
-            <option value="">Pilih kategori</option>
-            {categoryOptions.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.category_id ? (
-            <p
-              id={categoryErrId}
-              role="alert"
-              className="text-sm text-destructive"
+            <select
+              id={destinationFieldId}
+              value={destinationAccountId}
+              onChange={(e) => setDestinationAccountId(e.target.value)}
+              aria-invalid={
+                fieldErrors.destination_account_id ? true : undefined
+              }
+              aria-describedby={
+                fieldErrors.destination_account_id
+                  ? destinationErrId
+                  : undefined
+              }
+              className={cn(selectClassName)}
             >
-              {fieldErrors.category_id}
-            </p>
-          ) : null}
-        </div>
-      )}
+              <option value="">Pilih rekening tujuan</option>
+              {destinationOptions.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </TransactionFieldRow>
+        ) : (
+          <TransactionFieldRow
+            icon="category"
+            htmlFor={categoryFieldId}
+            label="Kategori"
+            error={
+              fieldErrors.category_id ? (
+                <p
+                  id={categoryErrId}
+                  role="alert"
+                  className="text-body-sm text-destructive"
+                >
+                  {fieldErrors.category_id}
+                </p>
+              ) : null
+            }
+          >
+            <select
+              id={categoryFieldId}
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              aria-invalid={fieldErrors.category_id ? true : undefined}
+              aria-describedby={
+                fieldErrors.category_id ? categoryErrId : undefined
+              }
+              className={cn(selectClassName)}
+            >
+              <option value="">Pilih kategori</option>
+              {categoryOptions.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </TransactionFieldRow>
+        )}
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={dateId}>Tanggal</Label>
-        <Input
-          id={dateId}
-          type="date"
-          value={transactionAt}
-          onChange={(e) => setTransactionAt(e.target.value)}
-          className="h-11"
-        />
-      </div>
+        <TransactionFieldRow
+          icon="calendar_today"
+          htmlFor={dateId}
+          label="Tanggal"
+        >
+          <Input
+            id={dateId}
+            type="date"
+            value={transactionAt}
+            onChange={(e) => setTransactionAt(e.target.value)}
+            className="h-11"
+          />
+        </TransactionFieldRow>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={merchantId}>Toko</Label>
-        <Input
-          id={merchantId}
-          value={merchant}
-          onChange={(e) => setMerchant(e.target.value)}
-          className="h-11"
-          placeholder="Opsional, misal: Kopi Kenangan"
-          autoComplete="off"
-        />
-      </div>
+        <TransactionFieldRow icon="store" htmlFor={merchantId} label="Toko">
+          <Input
+            id={merchantId}
+            value={merchant}
+            onChange={(e) => setMerchant(e.target.value)}
+            className="h-11"
+            placeholder="Opsional, misal: Kopi Kenangan"
+            autoComplete="off"
+          />
+        </TransactionFieldRow>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={descriptionId}>Catatan</Label>
-        <Input
-          id={descriptionId}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="h-11"
-          placeholder="Opsional"
-          autoComplete="off"
-        />
+        <TransactionFieldRow
+          icon="notes"
+          htmlFor={descriptionId}
+          label="Catatan"
+        >
+          <Input
+            id={descriptionId}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="h-11"
+            placeholder="Opsional"
+            autoComplete="off"
+          />
+        </TransactionFieldRow>
       </div>
 
       {isCreate ? (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-start gap-3">
-            <Checkbox
+        <div className="flex flex-col divide-y divide-border rounded-xl bg-surface-container-lowest shadow-sm">
+          <div className="flex items-center gap-3 p-lg">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+              <Icon name="repeat" size={20} />
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <Label htmlFor={recurringId} className="text-body-md text-on-surface">
+                Jadikan transaksi berulang
+              </Label>
+              <p
+                id={recurringHelpId}
+                className="text-body-sm text-on-surface-variant"
+              >
+                Simpan jadwalnya, lalu catat setiap kejadian berikutnya dari
+                halaman Transaksi berulang.
+              </p>
+            </div>
+            <ToggleSwitch
               id={recurringId}
               checked={recurring}
               onCheckedChange={(checked) => {
@@ -515,23 +616,11 @@ export function TransactionForm({
                 }
               }}
               aria-describedby={recurringHelpId}
-              className="mt-1 size-5"
             />
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={recurringId} className="font-medium">
-                Transaksi berulang
-              </Label>
-              <p id={recurringHelpId} className="text-sm text-muted-foreground">
-                Simpan jadwalnya, lalu catat setiap kejadian berikutnya dari
-                halaman Transaksi berulang.
-              </p>
-            </div>
           </div>
 
           {recurring ? (
-            <div className="flex flex-col gap-4 rounded-md border border-input p-4">
-              <h2 className="text-sm font-medium">Pengaturan berulang</h2>
-
+            <div className="flex flex-col gap-4 p-lg">
               <div className="flex flex-col gap-2">
                 <Label htmlFor={frequencyId}>Frekuensi</Label>
                 <select
@@ -554,15 +643,30 @@ export function TransactionForm({
                   <p
                     id={frequencyErrId}
                     role="alert"
-                    className="text-sm text-destructive"
+                    className="text-body-sm text-destructive"
                   >
                     {fieldErrors.frequency}
                   </p>
                 ) : null}
               </div>
 
-              <div className="flex items-start gap-3">
-                <Checkbox
+              <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <Label
+                    htmlFor={indefiniteId}
+                    className="text-body-md text-on-surface"
+                  >
+                    Sampai waktu yang tidak ditentukan
+                  </Label>
+                  <p
+                    id={indefiniteHelpId}
+                    className="text-body-sm text-on-surface-variant"
+                  >
+                    Aktif secara bawaan. Matikan untuk memilih tanggal
+                    berakhir.
+                  </p>
+                </div>
+                <ToggleSwitch
                   id={indefiniteId}
                   checked={indefinite}
                   onCheckedChange={(checked) => {
@@ -576,20 +680,7 @@ export function TransactionForm({
                     }
                   }}
                   aria-describedby={indefiniteHelpId}
-                  className="mt-1 size-5"
                 />
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor={indefiniteId} className="font-medium">
-                    Sampai waktu yang tidak ditentukan
-                  </Label>
-                  <p
-                    id={indefiniteHelpId}
-                    className="text-sm text-muted-foreground"
-                  >
-                    Aktif secara bawaan. Hilangkan centang untuk memilih tanggal
-                    berakhir.
-                  </p>
-                </div>
               </div>
 
               {!indefinite ? (
@@ -617,7 +708,7 @@ export function TransactionForm({
                     <p
                       id={endDateErrId}
                       role="alert"
-                      className="text-sm text-destructive"
+                      className="text-body-sm text-destructive"
                     >
                       {fieldErrors.end_date}
                     </p>
@@ -632,17 +723,17 @@ export function TransactionForm({
       {formError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
         >
           {formError}
         </p>
       ) : null}
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" className="h-11 flex-1" disabled={isPending}>
+      <div className="flex flex-col gap-3">
+        <Button type="submit" className="h-11 w-full" disabled={isPending}>
           {isPending ? "Menyimpan..." : submitLabel}
         </Button>
-        <Button asChild type="button" variant="outline" className="h-11">
+        <Button asChild type="button" variant="outline" className="h-11 w-full">
           <Link href="/transactions">Batal</Link>
         </Button>
       </div>

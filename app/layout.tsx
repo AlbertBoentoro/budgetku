@@ -42,7 +42,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} light`} suppressHydrationWarning>
       <head>
         {/* Material Symbols Outlined via Google Fonts stylesheet. This is a
             runtime CDN stylesheet link, NOT an npm dependency; lucide-react
@@ -65,10 +65,14 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased">
+        {/* Light only for now: force light and ignore the system theme until a
+            real dark theme is designed. forcedTheme overrides the system/class
+            preference app-wide. */}
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
+          forcedTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
           {children}

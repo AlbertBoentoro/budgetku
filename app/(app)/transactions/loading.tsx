@@ -1,24 +1,49 @@
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 
-// Reusable ledger skeleton: a short filter placeholder plus a few row
-// skeletons that mirror the real row layout (icon, label/metadata, amount).
+// Ledger skeleton mirroring the real screen: a search + chip bar, the month
+// summary pill, and a couple of date-section cards (icon circle + two text
+// lines + trailing amount) so the fallback reads as the final layout.
 export function TransactionsLoading() {
   return (
     <div className="flex flex-col gap-6" aria-hidden>
-      <div className="h-11 w-full rounded-md bg-muted" />
-      <ul className="flex flex-col divide-y rounded-2xl border bg-card">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <li key={i} className="flex items-center gap-3 px-4 py-3">
-            <div className="size-5 shrink-0 rounded-full bg-muted" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <div className="h-4 w-36 rounded bg-muted" />
-              <div className="h-3 w-24 rounded bg-muted" />
-            </div>
-            <div className="h-4 w-20 rounded bg-muted" />
-          </li>
-        ))}
-      </ul>
+      <div className="flex flex-col gap-3">
+        <div className="h-11 w-full rounded-full bg-surface-container" />
+        <div className="flex gap-2">
+          <div className="h-11 w-20 rounded-full bg-surface-container" />
+          <div className="h-11 w-28 rounded-full bg-surface-container" />
+          <div className="h-11 w-24 rounded-full bg-surface-container" />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+        <div className="h-3 w-32 rounded bg-surface-container" />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="h-16 rounded-lg bg-surface-container-low" />
+          <div className="h-16 rounded-lg bg-surface-container-low" />
+        </div>
+      </div>
+
+      {Array.from({ length: 2 }).map((_, section) => (
+        <div key={section} className="flex flex-col gap-2">
+          <div className="flex items-center justify-between px-space-xs">
+            <div className="h-3 w-40 rounded bg-surface-container" />
+            <div className="h-3 w-20 rounded bg-surface-container" />
+          </div>
+          <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <li key={i} className="flex items-center gap-3 px-space-md py-3">
+                <div className="size-10 shrink-0 rounded-full bg-surface-container" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <div className="h-4 w-36 rounded bg-surface-container" />
+                  <div className="h-3 w-24 rounded bg-surface-container" />
+                </div>
+                <div className="h-4 w-20 rounded bg-surface-container" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }

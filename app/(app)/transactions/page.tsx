@@ -1,23 +1,27 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus, Receipt } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import {
+  activeMonthFrom,
   buildTransactionListQuery,
+  computeMonthIncomeExpense,
   fetchActiveAccounts,
   fetchUsableCategories,
+  groupTransactionsByDay,
   parseTransactionFilters,
   type CategoryRow,
   type TransactionRow,
 } from "@/lib/transactions";
+import { formatMonthLabel } from "@/lib/budgets";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { EmptyState } from "@/components/shared/empty-state";
 import { TransactionFilters } from "@/components/finance/transaction-filters";
-import { TransactionList } from "@/components/finance/transaction-list";
-import type { TransactionRowView } from "@/components/finance/transaction-list-row";
+import { TransactionDayGroups } from "@/components/transactions/transaction-day-groups";
+import { LedgerSummaryPill } from "@/components/transactions/ledger-summary-pill";
+import type { TransactionRowView } from "@/components/transactions/transaction-ledger-row";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { TransactionsLoading } from "@/app/(app)/transactions/loading";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -34,7 +38,7 @@ export default function TransactionsPage({
         action={
           <Button asChild size="sm" className="h-9">
             <Link href="/transactions/new">
-              <Plus aria-hidden />
+              <Icon name="add" size={18} />
               Tambah transaksi
             </Link>
           </Button>
@@ -96,19 +100,19 @@ async function TransactionsContent({
   // No transactions at all: a first-run empty state inviting the first entry.
   if (transactions.length === 0 && !hasActiveFilter) {
     return (
-      <div className="flex flex-col items-center gap-4">
-        <EmptyState
-          icon={Receipt}
-          title="Belum ada transaksi"
-          description="Catat pemasukan atau pengeluaran pertamamu untuk mulai melihat riwayat di sini."
-        />
-        <Button asChild className="h-11">
-          <Link href="/transactions/new">
-            <Plus aria-hidden />
-            Tambah transaksi
-          </Link>
-        </Button>
-      </div>
+      <LedgerEmptyState
+        glyph="receipt_long"
+        title="Belum ada transaksi"
+        description="Catat pemasukan atau pengeluaran pertamamu untuk mulai melihat riwayat di sini."
+        action={
+          <Button asChild className="h-11">
+            <Link href="/transactions/new">
+              <Icon name="add" size={18} />
+              Tambah transaksi
+            </Link>
+          </Button>
+        }
+      />
     );
   }
 
@@ -183,26 +187,87 @@ async function TransactionsContent({
     ).values(),
   );
 
+  // Month summary pill: the active month is the explicit `month` filter or the
+  // current month. It reuses the same income/expense math as the dashboard and
+  // budget, so the totals line up (transfers excluded). A failed compute
+  // degrades to a quiet notice instead of crashing the page.
+  const activeMonth = activeMonthFrom(filters);
+  let monthIncome = 0;
+  let monthExpense = 0;
+  let monthIncomplete = false;
+  try {
+    const summary = await computeMonthIncomeExpense(
+      supabase,
+      user.id,
+      activeMonth,
+    );
+    monthIncome = summary.income;
+    monthExpense = summary.expense;
+  } catch {
+    monthIncomplete = true;
+  }
+
+  // Group the already-ordered rows into per-day sections (newest day first),
+  // with real per-day net totals computed server-side from the same rows.
+  const groups = groupTransactionsByDay(rows);
+
   return (
     <div className="flex flex-col gap-6">
       <TransactionFilters accounts={accounts} categories={filterCategories} />
 
+      <LedgerSummaryPill
+        income={monthIncome}
+        expense={monthExpense}
+        monthLabel={formatMonthLabel(activeMonth)}
+        incomplete={monthIncomplete}
+      />
+
       {rows.length === 0 ? (
         // Filtered-empty: distinct from the first-run empty state. Names the
         // cause and offers a reset back to the unfiltered list.
-        <div className="flex flex-col items-center gap-4">
-          <EmptyState
-            icon={Receipt}
-            title="Tidak ada hasil"
-            description="Tidak ada transaksi yang cocok dengan filter."
-          />
-          <Button asChild variant="outline" className="h-11">
-            <Link href="/transactions">Atur ulang filter</Link>
-          </Button>
-        </div>
+        <LedgerEmptyState
+          glyph="search_off"
+          title="Tidak ada transaksi ditemukan"
+          description="Tidak ada transaksi yang cocok dengan filter atau pencarian saat ini."
+          action={
+            <Button asChild variant="outline" className="h-11">
+              <Link href="/transactions">Atur ulang filter</Link>
+            </Button>
+          }
+        />
       ) : (
-        <TransactionList transactions={rows} />
+        <TransactionDayGroups groups={groups} />
       )}
+    </div>
+  );
+}
+
+// Stitch empty state (Material Symbols, Calm Ledger tokens). Kept local to this
+// screen so the shared lucide-based EmptyState API stays untouched for other
+// callers.
+function LedgerEmptyState({
+  glyph,
+  title,
+  description,
+  action,
+}: {
+  glyph: string;
+  title: string;
+  description: string;
+  action: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-4 py-10 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+        <Icon name={glyph} size={24} />
+      </span>
+      <div className="flex flex-col gap-1">
+        <p className="text-title-md font-medium text-on-surface">{title}</p>
+        <p className="max-w-xs text-body-sm text-on-surface-variant">
+          {description}
+        </p>
+      </div>
+      {action}
     </div>
   );
 }
@@ -213,7 +278,7 @@ function TransactionsError({ message }: { message: string }) {
       role="alert"
       className="flex flex-col items-center gap-4 py-10 text-center"
     >
-      <p className="max-w-xs text-sm text-muted-foreground">{message}</p>
+      <p className="max-w-xs text-body-sm text-on-surface-variant">{message}</p>
       <Button asChild variant="outline" className="h-11">
         <Link href="/transactions">Muat ulang</Link>
       </Button>

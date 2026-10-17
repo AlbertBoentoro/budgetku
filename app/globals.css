@@ -3,36 +3,38 @@
 @tailwind utilities;
 
 /*
-  Stitch design foundation (step 1 of the 12-screen redesign).
-  Tokens are stored as `H S% L%` triplets and consumed via `hsl(var(--x))`,
-  matching the project's existing convention (tailwind.config.ts, the <select>
-  base rule, and chart `fill="hsl(var(--income))"`). Each triplet is converted
-  from an authoritative Stitch hex (noted inline). Light is the Stitch palette;
-  dark is a documented DERIVED approximation (the mockups are light-only).
+  Calm Ledger design foundation (LIGHT-first).
+  Clean white surfaces on a Slate ramp with navy / emerald / red / slate
+  accents (supersedes the earlier bluish Stitch surface family). Tokens are
+  stored as `H S% L%` triplets and consumed via `hsl(var(--x))`, matching the
+  project's existing convention (tailwind.config.ts, the <select> base rule,
+  and chart `fill="hsl(var(--income))"`). Each triplet is converted from an
+  authoritative Calm Ledger hex (noted inline). Light is the shipped palette;
+  the .dark block below is a PROVISIONAL, non-audited dark-slate approximation.
 */
 
 @layer base {
   :root {
-    /* Core semantic roles (mapped to Stitch, design decision 3). */
-    --background: 231 100% 98.6%; /* surface #f8f9ff */
-    --foreground: 212 62.7% 11.6%; /* on-surface #0b1c30 */
-    --card: 0 0% 100%; /* surface-container-lowest #ffffff */
-    --card-foreground: 212 62.7% 11.6%; /* on-surface #0b1c30 */
-    --popover: 0 0% 100%; /* surface-container-lowest #ffffff */
-    --popover-foreground: 212 62.7% 11.6%; /* on-surface #0b1c30 */
-    --primary: 0 0% 0%; /* primary #000000 */
+    /* Core semantic roles (Calm Ledger: clean white + navy/emerald/red/slate). */
+    --background: 210 40% 98%; /* slate-50 #f8fafc */
+    --foreground: 222 47% 11%; /* slate-900 #0f172a */
+    --card: 0 0% 100%; /* #ffffff */
+    --card-foreground: 222 47% 11%; /* #0f172a */
+    --popover: 0 0% 100%; /* #ffffff */
+    --popover-foreground: 222 47% 11%; /* #0f172a */
+    --primary: 222 47% 11%; /* navy #0f172a */
     --primary-foreground: 0 0% 100%; /* on-primary #ffffff */
-    --secondary: 161 100% 21.2%; /* secondary #006c4a */
+    --secondary: 160 94% 30%; /* emerald #059669 */
     --secondary-foreground: 0 0% 100%; /* on-secondary #ffffff */
-    --muted: 221 100% 96.9%; /* surface-container-low #eff4ff */
-    --muted-foreground: 232 5.5% 28.6%; /* on-surface-variant #45464d */
-    --accent: 219 100% 94.9%; /* surface-container #e5eeff */
-    --accent-foreground: 212 62.7% 11.6%; /* on-surface #0b1c30 */
-    --destructive: 0 75.5% 41.6%; /* error #ba1a1a */
+    --muted: 210 40% 96%; /* slate-100 #f1f5f9 */
+    --muted-foreground: 215 19% 35%; /* slate-600 #475569 */
+    --accent: 210 40% 96%; /* slate-100 #f1f5f9 */
+    --accent-foreground: 222 47% 11%; /* #0f172a */
+    --destructive: 0 72% 51%; /* red #dc2626 */
     --destructive-foreground: 0 0% 100%; /* on-error #ffffff */
-    --border: 240 6.5% 79%; /* outline-variant #c6c6cd */
-    --input: 240 6.5% 79%; /* outline-variant #c6c6cd */
-    --ring: 0 0% 0%; /* primary #000000 */
+    --border: 214 32% 91%; /* slate-200 #e2e8f0 */
+    --input: 214 32% 91%; /* slate-200 #e2e8f0 */
+    --ring: 222 47% 11%; /* navy #0f172a */
 
     /* Charts: keep existing categorical palette (migrated per-screen later). */
     --chart-1: 12 76% 61%;
@@ -41,10 +43,12 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
-    /* Finance tone tokens (AmountText tone logic). Keep green/red meaning. */
-    --income: 161 100% 21.2%; /* secondary #006c4a */
+    /* Finance tone tokens (AmountText TEXT tone). Darkened for AA on white:
+       income text = emerald-700 #047857 (~4.9:1), expense text = red-700
+       #b91c1c (~5.9:1). The bright fills stay on --secondary / --destructive. */
+    --income: 160 94% 25%; /* emerald-700 #047857 */
     --income-foreground: 0 0% 100%; /* #ffffff */
-    --expense: 0 75.5% 41.6%; /* error #ba1a1a */
+    --expense: 0 74% 42%; /* red-700 #b91c1c */
     --expense-foreground: 0 0% 100%; /* #ffffff */
 
     /* Account accent palette: unchanged this step (per-screen migration). */
@@ -61,88 +65,90 @@
     --accent-slate: 215 20% 48%;
     --accent-slate-foreground: 0 0% 100%;
 
-    /* Stitch surface scale and roles (NEW, additive). */
-    --surface: 231 100% 98.6%; /* #f8f9ff */
+    /* Surface scale: de-blued to a clean Slate ramp (white cards on near-white). */
+    --surface: 210 40% 98%; /* slate-50 #f8fafc */
     --surface-container-lowest: 0 0% 100%; /* #ffffff */
-    --surface-container-low: 221 100% 96.9%; /* #eff4ff */
-    --surface-container: 219 100% 94.9%; /* #e5eeff */
-    --surface-container-high: 218 100% 93.1%; /* #dce9ff */
-    --surface-container-highest: 216 95.6% 91.2%; /* #d3e4fe */
-    --surface-bright: 231 100% 98.6%; /* #f8f9ff */
-    --surface-dim: 217 67.7% 87.8%; /* #cbdbf5 */
-    --surface-variant: 216 95.6% 91.2%; /* #d3e4fe */
-    --surface-tint: 224 14.9% 39.6%; /* #565e74 */
-    --on-surface: 212 62.7% 11.6%; /* #0b1c30 */
-    --on-surface-variant: 232 5.5% 28.6%; /* #45464d */
-    --outline: 231 2.9% 47.6%; /* #76777d */
-    --outline-variant: 240 6.5% 79%; /* #c6c6cd */
+    --surface-container-low: 210 40% 98%; /* slate-50 #f8fafc */
+    --surface-container: 210 40% 96%; /* slate-100 #f1f5f9 */
+    --surface-container-high: 214 32% 91%; /* slate-200 #e2e8f0 */
+    --surface-container-highest: 213 27% 84%; /* slate-300 #cbd5e1 */
+    --surface-bright: 0 0% 100%; /* #ffffff */
+    --surface-dim: 214 32% 91%; /* slate-200 #e2e8f0 */
+    --surface-variant: 210 40% 96%; /* slate-100 #f1f5f9 */
+    --surface-tint: 222 47% 11%; /* navy #0f172a */
+    --on-surface: 222 47% 11%; /* slate-900 #0f172a */
+    --on-surface-variant: 215 19% 35%; /* slate-600 #475569 */
+    --outline: 215 20% 65%; /* slate-400 #94a3b8 */
+    --outline-variant: 214 32% 91%; /* slate-200 #e2e8f0 */
 
-    /* Primary family. */
+    /* Primary family (navy). */
     --on-primary: 0 0% 100%; /* #ffffff */
-    --primary-container: 222 41.5% 12.7%; /* #131b2e */
-    --on-primary-container: 226 13.4% 54.7%; /* #7c839b */
-    --primary-fixed: 226 89.7% 92.4%; /* #dae2fd */
-    --primary-fixed-dim: 226 35.4% 81.2%; /* #bec6e0 */
-    --on-primary-fixed: 222 41.5% 12.7%; /* #131b2e */
-    --on-primary-fixed-variant: 226 18.7% 30.4%; /* #3f465c */
-    --inverse-primary: 226 35.4% 81.2%; /* #bec6e0 */
+    --primary-container: 217 33% 17%; /* slate-800 #1e293b */
+    --on-primary-container: 210 40% 98%; /* slate-50 #f8fafc */
+    --primary-fixed: 214 32% 91%; /* slate-200 #e2e8f0 */
+    --primary-fixed-dim: 213 27% 84%; /* slate-300 #cbd5e1 */
+    --on-primary-fixed: 222 47% 11%; /* #0f172a */
+    --on-primary-fixed-variant: 215 25% 27%; /* slate-700 #334155 */
+    --inverse-primary: 213 27% 84%; /* slate-300 #cbd5e1 */
 
-    /* Secondary family. */
+    /* Secondary family (emerald fill = bright #059669). */
     --on-secondary: 0 0% 100%; /* #ffffff */
-    --secondary-container: 153 85.2% 73.5%; /* #82f5c1 */
-    --on-secondary-container: 161 100% 22.2%; /* #00714e */
-    --secondary-fixed: 153 89.1% 74.7%; /* #85f8c4 */
-    --secondary-fixed-dim: 154 61.5% 63.3%; /* #68dba9 */
-    --on-secondary-fixed: 156 100% 6.5%; /* #002114 */
-    --on-secondary-fixed-variant: 161 100% 15.9%; /* #005137 */
+    --secondary-container: 149 80% 90%; /* emerald-100 #d1fae5 */
+    --on-secondary-container: 162 88% 20%; /* emerald-800 #065f46 */
+    --secondary-fixed: 149 80% 90%; /* emerald-100 #d1fae5 */
+    --secondary-fixed-dim: 156 72% 67%; /* emerald-300 #6ee7b7 */
+    --on-secondary-fixed: 164 86% 16%; /* emerald-900 #064e3b */
+    --on-secondary-fixed-variant: 162 88% 20%; /* emerald-800 #065f46 */
 
-    /* Tertiary family (role tokens; tertiary base = primary black). */
-    --tertiary-container: 358 100% 12.7%; /* #410002 */
-    --on-tertiary-container: 2 91.5% 58.6%; /* #f63a35 */
-    --tertiary-fixed: 6 100% 92%; /* #ffdad6 */
-    --tertiary-fixed-dim: 6 100% 83.5%; /* #ffb4ab */
-    --on-tertiary-fixed: 358 100% 12.7%; /* #410002 */
-    --on-tertiary-fixed-variant: 356 100% 28.8%; /* #93000b */
+    /* Tertiary / error family (red fill = bright #dc2626). */
+    --tertiary-container: 0 93% 94%; /* red-100 #fee2e2 */
+    --on-tertiary-container: 0 70% 35%; /* red-800 #991b1b */
+    --tertiary-fixed: 0 93% 94%; /* red-100 #fee2e2 */
+    --tertiary-fixed-dim: 0 94% 82%; /* red-300 #fca5a5 */
+    --on-tertiary-fixed: 0 63% 31%; /* red-900 #7f1d1d */
+    --on-tertiary-fixed-variant: 0 70% 35%; /* red-800 #991b1b */
 
     /* Error family. */
-    --error: 0 75.5% 41.6%; /* #ba1a1a */
+    --error: 0 72% 51%; /* red #dc2626 */
     --on-error: 0 0% 100%; /* #ffffff */
-    --error-container: 6 100% 92%; /* #ffdad6 */
-    --on-error-container: 356 100% 28.8%; /* #93000a */
+    --error-container: 0 93% 94%; /* red-100 #fee2e2 */
+    --on-error-container: 0 70% 35%; /* red-800 #991b1b */
 
-    /* Inverse surfaces (drive the derived dark theme). */
-    --inverse-surface: 213 35.3% 20%; /* #213145 */
-    --inverse-on-surface: 220 100% 95.9%; /* #eaf1ff */
+    /* Inverse surfaces (drive the provisional dark theme). */
+    --inverse-surface: 222 47% 11%; /* #0f172a */
+    --inverse-on-surface: 210 40% 98%; /* slate-50 #f8fafc */
 
     --radius: 0.25rem;
   }
 
   /*
-    DERIVED DARK APPROXIMATION. The Stitch mockups are light-only; this dark
-    variant is derived from the Stitch inverse tokens and tuned for AA, not an
-    author-supplied dark palette. Surfaces step lighter above the inverse
-    background; income/expense are lightened for contrast on dark.
+    PROVISIONAL DARK APPROXIMATION. LIGHT (Calm Ledger) is the shipped target
+    for this step. This dark-slate mapping is minimal and non-broken but NOT
+    audited for AA across every pairing; it exists only to keep the next-themes
+    toggle working. Surfaces step lighter above the navy background; navy
+    primary becomes a light slate, and income/expense are lightened for
+    contrast on dark. Refine in a later step.
   */
   .dark {
-    --background: 213 35.3% 20%; /* inverse-surface #213145 */
-    --foreground: 220 100% 95.9%; /* inverse-on-surface #eaf1ff */
-    --card: 214 33% 24%; /* one step above background */
-    --card-foreground: 220 100% 95.9%;
-    --popover: 214 33% 24%;
-    --popover-foreground: 220 100% 95.9%;
-    --primary: 226 35.4% 81.2%; /* inverse-primary #bec6e0 */
-    --primary-foreground: 222 41.5% 12.7%; /* on-primary-container #131b2e */
-    --secondary: 154 61.5% 63.3%; /* secondary-fixed-dim #68dba9 */
-    --secondary-foreground: 156 100% 6.5%; /* on-secondary-fixed #002114 */
-    --muted: 214 28% 27%;
-    --muted-foreground: 226 20% 78%; /* light grey, AA on dark */
-    --accent: 214 25% 32%;
-    --accent-foreground: 220 100% 95.9%;
-    --destructive: 6 100% 83.5%; /* tertiary-fixed-dim #ffb4ab */
-    --destructive-foreground: 358 100% 12.7%; /* #410002 */
-    --border: 220 10% 42%;
-    --input: 220 10% 42%;
-    --ring: 226 35.4% 81.2%; /* inverse-primary */
+    --background: 222 47% 11%; /* slate-900 #0f172a */
+    --foreground: 210 40% 98%; /* slate-50 #f8fafc */
+    --card: 217 33% 17%; /* slate-800 #1e293b */
+    --card-foreground: 210 40% 98%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 213 27% 84%; /* slate-300 #cbd5e1 */
+    --primary-foreground: 222 47% 11%; /* #0f172a */
+    --secondary: 160 84% 52%; /* emerald #34d399 */
+    --secondary-foreground: 222 47% 11%; /* #0f172a */
+    --muted: 215 28% 22%;
+    --muted-foreground: 213 27% 84%; /* slate-300 #cbd5e1 */
+    --accent: 215 25% 27%; /* slate-700 #334155 */
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 91% 71%; /* red #f87171 */
+    --destructive-foreground: 222 47% 11%; /* #0f172a */
+    --border: 215 25% 27%; /* slate-700 #334155 */
+    --input: 215 25% 27%;
+    --ring: 213 27% 84%; /* slate-300 */
 
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -150,10 +156,10 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --income: 154 61.5% 63.3%; /* #68dba9, 7.73:1 on dark bg */
-    --income-foreground: 156 100% 6.5%;
-    --expense: 6 100% 83.5%; /* #ffb4ab, 7.78:1 on dark bg */
-    --expense-foreground: 358 100% 12.7%;
+    --income: 160 84% 52%; /* emerald #34d399, lightened for dark */
+    --income-foreground: 222 47% 11%;
+    --expense: 0 91% 71%; /* red #f87171, lightened for dark */
+    --expense-foreground: 222 47% 11%;
 
     /* Account accent palette: unchanged this step. */
     --accent-blue: 214 42% 52%;
@@ -169,53 +175,53 @@
     --accent-slate: 215 18% 56%;
     --accent-slate-foreground: 0 0% 100%;
 
-    /* Stitch surface scale, stepped for dark. */
-    --surface: 213 35.3% 20%;
-    --surface-container-lowest: 213 36% 15%;
-    --surface-container-low: 214 33% 22%;
-    --surface-container: 214 31% 25%;
-    --surface-container-high: 214 29% 29%;
-    --surface-container-highest: 214 27% 33%;
-    --surface-bright: 214 27% 36%;
-    --surface-dim: 213 36% 16%;
-    --surface-variant: 214 25% 32%;
-    --surface-tint: 226 35.4% 81.2%;
-    --on-surface: 220 100% 95.9%;
-    --on-surface-variant: 226 20% 78%;
-    --outline: 220 10% 60%;
-    --outline-variant: 220 10% 42%;
+    /* Surface scale, stepped lighter above the navy background (provisional). */
+    --surface: 222 47% 11%; /* #0f172a */
+    --surface-container-lowest: 222 47% 9%;
+    --surface-container-low: 217 33% 17%; /* slate-800 #1e293b */
+    --surface-container: 215 28% 22%;
+    --surface-container-high: 215 25% 27%; /* slate-700 #334155 */
+    --surface-container-highest: 215 20% 35%;
+    --surface-bright: 215 20% 35%;
+    --surface-dim: 222 47% 9%;
+    --surface-variant: 215 25% 27%;
+    --surface-tint: 213 27% 84%;
+    --on-surface: 210 40% 98%; /* slate-50 #f8fafc */
+    --on-surface-variant: 213 27% 84%; /* slate-300 #cbd5e1 */
+    --outline: 215 16% 47%; /* slate-500 #64748b */
+    --outline-variant: 215 25% 27%; /* slate-700 #334155 */
 
-    --on-primary: 222 41.5% 12.7%;
-    --primary-container: 226 18.7% 30.4%;
-    --on-primary-container: 226 89.7% 92.4%;
-    --primary-fixed: 226 89.7% 92.4%;
-    --primary-fixed-dim: 226 35.4% 81.2%;
-    --on-primary-fixed: 222 41.5% 12.7%;
-    --on-primary-fixed-variant: 226 18.7% 30.4%;
-    --inverse-primary: 0 0% 0%;
+    --on-primary: 222 47% 11%;
+    --primary-container: 215 25% 27%;
+    --on-primary-container: 210 40% 98%;
+    --primary-fixed: 214 32% 91%;
+    --primary-fixed-dim: 213 27% 84%;
+    --on-primary-fixed: 222 47% 11%;
+    --on-primary-fixed-variant: 215 25% 27%;
+    --inverse-primary: 222 47% 11%;
 
-    --on-secondary: 156 100% 6.5%;
-    --secondary-container: 161 100% 15.9%;
-    --on-secondary-container: 153 85.2% 73.5%;
-    --secondary-fixed: 153 89.1% 74.7%;
-    --secondary-fixed-dim: 154 61.5% 63.3%;
-    --on-secondary-fixed: 156 100% 6.5%;
-    --on-secondary-fixed-variant: 161 100% 15.9%;
+    --on-secondary: 222 47% 11%;
+    --secondary-container: 162 88% 20%; /* emerald-800 #065f46 */
+    --on-secondary-container: 149 80% 90%;
+    --secondary-fixed: 149 80% 90%;
+    --secondary-fixed-dim: 156 72% 67%;
+    --on-secondary-fixed: 164 86% 16%;
+    --on-secondary-fixed-variant: 162 88% 20%;
 
-    --tertiary-container: 6 100% 83.5%;
-    --on-tertiary-container: 358 100% 12.7%;
-    --tertiary-fixed: 6 100% 92%;
-    --tertiary-fixed-dim: 6 100% 83.5%;
-    --on-tertiary-fixed: 358 100% 12.7%;
-    --on-tertiary-fixed-variant: 356 100% 28.8%;
+    --tertiary-container: 0 70% 35%; /* red-800 #991b1b */
+    --on-tertiary-container: 0 93% 94%;
+    --tertiary-fixed: 0 93% 94%;
+    --tertiary-fixed-dim: 0 94% 82%;
+    --on-tertiary-fixed: 0 63% 31%;
+    --on-tertiary-fixed-variant: 0 70% 35%;
 
-    --error: 6 100% 83.5%;
-    --on-error: 358 100% 12.7%;
-    --error-container: 356 100% 28.8%;
-    --on-error-container: 6 100% 92%;
+    --error: 0 91% 71%; /* red #f87171 */
+    --on-error: 222 47% 11%;
+    --error-container: 0 70% 35%;
+    --on-error-container: 0 93% 94%;
 
-    --inverse-surface: 231 100% 98.6%;
-    --inverse-on-surface: 212 62.7% 11.6%;
+    --inverse-surface: 210 40% 98%;
+    --inverse-on-surface: 222 47% 11%;
   }
 }
 

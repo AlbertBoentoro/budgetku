@@ -11,11 +11,23 @@ import { PageContainer } from "@/components/layout/page-container";
 import { TransactionForm } from "@/components/finance/transaction-form";
 import { createTransaction } from "@/app/(app)/transactions/actions";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 
 export default function NewTransactionPage() {
   return (
     <>
-      <AppHeader title="Tambah transaksi" />
+      <AppHeader
+        title="Tambah transaksi"
+        action={
+          <Link
+            href="/transactions"
+            aria-label="Kembali"
+            className="flex size-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Icon name="arrow_back" size={22} />
+          </Link>
+        }
+      />
       <PageContainer>
         {/* The dynamic auth + data fetch runs inside Suspense so the shared
             (app) shell can still prerender under PPR. */}

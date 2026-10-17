@@ -8,7 +8,7 @@ import {
 import type { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { type AccountRow, parseIdrInput } from "@/lib/accounts";
-import { monthRange } from "@/lib/budgets";
+import { currentMonthParam, monthRange } from "@/lib/budgets";
 
 // Re-export the shared IDR parser so transaction forms/actions use the exact
 // same unscaled money parsing as accounts (never a duplicate implementation).
@@ -266,4 +266,98 @@ export async function computeMonthIncomeExpense(
   }
 
   return { income, expense };
+}
+
+// The active month the list summarizes: the explicit `month` filter when set,
+// otherwise the current local month (matches resolveMonthParam / the dashboard
+// default). Additive helper; the filter parsing itself is unchanged.
+export function activeMonthFrom(filters: TransactionFilters): string {
+  return filters.month ?? currentMonthParam();
+}
+
+// Minimal structural shape the day-grouping needs. Keeping it structural (not
+// the client TransactionRowView) lets this stay a server-safe lib helper while
+// still accepting the fuller row views the page builds.
+type GroupableTransaction = Pick<
+  TransactionRow,
+  "transaction_type" | "amount" | "transaction_at"
+>;
+
+export interface TransactionDayGroup<T extends GroupableTransaction> {
+  // UTC date-only key, e.g. "2026-10-28".
+  key: string;
+  // Display label, e.g. "Hari Ini \u00b7 28 Oktober 2026".
+  label: string;
+  // Per-day net: +income, -expense, transfers net-neutral. Mirrors the
+  // income/expense fold in computeMonthIncomeExpense.
+  netTotal: number;
+  rows: T[];
+}
+
+// UTC date-only key for a transaction_at (date-only or ISO timestamp), matching
+// the app-wide basis used by the query window, the row date formatter, and
+// actions.ts toDateOnly. An unparseable value falls back to its raw string so a
+// bad row still groups deterministically rather than crashing.
+function dayKeyOf(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toISOString().slice(0, 10);
+}
+
+// Long Indonesian date from a "YYYY-MM-DD" key, built on a UTC basis so the
+// label never drifts by a zone (same approach as formatMonthLabel).
+const dayLabelFormatter = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function longDateFromKey(key: string): string {
+  const date = new Date(`${key}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return key;
+  return dayLabelFormatter.format(date);
+}
+
+// Groups already-ordered rows (newest first) into per-day sections, preserving
+// the query order: insertion order gives newest day first, and rows inside a
+// day stay in their newest-first order. Per-day net folds income (+), expense
+// (-), and leaves transfers/unknown net-neutral (a transfer moves money between
+// the user's own accounts). "Hari Ini"/"Kemarin" are prefixed when the day key
+// matches today/yesterday on the same UTC date-only basis.
+export function groupTransactionsByDay<T extends GroupableTransaction>(
+  rows: T[],
+): TransactionDayGroup<T>[] {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const yesterdayKey = yesterday.toISOString().slice(0, 10);
+
+  const groups: TransactionDayGroup<T>[] = [];
+  const byKey = new Map<string, TransactionDayGroup<T>>();
+
+  for (const row of rows) {
+    const key = dayKeyOf(row.transaction_at);
+    let group = byKey.get(key);
+    if (!group) {
+      const longDate = longDateFromKey(key);
+      const label =
+        key === todayKey
+          ? `Hari Ini \u00b7 ${longDate}`
+          : key === yesterdayKey
+            ? `Kemarin \u00b7 ${longDate}`
+            : longDate;
+      group = { key, label, netTotal: 0, rows: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    const amt = Number(row.amount);
+    if (Number.isFinite(amt)) {
+      if (row.transaction_type === "income") group.netTotal += amt;
+      else if (row.transaction_type === "expense") group.netTotal -= amt;
+    }
+    group.rows.push(row);
+  }
+
+  return groups;
 }

@@ -1,7 +1,10 @@
 import { cn } from "@/lib/utils";
 
 type AmountTone = "default" | "income" | "expense";
-type AmountSize = "sm" | "md" | "lg" | "xl";
+// "none" emits no font-size/weight class, so callers can supply a custom size
+// (e.g. a Stitch type-scale key like `text-currency-body`) via `className`
+// without a default `text-base` fighting it through tailwind-merge.
+type AmountSize = "none" | "sm" | "md" | "lg" | "xl";
 
 const toneClasses: Record<AmountTone, string> = {
   default: "text-foreground",
@@ -10,6 +13,7 @@ const toneClasses: Record<AmountTone, string> = {
 };
 
 const sizeClasses: Record<AmountSize, string> = {
+  none: "",
   sm: "text-sm font-medium",
   md: "text-base font-semibold",
   lg: "text-2xl font-semibold",
