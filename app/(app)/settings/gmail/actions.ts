@@ -273,6 +273,17 @@ export async function importDraft(
     .select("id")
     .single();
 
+  // 23505 = unique violation on transactions(user_id, source, source_reference)
+  // where source = 'email' (docs/sql/2026-10-add-gmail-unique-indexes.sql): a
+  // concurrent import already created this email's transaction. Nothing was
+  // inserted; reuse the idempotency guard's copy above.
+  if (txError?.code === "23505") {
+    return {
+      ok: false,
+      message: "Email ini sudah diimpor sebelumnya.",
+    };
+  }
+
   if (txError || !created) {
     return {
       ok: false,

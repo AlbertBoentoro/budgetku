@@ -146,6 +146,14 @@ export async function syncGmail(
     });
 
     if (insertError) {
+      // 23505 = unique violation on email_imports(user_id, gmail_message_id)
+      // (docs/sql/2026-10-add-gmail-unique-indexes.sql): a concurrent sync
+      // already stored this message, so count it as skipped, like the dedup
+      // select above. Every other error still fails the sync.
+      if (insertError.code === "23505") {
+        skipped += 1;
+        continue;
+      }
       throw new Error(`Gagal menyimpan email impor: ${insertError.message}`);
     }
 
