@@ -365,7 +365,7 @@ export function RecurringForm({
           aria-describedby={fieldErrors.name ? nameErrId : undefined}
         />
         {fieldErrors.name ? (
-          <p id={nameErrId} role="alert" className="text-sm text-destructive">
+          <p id={nameErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.name}
           </p>
         ) : null}
@@ -422,7 +422,7 @@ export function RecurringForm({
           </p>
         ) : null}
         {fieldErrors.amount ? (
-          <p id={amountErrId} role="alert" className="text-sm text-destructive">
+          <p id={amountErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.amount}
           </p>
         ) : null}
@@ -445,7 +445,7 @@ export function RecurringForm({
           ))}
         </select>
         {fieldErrors.account_id ? (
-          <p id={accountErrId} role="alert" className="text-sm text-destructive">
+          <p id={accountErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.account_id}
           </p>
         ) : null}
@@ -475,7 +475,7 @@ export function RecurringForm({
             <p
               id={destinationErrId}
               role="alert"
-              className="text-sm text-destructive"
+              className="text-sm text-expense"
             >
               {fieldErrors.destination_account_id}
             </p>
@@ -503,7 +503,7 @@ export function RecurringForm({
             <p
               id={categoryErrId}
               role="alert"
-              className="text-sm text-destructive"
+              className="text-sm text-expense"
             >
               {fieldErrors.category_id}
             </p>
@@ -531,7 +531,7 @@ export function RecurringForm({
           <p
             id={frequencyErrId}
             role="alert"
-            className="text-sm text-destructive"
+            className="text-sm text-expense"
           >
             {fieldErrors.frequency}
           </p>
@@ -562,7 +562,7 @@ export function RecurringForm({
           <p
             id={intervalErrId}
             role="alert"
-            className="text-sm text-destructive"
+            className="text-sm text-expense"
           >
             {fieldErrors.interval_count}
           </p>
@@ -584,7 +584,7 @@ export function RecurringForm({
           <p
             id={startDateErrId}
             role="alert"
-            className="text-sm text-destructive"
+            className="text-sm text-expense"
           >
             {fieldErrors.start_date}
           </p>
@@ -606,7 +606,7 @@ export function RecurringForm({
           Opsional. Kosongkan jika tidak ada tanggal berakhir.
         </p>
         {fieldErrors.end_date ? (
-          <p id={endDateErrId} role="alert" className="text-sm text-destructive">
+          <p id={endDateErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.end_date}
           </p>
         ) : null}
@@ -627,7 +627,7 @@ export function RecurringForm({
           Secara bawaan sama dengan tanggal mulai.
         </p>
         {fieldErrors.next_due_date ? (
-          <p id={nextDueErrId} role="alert" className="text-sm text-destructive">
+          <p id={nextDueErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.next_due_date}
           </p>
         ) : null}
@@ -693,7 +693,7 @@ export function RecurringForm({
       {formError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-expense"
         >
           {formError}
         </p>

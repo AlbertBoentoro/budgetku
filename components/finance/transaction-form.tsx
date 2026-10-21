@@ -362,7 +362,7 @@ export function TransactionForm({
           labelId={typeLabelId}
         />
         {fieldErrors.transaction_type ? (
-          <p role="alert" className="text-body-sm text-destructive">
+          <p role="alert" className="text-body-sm text-expense">
             {fieldErrors.transaction_type}
           </p>
         ) : null}
@@ -424,7 +424,7 @@ export function TransactionForm({
           <p
             id={amountErrId}
             role="alert"
-            className="text-center text-body-sm text-destructive"
+            className="text-center text-body-sm text-expense"
           >
             {fieldErrors.amount}
           </p>
@@ -443,7 +443,7 @@ export function TransactionForm({
               <p
                 id={accountErrId}
                 role="alert"
-                className="text-body-sm text-destructive"
+                className="text-body-sm text-expense"
               >
                 {fieldErrors.account_id}
               </p>
@@ -476,7 +476,7 @@ export function TransactionForm({
                 <p
                   id={destinationErrId}
                   role="alert"
-                  className="text-body-sm text-destructive"
+                  className="text-body-sm text-expense"
                 >
                   {fieldErrors.destination_account_id}
                 </p>
@@ -515,7 +515,7 @@ export function TransactionForm({
                 <p
                   id={categoryErrId}
                   role="alert"
-                  className="text-body-sm text-destructive"
+                  className="text-body-sm text-expense"
                 >
                   {fieldErrors.category_id}
                 </p>
@@ -643,7 +643,7 @@ export function TransactionForm({
                   <p
                     id={frequencyErrId}
                     role="alert"
-                    className="text-body-sm text-destructive"
+                    className="text-body-sm text-expense"
                   >
                     {fieldErrors.frequency}
                   </p>
@@ -708,7 +708,7 @@ export function TransactionForm({
                     <p
                       id={endDateErrId}
                       role="alert"
-                      className="text-body-sm text-destructive"
+                      className="text-body-sm text-expense"
                     >
                       {fieldErrors.end_date}
                     </p>
@@ -723,7 +723,7 @@ export function TransactionForm({
       {formError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-expense"
         >
           {formError}
         </p>

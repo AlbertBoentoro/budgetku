@@ -148,7 +148,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
           autoComplete="off"
         />
         {fieldErrors.name ? (
-          <p id={nameErrId} role="alert" className="text-sm text-destructive">
+          <p id={nameErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.name}
           </p>
         ) : null}
@@ -173,7 +173,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
           ))}
         </select>
         {fieldErrors.account_type ? (
-          <p id={typeErrId} role="alert" className="text-sm text-destructive">
+          <p id={typeErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.account_type}
           </p>
         ) : null}
@@ -199,7 +199,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
           </p>
         ) : null}
         {fieldErrors.initial_balance ? (
-          <p id={balanceErrId} role="alert" className="text-sm text-destructive">
+          <p id={balanceErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.initial_balance}
           </p>
         ) : null}
@@ -226,7 +226,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
       {formError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-expense"
         >
           {formError}
         </p>

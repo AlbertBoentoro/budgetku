@@ -135,7 +135,7 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={handleDelete}
-              className="text-destructive focus:text-destructive"
+              className="text-expense focus:text-expense"
             >
               <Icon name="delete" size={18} />
               Hapus

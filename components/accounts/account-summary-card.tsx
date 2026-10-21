@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { cn } from "@/lib/utils";
 import { AmountText } from "@/components/finance/amount-text";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -34,11 +35,16 @@ export function AccountSummaryCard({
         <span className="text-label-xs uppercase text-on-surface-variant">
           Total Saldo Akun
         </span>
+        {/* text-on-surface only when non-negative: tailwind-merge keeps the
+            last text color, so passing it always dropped the expense tone. */}
         <AmountText
           value={total}
           size="none"
           tone={isNegative ? "expense" : "default"}
-          className="text-[2.75rem] font-bold leading-[1.1] tracking-tight text-on-surface"
+          className={cn(
+            "text-[2.75rem] font-bold leading-[1.1] tracking-tight",
+            !isNegative && "text-on-surface",
+          )}
         />
         <span className="text-body-sm text-on-surface-variant">
           {activeCount} Akun Aktif

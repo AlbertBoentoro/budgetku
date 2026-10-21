@@ -101,15 +101,16 @@ export function AccountRow({ account, onError }: AccountRowProps) {
           </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-0.5">
-          <AmountText
-            value={account.balance}
-            size="none"
-            tone={isNegative ? "expense" : "default"}
-            className={cn(
-              "text-currency-body",
-              !isNegative && "text-on-surface",
-            )}
-          />
+          {/* Size on the wrapper: tailwind-merge reads text-currency-body as a
+              color, so passing it with a tone class dropped one of them. */}
+          <span className="text-currency-body">
+            <AmountText
+              value={account.balance}
+              size="none"
+              tone={isNegative ? "expense" : "default"}
+              className={cn(!isNegative && "text-on-surface")}
+            />
+          </span>
           <span className="text-label-xs text-on-surface-variant">
             {account.archived ? "Diarsipkan" : "Aktif"}
           </span>
@@ -154,7 +155,7 @@ export function AccountRow({ account, onError }: AccountRowProps) {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={handleDelete}
-            className="text-destructive focus:text-destructive"
+            className="text-expense focus:text-expense"
           >
             <Icon name="delete" size={18} />
             Hapus

@@ -203,7 +203,7 @@ export function RecurringListRow({ template, onError }: RecurringListRowProps) {
           type="button"
           variant="ghost"
           size="icon"
-          className="ml-auto size-11 text-destructive hover:text-destructive"
+          className="ml-auto size-11 text-expense hover:text-expense"
           onClick={handleDelete}
           disabled={isPending}
           aria-label={`Hapus ${template.name}`}

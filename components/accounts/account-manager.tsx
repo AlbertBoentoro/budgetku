@@ -36,7 +36,7 @@ export function AccountManager({ sections, archived }: AccountManagerProps) {
       {actionError ? (
         <p
           role="alert"
-          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-expense"
         >
           {actionError}
         </p>
@@ -59,12 +59,15 @@ export function AccountManager({ sections, archived }: AccountManagerProps) {
                 {section.rows.length}
               </span>
             </span>
-            <AmountText
-              value={section.subtotal}
-              size="none"
-              tone={section.subtotal < 0 ? "expense" : "default"}
-              className="text-currency-body"
-            />
+            {/* Size on the wrapper: tailwind-merge reads text-currency-body as
+                a color and would drop the expense tone if passed together. */}
+            <span className="shrink-0 text-currency-body">
+              <AmountText
+                value={section.subtotal}
+                size="none"
+                tone={section.subtotal < 0 ? "expense" : "default"}
+              />
+            </span>
           </header>
           <ul className="flex flex-col divide-y divide-outline-variant border-t border-outline-variant">
             {section.rows.map((account) => (

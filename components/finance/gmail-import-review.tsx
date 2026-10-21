@@ -269,7 +269,7 @@ export function GmailImportReview({
           <p
             id={amountErrId}
             role="alert"
-            className="text-body-sm text-destructive"
+            className="text-body-sm text-expense"
           >
             {fieldErrors.amount}
           </p>
@@ -297,7 +297,7 @@ export function GmailImportReview({
           <p
             id={accountErrId}
             role="alert"
-            className="text-body-sm text-destructive"
+            className="text-body-sm text-expense"
           >
             {fieldErrors.account_id}
           </p>
@@ -325,7 +325,7 @@ export function GmailImportReview({
           <p
             id={categoryErrId}
             role="alert"
-            className="text-body-sm text-destructive"
+            className="text-body-sm text-expense"
           >
             {fieldErrors.category_id}
           </p>
@@ -349,7 +349,7 @@ export function GmailImportReview({
           <p
             id={dateErrId}
             role="alert"
-            className="text-body-sm text-destructive"
+            className="text-body-sm text-expense"
           >
             {fieldErrors.transaction_at}
           </p>
@@ -383,7 +383,7 @@ export function GmailImportReview({
       {formError ? (
         <p
           role="alert"
-          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-expense"
         >
           {formError}
         </p>

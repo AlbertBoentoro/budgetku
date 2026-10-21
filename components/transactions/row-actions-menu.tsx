@@ -71,7 +71,7 @@ export function RowActionsMenu({ id, label, onError }: RowActionsMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={handleDelete}
-          className="text-destructive focus:text-destructive"
+          className="text-expense focus:text-expense"
         >
           <Icon name="delete" size={18} />
           Hapus

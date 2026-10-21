@@ -196,7 +196,7 @@ export function BudgetItemForm({
           <p
             id={categoryErrId}
             role="alert"
-            className="text-sm text-destructive"
+            className="text-sm text-expense"
           >
             {fieldErrors.category_id}
           </p>
@@ -223,7 +223,7 @@ export function BudgetItemForm({
           </p>
         ) : null}
         {fieldErrors.planned_amount ? (
-          <p id={amountErrId} role="alert" className="text-sm text-destructive">
+          <p id={amountErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.planned_amount}
           </p>
         ) : null}
@@ -259,7 +259,7 @@ export function BudgetItemForm({
       {formError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-expense"
         >
           {formError}
         </p>

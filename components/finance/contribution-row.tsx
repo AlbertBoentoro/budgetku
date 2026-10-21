@@ -71,7 +71,7 @@ export function ContributionRow({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-11 shrink-0 text-on-surface-variant hover:text-destructive"
+        className="size-11 shrink-0 text-on-surface-variant hover:text-expense"
         aria-label="Hapus kontribusi"
         onClick={handleDelete}
         disabled={isPending}

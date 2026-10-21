@@ -26,7 +26,7 @@ export function TransactionDayGroups({ groups }: TransactionDayGroupsProps) {
       {actionError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-expense"
         >
           {actionError}
         </p>

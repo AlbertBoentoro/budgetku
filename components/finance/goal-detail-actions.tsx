@@ -107,7 +107,7 @@ export function GoalDetailActions({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={handleDelete}
-            className="text-destructive focus:text-destructive"
+            className="text-expense focus:text-expense"
           >
             <Icon name="delete" size={18} />
             Hapus Target
@@ -118,7 +118,7 @@ export function GoalDetailActions({
       {error ? (
         <p
           role="alert"
-          className="w-full rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+          className="w-full rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-expense"
         >
           {error}
         </p>

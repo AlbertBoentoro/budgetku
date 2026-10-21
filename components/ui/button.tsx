@@ -12,7 +12,9 @@ const buttonVariants = cva(
         default:
           "bg-primary text-primary-foreground shadow hover:bg-primary/90",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+          // Hover darkens to red-700 (white 6.47:1); a lighter /90 hover fell
+          // to 4.30:1 with white text.
+          "bg-destructive text-destructive-foreground shadow-sm hover:bg-expense",
         outline:
           "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
         secondary:

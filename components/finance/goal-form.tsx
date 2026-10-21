@@ -169,7 +169,7 @@ export function GoalForm({
           autoComplete="off"
         />
         {fieldErrors.name ? (
-          <p id={nameErrId} role="alert" className="text-sm text-destructive">
+          <p id={nameErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.name}
           </p>
         ) : null}
@@ -195,7 +195,7 @@ export function GoalForm({
           </p>
         ) : null}
         {fieldErrors.target_amount ? (
-          <p id={amountErrId} role="alert" className="text-sm text-destructive">
+          <p id={amountErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.target_amount}
           </p>
         ) : null}
@@ -214,7 +214,7 @@ export function GoalForm({
         />
         <p className="text-sm text-muted-foreground">Opsional.</p>
         {fieldErrors.target_date ? (
-          <p id={dateErrId} role="alert" className="text-sm text-destructive">
+          <p id={dateErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.target_date}
           </p>
         ) : null}
@@ -289,7 +289,7 @@ export function GoalForm({
       {formError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-expense"
         >
           {formError}
         </p>
