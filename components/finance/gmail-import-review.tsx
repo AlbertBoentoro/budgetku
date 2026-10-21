@@ -14,28 +14,33 @@ import {
   importDraft,
   type ActionResult,
 } from "@/app/(app)/settings/gmail/actions";
+import { AmountText } from "@/components/finance/amount-text";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 // Re-declared identically to the string in components/finance/transaction-form.tsx
-// (the source of truth for native-select styling). Kept local to avoid editing
-// the transaction form; if these ever diverge, update both (design §9).
+// (the source of truth for native-select styling), with Calm Ledger tokens
+// swapped for the Stitch surface palette. Kept local to avoid editing the
+// transaction form; if these ever diverge, update both (design §9).
 const selectClassName =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
+  "flex h-11 w-full rounded-md border border-border bg-surface-container-lowest px-3 py-1 text-base text-on-surface shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
 // Gmail drafts are income/expense only (a transfer needs two owned accounts the
 // email cannot reliably identify). Transfer is filtered out here and rejected
-// server-side.
+// server-side. TRANSACTION_TYPES stays the source of truth for the labels; the
+// glyphs come from a local Material Symbols map so this screen carries no lucide.
 const DRAFT_TYPES = TRANSACTION_TYPES.filter(
   (t) => t.value === "income" || t.value === "expense",
 );
 
-const idrPreview = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
+// income reads as an inbound arrow, expense as outbound, mirroring the ledger
+// row's local glyph map (recent-transaction-row.tsx).
+const DRAFT_TYPE_GLYPH: Record<"income" | "expense", string> = {
+  income: "arrow_downward",
+  expense: "arrow_upward",
+};
 
 // The re-parsed, display-only candidate values for one opened draft. Any field
 // may be null (not detected); nothing here is fabricated or persisted.
@@ -119,10 +124,8 @@ export function GmailImportReview({
     transactionType === "income" ? incomeCategories : expenseCategories;
 
   const parsedAmount = useMemo(() => parseIdrInput(amountInput), [amountInput]);
-  const amountPreview =
-    amountInput.trim() === "" || parsedAmount === null
-      ? null
-      : idrPreview.format(parsedAmount);
+  const hasAmountPreview =
+    amountInput.trim() !== "" && parsedAmount !== null && parsedAmount > 0;
 
   function handleTypeChange(nextType: "income" | "expense") {
     setTransactionType(nextType);
@@ -183,12 +186,12 @@ export function GmailImportReview({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-5 rounded-md border border-input bg-muted/20 p-4"
+      className="flex flex-col gap-5 rounded-xl border border-border bg-surface-container p-4"
       noValidate
     >
       <div className="flex flex-col gap-1">
-        <h3 className="text-sm font-medium">Tinjau transaksi</h3>
-        <p className="text-sm text-muted-foreground">
+        <h3 className="text-title-md text-on-surface">Tinjau transaksi</h3>
+        <p className="text-body-sm text-on-surface-variant">
           Nilai di bawah terdeteksi dari email dan bisa kamu ubah. Pilih rekening
           dan kategori sebelum menyimpan.
           {candidate.confidence === "low"
@@ -198,7 +201,7 @@ export function GmailImportReview({
       </div>
 
       <div className="flex flex-col gap-2">
-        <span id={typeLabelId} className="text-sm font-medium">
+        <span id={typeLabelId} className="text-label-md text-on-surface">
           Jenis transaksi
         </span>
         <div
@@ -207,24 +210,22 @@ export function GmailImportReview({
           className="grid grid-cols-2 gap-2"
         >
           {DRAFT_TYPES.map((type) => {
-            const selected = transactionType === type.value;
-            const Icon = type.icon;
+            const value = type.value as "income" | "expense";
+            const selected = transactionType === value;
             return (
               <button
                 key={type.value}
                 type="button"
                 aria-pressed={selected}
-                onClick={() =>
-                  handleTypeChange(type.value as "income" | "expense")
-                }
+                onClick={() => handleTypeChange(value)}
                 className={cn(
-                  "flex h-11 items-center justify-center gap-1.5 rounded-md border px-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  "flex h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-body-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   selected
                     ? "border-primary bg-primary text-primary-foreground"
-                    : "border-input bg-transparent text-muted-foreground hover:text-foreground",
+                    : "border-border bg-surface-container-lowest text-on-surface-variant hover:text-on-surface",
                 )}
               >
-                <Icon className="size-4 shrink-0" aria-hidden />
+                <Icon name={DRAFT_TYPE_GLYPH[value]} size={18} aria-hidden />
                 {type.label}
               </button>
             );
@@ -244,17 +245,32 @@ export function GmailImportReview({
           aria-invalid={fieldErrors.amount ? true : undefined}
           aria-describedby={fieldErrors.amount ? amountErrId : undefined}
         />
-        {amountPreview ? (
-          <p className="text-sm text-muted-foreground tabular-nums">
-            {amountPreview}
-          </p>
+        {hasAmountPreview ? (
+          // Preview the detected amount with sign + tone so expense reads as a
+          // red "-Rp" and income as an emerald "+Rp"; meaning never rests on
+          // color alone. The leading sign comes from AmountText's `signed`.
+          <AmountText
+            value={
+              transactionType === "expense"
+                ? -(parsedAmount as number)
+                : (parsedAmount as number)
+            }
+            tone={transactionType === "expense" ? "expense" : "income"}
+            size="none"
+            signed
+            className="text-currency-body"
+          />
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body-sm text-on-surface-variant">
             Nominal tidak terdeteksi dari email. Isi manual.
           </p>
         )}
         {fieldErrors.amount ? (
-          <p id={amountErrId} role="alert" className="text-sm text-destructive">
+          <p
+            id={amountErrId}
+            role="alert"
+            className="text-body-sm text-destructive"
+          >
             {fieldErrors.amount}
           </p>
         ) : null}
@@ -278,7 +294,11 @@ export function GmailImportReview({
           ))}
         </select>
         {fieldErrors.account_id ? (
-          <p id={accountErrId} role="alert" className="text-sm text-destructive">
+          <p
+            id={accountErrId}
+            role="alert"
+            className="text-body-sm text-destructive"
+          >
             {fieldErrors.account_id}
           </p>
         ) : null}
@@ -305,7 +325,7 @@ export function GmailImportReview({
           <p
             id={categoryErrId}
             role="alert"
-            className="text-sm text-destructive"
+            className="text-body-sm text-destructive"
           >
             {fieldErrors.category_id}
           </p>
@@ -326,7 +346,11 @@ export function GmailImportReview({
           }
         />
         {fieldErrors.transaction_at ? (
-          <p id={dateErrId} role="alert" className="text-sm text-destructive">
+          <p
+            id={dateErrId}
+            role="alert"
+            className="text-body-sm text-destructive"
+          >
             {fieldErrors.transaction_at}
           </p>
         ) : null}
@@ -359,7 +383,7 @@ export function GmailImportReview({
       {formError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
         >
           {formError}
         </p>

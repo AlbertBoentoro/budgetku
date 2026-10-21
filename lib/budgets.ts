@@ -99,6 +99,25 @@ export function monthRange(monthParam: string): {
   return { startISO, endISO };
 }
 
+// Whole days remaining in the selected month, counting from `now` to the first
+// of the next month (the same UTC [start, next-first) window as monthRange).
+// This is DATE/PRESENTATION math only — not a financial calculation and not a
+// change to any money logic. Returns 0 for a month that has already ended (so a
+// past month shows no "days left"), and the full month length for a future
+// month (now before the window start). Used for the factual "Tersisa N hari".
+export function monthRemainingDays(monthParam: string, now: Date = new Date()): number {
+  if (!isMonthParam(monthParam)) return 0;
+  const { startISO, endISO } = monthRange(monthParam);
+  const start = new Date(startISO).getTime();
+  const end = new Date(endISO).getTime();
+  const current = now.getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const totalDays = Math.round((end - start) / dayMs);
+  if (current >= end) return 0; // past month
+  if (current < start) return totalDays; // future month
+  return Math.min(totalDays, Math.max(0, Math.ceil((end - current) / dayMs)));
+}
+
 // At most one budget per (user, month). month is passed in storage form.
 export async function fetchBudgetForMonth(
   supabase: ServerSupabaseClient,

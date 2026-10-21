@@ -1,4 +1,4 @@
-import { Check, Mail } from "lucide-react";
+import { Icon } from "@/components/ui/icon";
 
 // One processed entry (imported or ignored) from stored metadata only.
 export interface GmailHistoryView {
@@ -35,40 +35,32 @@ function formatSender(sender: string | null): string {
  */
 export function GmailImportHistory({ entries }: GmailImportHistoryProps) {
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Riwayat</h2>
-        <span className="text-sm text-muted-foreground tabular-nums">
+        <h2 className="text-title-md text-on-surface">Riwayat</h2>
+        <span className="text-label-md text-on-surface-variant tabular-nums">
           {entries.length}
         </span>
       </div>
 
-      <ul className="flex flex-col divide-y rounded-2xl border bg-card">
+      <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
         {entries.map((entry) => {
           const processed = formatProcessed(entry.processedAt);
           const isImported = entry.status === "imported";
           return (
             <li key={entry.id} className="flex items-start gap-3 px-4 py-3">
-              {isImported ? (
-                <Check
-                  className="mt-0.5 size-5 shrink-0 text-muted-foreground"
-                  aria-hidden
-                />
-              ) : (
-                <Mail
-                  className="mt-0.5 size-5 shrink-0 text-muted-foreground"
-                  aria-hidden
-                />
-              )}
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+                <Icon name={isImported ? "check" : "block"} size={20} />
+              </span>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-sm font-medium">
+                <span className="truncate text-body-md text-on-surface">
                   {entry.subject?.trim() || "(Tanpa subjek)"}
                 </span>
-                <span className="truncate text-sm text-muted-foreground">
+                <span className="truncate text-body-sm text-on-surface-variant">
                   {formatSender(entry.sender)}
-                  {processed ? ` · ${processed}` : ""}
+                  {processed ? ` \u00b7 ${processed}` : ""}
                 </span>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-body-sm text-on-surface-variant">
                   {isImported ? "Sudah diimpor" : "Diabaikan"}
                 </span>
               </div>

@@ -2,13 +2,13 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { AlertTriangle, Mail } from "lucide-react";
 
 import {
   ignoreImport,
   type ActionResult,
 } from "@/app/(app)/settings/gmail/actions";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 
 // One row's worth of STORED honest metadata (design §4.4 step 1: list rows use
 // stored metadata only, never a per-row Gmail get and never a parsed amount).
@@ -66,40 +66,28 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
   return (
     <li className="flex flex-col gap-3 px-4 py-3">
       <div className="flex items-start gap-3">
-        {isFailed ? (
-          <AlertTriangle
-            className="mt-0.5 size-5 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
-        ) : (
-          <Mail
-            className="mt-0.5 size-5 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
-        )}
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+          <Icon name={isFailed ? "error" : "mail"} size={20} />
+        </span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-sm font-medium">
+          <span className="truncate text-body-md text-on-surface">
             {draft.subject?.trim() || "(Tanpa subjek)"}
           </span>
-          <span className="truncate text-sm text-muted-foreground">
+          <span className="truncate text-body-sm text-on-surface-variant">
             {senderLabel}
-            {received ? ` · ${received}` : ""}
+            {received ? ` \u00b7 ${received}` : ""}
           </span>
-          {isFailed ? (
-            <span className="text-sm text-muted-foreground">
-              Tidak bisa membaca detail dari email ini.
-            </span>
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              Perlu dicek sebelum disimpan.
-            </span>
-          )}
+          <span className="text-body-sm text-on-surface-variant">
+            {isFailed
+              ? "Tidak bisa membaca detail dari email ini."
+              : "Perlu dicek sebelum disimpan."}
+          </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 pl-8">
+      <div className="flex items-center gap-2 pl-[52px]">
         {!isFailed ? (
-          <Button asChild size="sm" className="h-9">
+          <Button asChild size="sm" className="h-11">
             <Link href={`/settings/gmail?review=${draft.id}`} scroll={false}>
               Tinjau
             </Link>
@@ -109,7 +97,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
           type="button"
           variant="ghost"
           size="sm"
-          className="h-9 text-muted-foreground"
+          className="h-11 text-on-surface-variant"
           onClick={handleIgnore}
           disabled={isPending}
         >

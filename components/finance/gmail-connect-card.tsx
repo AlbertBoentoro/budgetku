@@ -1,6 +1,5 @@
-import { Mail, ShieldCheck } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 
 /**
  * Not-connected state (design §11). Honest explanation that Budgetku reads
@@ -13,12 +12,14 @@ import { Button } from "@/components/ui/button";
  */
 export function GmailConnectCard() {
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border bg-card p-5">
+    <section className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-5 shadow-sm">
       <div className="flex items-start gap-3">
-        <Mail className="size-5 shrink-0 text-muted-foreground" aria-hidden />
-        <div className="flex flex-col gap-1">
-          <h2 className="text-sm font-medium">Hubungkan Gmail</h2>
-          <p className="text-sm text-muted-foreground">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+          <Icon name="mail" size={22} />
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 className="text-title-md text-on-surface">Hubungkan Gmail</h2>
+          <p className="text-body-sm text-on-surface-variant">
             Budgetku membaca email kamu secara hanya-baca untuk mendeteksi
             transaksi dari BCA, Shopee, dan GoPay. Deteksi bersifat perkiraan dan
             bisa meleset.
@@ -26,12 +27,13 @@ export function GmailConnectCard() {
         </div>
       </div>
 
-      <div className="flex items-start gap-3 rounded-md border border-input bg-muted/30 p-3">
-        <ShieldCheck
-          className="size-4 shrink-0 text-muted-foreground"
-          aria-hidden
+      <div className="flex items-start gap-3 rounded-lg border border-border bg-surface-container p-3">
+        <Icon
+          name="lock"
+          size={18}
+          className="mt-0.5 shrink-0 text-on-surface-variant"
         />
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body-sm text-on-surface-variant">
           Tidak ada transaksi yang tersimpan tanpa kamu konfirmasi dulu. Budgetku
           tidak bisa mengirim atau mengubah email kamu.
         </p>
@@ -41,7 +43,7 @@ export function GmailConnectCard() {
         {/* Plain anchor, not next/link: /api/gmail/connect is a route handler
             that sets the state cookie then 3xx-redirects to Google. */}
         <a href="/api/gmail/connect">
-          <Mail aria-hidden />
+          <Icon name="mail" size={18} aria-hidden />
           Hubungkan Gmail
         </a>
       </Button>

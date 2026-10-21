@@ -1,7 +1,6 @@
 "use client";
 
 import { useTransition } from "react";
-import { Trash2 } from "lucide-react";
 
 import {
   deleteContribution,
@@ -10,6 +9,7 @@ import {
 import { formatGoalDate, type GoalContributionRow } from "@/lib/goals";
 import { AmountText } from "@/components/finance/amount-text";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 
 interface ContributionRowProps {
   contribution: GoalContributionRow;
@@ -17,6 +17,10 @@ interface ContributionRowProps {
   onError: (message: string) => void;
 }
 
+// Stitch ledger row for one contribution: a savings glyph + note/date on the
+// left, the amount as a signed emerald "+Rp..." on the right (sign + tone +
+// label carry the income meaning, never color alone), and a per-row delete
+// wired to the unchanged deleteContribution action.
 export function ContributionRow({
   contribution,
   goalId,
@@ -45,23 +49,34 @@ export function ContributionRow({
 
   return (
     <li className="flex items-center gap-3 px-4 py-3">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+        <Icon name="savings" size={20} />
+      </span>
       <div className="flex min-w-0 flex-1 flex-col">
-        <AmountText value={safeAmount} size="md" />
-        <span className="text-sm text-muted-foreground">
+        <span className="truncate text-body-md text-on-surface">
+          {contribution.note ? contribution.note : "Kontribusi"}
+        </span>
+        <span className="truncate text-body-sm text-on-surface-variant">
           {date ?? "Tanpa tanggal"}
-          {contribution.note ? ` · ${contribution.note}` : ""}
         </span>
       </div>
+      <AmountText
+        value={safeAmount}
+        tone="income"
+        signed
+        size="none"
+        className="shrink-0 text-currency-body"
+      />
       <Button
         type="button"
         variant="ghost"
         size="icon"
-        className="size-11 shrink-0 text-destructive hover:text-destructive"
+        className="size-11 shrink-0 text-on-surface-variant hover:text-destructive"
         aria-label="Hapus kontribusi"
         onClick={handleDelete}
         disabled={isPending}
       >
-        <Trash2 className="size-5" aria-hidden />
+        <Icon name="delete" size={20} />
       </Button>
     </li>
   );

@@ -1,38 +1,45 @@
-import { Check } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 import type { GoalProgress as GoalProgressData } from "@/lib/goals";
 import { AmountText } from "@/components/finance/amount-text";
+import { Icon } from "@/components/ui/icon";
 
 interface GoalProgressProps {
   progress: GoalProgressData;
-  // "md" on the detail page, "sm" compact on list rows.
-  size?: "sm" | "md";
+  // "sm" is the compact list-card layout; "lg" is the prominent detail layout.
+  size?: "sm" | "lg";
 }
 
 // Renders the progress line with real numbers (terkumpul / target, percent,
-// sisa) plus a purely decorative bar. The bar is aria-hidden; meaning always
-// lives in the text beside it, never in color alone.
-export function GoalProgress({ progress, size = "md" }: GoalProgressProps) {
+// sisa) plus a token progress bar. The bar is aria-hidden; meaning always lives
+// in the text beside it (saved/target, percent, achieved/sisa), never in color
+// alone. Both list cards and the detail overview share this component.
+export function GoalProgress({ progress, size = "sm" }: GoalProgressProps) {
   const { saved, target, remaining, barPercent, isAchieved } = progress;
   // Whole-percent for the label (floor so "100%" means truly reached).
-  const percentLabel = `${Math.floor(barPercent)}%`;
-  const amountSize = size === "sm" ? "sm" : "md";
+  const pct = Math.floor(barPercent);
+  const amountSize = size === "lg" ? "text-currency-body" : "text-body-md";
 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-        <span className="text-sm text-muted-foreground tabular-nums">
-          Terkumpul <AmountText value={saved} size={amountSize} /> /{" "}
-          <AmountText value={target} size={amountSize} />
+        <AmountText
+          value={saved}
+          size="none"
+          className={cn(amountSize, "text-on-surface")}
+        />
+        <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 text-label-xs font-medium text-on-surface-variant tabular-nums">
+          {pct}%
         </span>
-        <span className="text-sm font-medium tabular-nums">{percentLabel}</span>
       </div>
 
-      {/* Decorative bar: width reflects progress but conveys nothing on its
-          own; the numbers above and the status/sisa line below carry meaning. */}
+      <p className="text-body-sm text-on-surface-variant">
+        Target <AmountText value={target} size="none" className="text-body-sm" />
+      </p>
+
+      {/* Token bar: width reflects progress but conveys nothing on its own; the
+          numbers above and the status/sisa line below carry the meaning. */}
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        className="h-2 w-full overflow-hidden rounded-full bg-surface-container-low"
         aria-hidden
       >
         <div
@@ -45,13 +52,15 @@ export function GoalProgress({ progress, size = "md" }: GoalProgressProps) {
       </div>
 
       {isAchieved ? (
-        <span className="flex items-center gap-1.5 text-sm text-income">
-          <Check className="size-4 shrink-0" aria-hidden />
+        <span className="flex items-center gap-1.5 text-body-sm text-income">
+          <Icon name="check_circle" size={16} />
           Target tercapai
         </span>
       ) : (
-        <span className="text-sm text-muted-foreground tabular-nums">
-          Sisa <AmountText value={remaining} size="sm" />
+        <span className="text-body-sm text-on-surface-variant">
+          Sisa{" "}
+          <AmountText value={remaining} size="none" className="text-body-sm" />{" "}
+          lagi
         </span>
       )}
     </div>

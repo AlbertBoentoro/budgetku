@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus, PieChart, Target } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -9,6 +8,7 @@ import {
   computeItemUsage,
   fetchBudgetForMonth,
   fetchBudgetItems,
+  monthRemainingDays,
   resolveMonthParam,
   toMonthStorage,
   type BudgetItemView,
@@ -21,6 +21,7 @@ import { BudgetMonthSwitcher } from "@/components/finance/budget-month-switcher"
 import { BudgetSummary } from "@/components/finance/budget-summary";
 import { BudgetItemList } from "@/components/finance/budget-item-list";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { BudgetLoading } from "@/app/(app)/budget/loading";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -35,12 +36,15 @@ export default function BudgetPage({
       <AppHeader
         title="Anggaran"
         action={
-          // Goals (Target tabungan) lives under Budget: both are money
-          // planning. Reachable here instead of taking a bottom-nav slot.
-          <Button asChild variant="ghost" size="sm" className="h-9">
+          // Goals (Target Tabungan) lives under Budget: both are money
+          // planning. Reachable here instead of taking a bottom-nav slot. The
+          // mockup's right-side Target link is satisfied by this header action
+          // (one placement, not duplicated below the month row).
+          <Button asChild variant="ghost" size="sm" className="h-9 text-secondary">
             <Link href="/goals">
-              <Target aria-hidden />
-              Target tabungan
+              <Icon name="savings" size={18} />
+              Target Tabungan
+              <Icon name="arrow_forward" size={18} />
             </Link>
           </Button>
         }
@@ -87,14 +91,17 @@ async function BudgetContent({
       <div className="flex flex-col gap-6">
         <BudgetMonthSwitcher monthParam={monthParam} />
         <div className="flex flex-col items-center gap-4">
-          <EmptyState
-            icon={PieChart}
-            title="Belum ada anggaran untuk bulan ini"
-            description="Buat anggaran bulan ini untuk menetapkan batas pengeluaran per kategori."
-          />
+          <div className="flex flex-col items-center gap-2 pt-6">
+            <Icon name="savings" size={28} className="text-on-surface-variant" />
+            <EmptyState
+              title="Belum ada anggaran untuk bulan ini"
+              description="Buat anggaran bulan ini untuk menetapkan batas pengeluaran per kategori."
+              className="py-0"
+            />
+          </div>
           <Button asChild className="h-11">
             <Link href={`/budget/new?month=${monthParam}`}>
-              <Plus aria-hidden />
+              <Icon name="add" size={20} />
               Tambah anggaran
             </Link>
           </Button>
@@ -155,41 +162,62 @@ async function BudgetContent({
 
   const totals = computeBudgetTotals(views);
 
+  // Real days left in the selected month (date math, not money). Only shown for
+  // the current/future month (N > 0); past months show no "days left" line.
+  const daysLeft = monthRemainingDays(monthParam);
+
   return (
     <div className="flex flex-col gap-6">
       <BudgetMonthSwitcher monthParam={monthParam} />
 
-      <BudgetSummary totals={totals} incomplete={spendingIncomplete} />
+      <div className="flex flex-col gap-2">
+        <BudgetSummary totals={totals} incomplete={spendingIncomplete} />
+        {daysLeft > 0 ? (
+          <p className="px-1 text-body-sm text-on-surface-variant">
+            Tersisa {daysLeft} hari bulan ini.
+          </p>
+        ) : null}
+      </div>
 
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          Batas per kategori
-        </h2>
-        <Button asChild size="sm" className="h-9">
-          <Link href={`/budget/items/new?month=${monthParam}`}>
-            <Plus aria-hidden />
-            Tambah kategori
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <h2 className="text-title-md text-on-surface">
+            Batas Pengeluaran Kategori
+          </h2>
+          <span className="rounded-full bg-surface-container px-2 py-0.5 text-label-md text-on-surface-variant">
+            {views.length} Pos
+          </span>
+        </div>
       </div>
 
       {views.length === 0 ? (
         // Empty — budget exists but has no category limits yet.
         <div className="flex flex-col items-center gap-4">
-          <EmptyState
-            icon={PieChart}
-            title="Belum ada batas kategori"
-            description="Tambahkan batas pengeluaran untuk kategori pertamamu."
-          />
-          <Button asChild className="h-11">
+          <div className="flex flex-col items-center gap-2 pt-2">
+            <Icon name="category" size={28} className="text-on-surface-variant" />
+            <EmptyState
+              title="Belum ada batas kategori"
+              description="Tambahkan batas pengeluaran untuk kategori pertamamu."
+              className="py-0"
+            />
+          </div>
+          <Button asChild className="h-11 w-full">
             <Link href={`/budget/items/new?month=${monthParam}`}>
-              <Plus aria-hidden />
-              Tambah kategori
+              <Icon name="add" size={20} />
+              Atur Anggaran Kategori
             </Link>
           </Button>
         </div>
       ) : (
-        <BudgetItemList items={views} monthParam={monthParam} />
+        <>
+          <BudgetItemList items={views} monthParam={monthParam} />
+          <Button asChild className="h-11 w-full">
+            <Link href={`/budget/items/new?month=${monthParam}`}>
+              <Icon name="add" size={20} />
+              Tambah kategori
+            </Link>
+          </Button>
+        </>
       )}
     </div>
   );
@@ -201,7 +229,7 @@ function BudgetError({ message }: { message: string }) {
       role="alert"
       className="flex flex-col items-center gap-4 py-10 text-center"
     >
-      <p className="max-w-xs text-sm text-muted-foreground">{message}</p>
+      <p className="max-w-xs text-body-sm text-on-surface-variant">{message}</p>
       <Button asChild variant="outline" className="h-11">
         <Link href="/budget">Muat ulang</Link>
       </Button>

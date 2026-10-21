@@ -2,9 +2,7 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { AlertTriangle, MoreVertical, Pencil, Trash2 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import type { BudgetItemView } from "@/lib/budgets";
 import {
   deleteBudgetItem,
@@ -12,6 +10,7 @@ import {
 } from "@/app/(app)/budget/actions";
 import { AmountText } from "@/components/finance/amount-text";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,10 +25,16 @@ interface BudgetItemRowProps {
   onError: (message: string) => void;
 }
 
+// Near-budget threshold: flag "Mendekati batas" once real usage reaches 90% of
+// the plan and is not yet over. Presentation constant, not money logic.
+const NEAR_BUDGET_RATIO = 0.9;
+
 export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps) {
   const [isPending, startTransition] = useTransition();
   const { usage } = item;
   const label = item.categoryName ?? "Kategori";
+  const pct = Math.round(usage.barPercent);
+  const isNear = !usage.isOverBudget && usage.ratio >= NEAR_BUDGET_RATIO;
 
   function handleDelete() {
     const confirmed = window.confirm(
@@ -45,23 +50,67 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
   }
 
   return (
-    <li className="flex flex-col gap-2 px-4 py-3">
+    <li className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-3.5 shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-medium">{label}</span>
-            {item.is_fixed ? (
-              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                Tetap
-              </span>
-            ) : null}
-          </div>
-          {/* Real numbers always accompany the bar — never color alone. */}
-          <span className="text-sm text-muted-foreground tabular-nums">
-            Terpakai <AmountText value={usage.spent} size="sm" /> /{" "}
-            <AmountText value={usage.planned} size="sm" />
+        <Link
+          href={`/budget/items/${item.id}/edit?month=${monthParam}`}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {/* One neutral glyph for every category: the stored category icon is
+              unvalidated and no name->glyph map exists, so a per-category icon
+              would be fabricated. */}
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container">
+            <Icon name="category" size={20} className="text-on-surface-variant" />
           </span>
-        </div>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="flex items-center gap-2">
+              <span className="truncate text-body-md text-on-surface">
+                {label}
+              </span>
+              {item.is_fixed ? (
+                <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 text-label-xs text-on-surface-variant">
+                  Tetap
+                </span>
+              ) : null}
+            </span>
+            <span className="truncate text-body-sm text-on-surface-variant">
+              Batas{" "}
+              <AmountText
+                value={usage.planned}
+                size="none"
+                className="text-body-sm"
+              />
+            </span>
+          </span>
+        </Link>
+
+        <span className="flex shrink-0 flex-col items-end gap-0.5">
+          <AmountText
+            value={usage.spent}
+            size="none"
+            className="text-currency-body text-on-surface"
+          />
+          {usage.isOverBudget ? (
+            <span className="text-label-xs text-expense">
+              +
+              <AmountText
+                value={-usage.remaining}
+                size="none"
+                tone="expense"
+                className="text-label-xs"
+              />
+            </span>
+          ) : (
+            <span className="text-label-xs text-on-surface-variant">
+              Sisa{" "}
+              <AmountText
+                value={usage.remaining}
+                size="none"
+                className="text-label-xs"
+              />
+            </span>
+          )}
+        </span>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -69,17 +118,17 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
               type="button"
               variant="ghost"
               size="icon"
-              className="size-11 shrink-0"
+              className="size-11 shrink-0 text-on-surface-variant"
               aria-label={`Aksi untuk ${label}`}
               disabled={isPending}
             >
-              <MoreVertical className="size-5" aria-hidden />
+              <Icon name="more_vert" size={20} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
               <Link href={`/budget/items/${item.id}/edit?month=${monthParam}`}>
-                <Pencil aria-hidden />
+                <Icon name="edit" size={18} />
                 Edit
               </Link>
             </DropdownMenuItem>
@@ -88,44 +137,45 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
               onSelect={handleDelete}
               className="text-destructive focus:text-destructive"
             >
-              <Trash2 aria-hidden />
+              <Icon name="delete" size={18} />
               Hapus
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      {/* Secondary usage bar. Width reflects the ratio but is purely visual;
-          the meaning lives in the text above and the over/remaining line
-          below, so it never conveys status by color alone. */}
+      {/* Usage bar width reflects the real ratio; status is also named in text
+          + icon below so meaning is never carried by the bar color alone. */}
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
-        aria-hidden
+        className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-low"
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${label} ${pct} persen terpakai`}
       >
         <div
-          className={cn(
-            "h-full rounded-full",
-            usage.isOverBudget ? "bg-expense" : "bg-primary",
-          )}
+          className={`h-full rounded-full ${usage.isOverBudget ? "bg-expense" : "bg-primary"}`}
           style={{ width: `${usage.barPercent}%` }}
         />
       </div>
 
-      {usage.isOverBudget ? (
-        <span className="flex items-center gap-1.5 text-sm text-expense">
-          <AlertTriangle className="size-4 shrink-0" aria-hidden />
-          Melebihi anggaran{" "}
-          <AmountText
-            value={-usage.remaining}
-            size="sm"
-            tone="expense"
-          />
-        </span>
-      ) : (
-        <span className="text-sm text-muted-foreground">
-          Sisa <AmountText value={usage.remaining} size="sm" />
-        </span>
-      )}
+      <div className="flex items-center justify-between gap-2 text-body-sm">
+        <span className="text-on-surface-variant">{pct}% terpakai</span>
+        {usage.isOverBudget ? (
+          <span className="flex items-center gap-1 text-expense">
+            <Icon name="error" size={16} />
+            Melebihi batas
+          </span>
+        ) : isNear ? (
+          <span className="flex items-center gap-1 text-on-surface-variant">
+            <Icon name="warning" size={16} />
+            Mendekati batas
+          </span>
+        ) : (
+          <span className="text-on-surface-variant">Normal</span>
+        )}
+      </div>
     </li>
   );
 }

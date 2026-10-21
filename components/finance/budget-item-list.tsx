@@ -20,13 +20,13 @@ export function BudgetItemList({ items, monthParam }: BudgetItemListProps) {
       {actionError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-error/40 bg-error-container px-3 py-2 text-body-sm text-on-error-container"
         >
           {actionError}
         </p>
       ) : null}
 
-      <ul className="flex flex-col divide-y rounded-2xl border bg-card">
+      <ul className="flex flex-col gap-3">
         {items.map((item) => (
           <BudgetItemRow
             key={item.id}

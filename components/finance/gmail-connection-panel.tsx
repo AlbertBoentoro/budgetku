@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Mail, RefreshCw } from "lucide-react";
 
 import {
   disconnectGmail,
@@ -9,6 +8,7 @@ import {
   type ActionResult,
 } from "@/app/(app)/settings/gmail/actions";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 
 interface GmailConnectionPanelProps {
   emailAddress: string;
@@ -69,15 +69,28 @@ export function GmailConnectionPanel({
   const lastSyncedLabel = lastSyncedAt ? formatLastSynced(lastSyncedAt) : "";
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border bg-card p-5">
+    <section className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-5 shadow-sm">
       <div className="flex items-start gap-3">
-        <Mail className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+          <Icon name="mail" size={22} />
+        </span>
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="truncate text-sm font-medium">{emailAddress}</h2>
-          <p className="text-sm text-muted-foreground">
-            {lastSyncedLabel
-              ? `Terakhir disinkronkan: ${lastSyncedLabel}`
-              : "Belum pernah disinkronkan"}
+          <h2 className="truncate text-title-md text-on-surface">
+            {emailAddress}
+          </h2>
+          {/* "Aktif" carries the state as text; the emerald dot is a redundant
+              cue, so meaning never rests on color alone. */}
+          <p className="flex items-center gap-1.5 text-body-sm text-on-surface-variant">
+            <span
+              className="size-2 shrink-0 rounded-full bg-secondary"
+              aria-hidden
+            />
+            <span className="font-medium text-on-surface">Aktif</span>
+            <span aria-hidden>{"\u00b7"}</span>
+            <span>
+              Sinkronisasi:{" "}
+              {lastSyncedLabel ? lastSyncedLabel : "Belum pernah"}
+            </span>
           </p>
         </div>
       </div>
@@ -85,7 +98,7 @@ export function GmailConnectionPanel({
       {error ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
         >
           {error}
         </p>
@@ -98,7 +111,7 @@ export function GmailConnectionPanel({
           disabled={busy}
           className="h-11"
         >
-          <RefreshCw aria-hidden />
+          <Icon name="sync" size={18} aria-hidden />
           {isSyncing ? "Menyinkronkan..." : "Sync sekarang"}
         </Button>
         <Button
@@ -106,7 +119,7 @@ export function GmailConnectionPanel({
           variant="ghost"
           onClick={handleDisconnect}
           disabled={busy}
-          className="h-11 text-muted-foreground"
+          className="h-11 text-on-surface-variant"
         >
           {isDisconnecting ? "Memutuskan..." : "Putuskan koneksi"}
         </Button>

@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Repeat } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -8,26 +7,28 @@ import {
   fetchRecurringTemplates,
   fetchUsableCategories,
   type CategoryRow,
+  type RecurringRow,
 } from "@/lib/recurring";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { EmptyState } from "@/components/shared/empty-state";
 import { RecurringList } from "@/components/finance/recurring-list";
 import type { RecurringRowView } from "@/components/finance/recurring-list-row";
+import { AmountText } from "@/components/finance/amount-text";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { RecurringLoading } from "@/app/(app)/recurring/loading";
 
 export default function RecurringPage() {
   return (
     <>
       <AppHeader
-        title="Transaksi berulang"
+        title="Transaksi Berulang"
         action={
           // Recurring is managed from Settings (not the bottom nav), so offer a
           // clear way back to Pengaturan, its entry point.
-          <Button asChild variant="ghost" size="sm" className="h-9">
+          <Button asChild variant="ghost" size="sm" className="h-11">
             <Link href="/settings">
-              <ArrowLeft aria-hidden />
+              <Icon name="arrow_back" size={18} />
               Pengaturan
             </Link>
           </Button>
@@ -40,6 +41,29 @@ export default function RecurringPage() {
       </PageContainer>
     </>
   );
+}
+
+// Normalize one template's amount to a monthly figure so schedules of mixed
+// cadence are not summed as if they were all monthly. Pure, derived only from
+// real stored fields (frequency, interval_count, amount). Unknown frequency is
+// treated as monthly (the same fallback the frequency helpers use).
+function monthlyEquivalent(template: RecurringRow): number {
+  const interval =
+    Number.isFinite(template.interval_count) && template.interval_count >= 1
+      ? Math.floor(template.interval_count)
+      : 1;
+  const amount = template.amount;
+  switch (template.frequency) {
+    case "daily":
+      return (amount * 30) / interval;
+    case "weekly":
+      return (amount * 52) / 12 / interval;
+    case "yearly":
+      return amount / 12 / interval;
+    case "monthly":
+    default:
+      return amount / interval;
+  }
 }
 
 async function RecurringContent() {
@@ -65,21 +89,33 @@ async function RecurringContent() {
     );
   }
 
-  // No templates at all: a first-run empty state inviting the first entry.
+  // No templates at all: a first-run empty state inviting the first entry via
+  // the add-transaction form (where the "berulang" checkbox lives).
   if (templates.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4">
-        <EmptyState
-          icon={Repeat}
-          title="Belum ada transaksi berulang"
-          description="Buat jadwal untuk pemasukan, pengeluaran, atau transfer yang terjadi berulang."
-        />
-        <Button asChild className="h-11">
-          <Link href="/transactions/new">
-            <Plus aria-hidden />
-            Tambah lewat Tambah transaksi
-          </Link>
-        </Button>
+      <div className="flex flex-col gap-4">
+        <IntroRow />
+        <div className="flex flex-col items-center gap-2 rounded-xl bg-surface-container-lowest p-lg text-center shadow-sm">
+          <span
+            className="flex size-12 items-center justify-center rounded-full bg-surface-container text-on-surface-variant"
+            aria-hidden
+          >
+            <Icon name="event_repeat" size={24} />
+          </span>
+          <p className="text-title-md text-on-surface">
+            Belum ada transaksi berulang
+          </p>
+          <p className="max-w-xs text-body-sm text-on-surface-variant">
+            Buat jadwal untuk pemasukan, pengeluaran, atau transfer yang terjadi
+            berulang lewat Tambah transaksi, lalu centang pilihan berulang.
+          </p>
+          <Button asChild className="mt-2 h-11">
+            <Link href="/transactions/new">
+              <Icon name="add" size={20} />
+              Tambah transaksi
+            </Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -154,21 +190,58 @@ async function RecurringContent() {
   const active = rows.filter((r) => r.is_active);
   const paused = rows.filter((r) => !r.is_active);
 
+  // Real figure: the normalized monthly total of ACTIVE expense templates. Only
+  // expense rows feed this (income/transfer are excluded), so the label is
+  // honest. Rounded to a whole IDR number for display.
+  const monthlyExpenseTotal = Math.round(
+    active
+      .filter((r) => r.transaction_type === "expense")
+      .reduce((sum, r) => sum + monthlyEquivalent(r), 0),
+  );
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          Semua jadwal
-        </h2>
-        <Button asChild size="sm" className="h-9">
-          <Link href="/transactions/new">
-            <Plus aria-hidden />
-            Tambah transaksi
-          </Link>
-        </Button>
-      </div>
+      <IntroRow />
+
+      <section className="flex flex-col gap-1 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+        <span className="text-label-xs uppercase text-on-surface-variant">
+          Total Beban Rutin Bulanan
+        </span>
+        <AmountText
+          value={monthlyExpenseTotal}
+          size="none"
+          tone="expense"
+          className="text-currency-display text-on-surface"
+        />
+        <span className="text-body-sm text-on-surface-variant">
+          Estimasi dari pengeluaran rutin aktif
+        </span>
+        <span className="text-body-sm text-on-surface-variant">
+          {active.length} jadwal aktif
+        </span>
+      </section>
 
       <RecurringList active={active} paused={paused} />
+    </div>
+  );
+}
+
+// Section heading + the create entry point. Creation happens via the
+// add-transaction form (the "berulang" checkbox), so "Tambah Jadwal" routes
+// there; the wording stays honest about where a schedule is created.
+function IntroRow() {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-0.5">
+        <h2 className="text-title-md text-on-surface">Otomatisasi Finansial</h2>
+        <p className="text-body-sm text-on-surface-variant">Jadwal Rutin</p>
+      </div>
+      <Button asChild size="sm" className="h-11 shrink-0">
+        <Link href="/transactions/new">
+          <Icon name="add" size={18} />
+          Tambah Jadwal
+        </Link>
+      </Button>
     </div>
   );
 }
@@ -179,7 +252,7 @@ function RecurringError({ message }: { message: string }) {
       role="alert"
       className="flex flex-col items-center gap-4 py-10 text-center"
     >
-      <p className="max-w-xs text-sm text-muted-foreground">{message}</p>
+      <p className="max-w-xs text-body-sm text-on-surface-variant">{message}</p>
       <Button asChild variant="outline" className="h-11">
         <Link href="/recurring">Muat ulang</Link>
       </Button>

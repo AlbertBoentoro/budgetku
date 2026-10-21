@@ -10,8 +10,8 @@ interface GoalContributionHistoryProps {
   contributions: GoalContributionRow[];
 }
 
-// Wraps the contribution rows with one shared live region for action errors
-// (a failed delete), mirroring the budget item list.
+// Wraps the contribution rows in a Stitch card with one shared live region for
+// action errors (a failed delete), mirroring the account manager surface.
 export function GoalContributionHistory({
   goalId,
   contributions,
@@ -23,13 +23,13 @@ export function GoalContributionHistory({
       {actionError ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
         >
           {actionError}
         </p>
       ) : null}
 
-      <ul className="flex flex-col divide-y rounded-2xl border bg-card">
+      <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
         {contributions.map((contribution) => (
           <ContributionRow
             key={contribution.id}

@@ -60,12 +60,10 @@ export function GmailDraftList({
   const noAccounts = accounts.length === 0;
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-muted-foreground">
-          Perlu ditinjau
-        </h2>
-        <span className="text-sm text-muted-foreground tabular-nums">
+        <h2 className="text-title-md text-on-surface">Perlu ditinjau</h2>
+        <span className="text-label-md text-on-surface-variant tabular-nums">
           {drafts.length}
         </span>
       </div>
@@ -73,7 +71,7 @@ export function GmailDraftList({
       {error ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
         >
           {error}
         </p>
@@ -83,7 +81,7 @@ export function GmailDraftList({
         noAccounts ? (
           <p
             role="alert"
-            className="rounded-md border border-input bg-muted/20 px-3 py-2 text-sm text-muted-foreground"
+            className="rounded-lg border border-border bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant"
           >
             Tambahkan rekening dulu di menu Rekening sebelum menyimpan transaksi
             dari email.
@@ -104,7 +102,7 @@ export function GmailDraftList({
       {review && review.kind === "transient" ? (
         <p
           role="alert"
-          className="rounded-md border border-input bg-muted/20 px-3 py-2 text-sm text-muted-foreground"
+          className="rounded-lg border border-border bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant"
         >
           Tidak bisa memuat ulang detail email ini sekarang. Coba lagi.
         </p>
@@ -113,14 +111,14 @@ export function GmailDraftList({
       {review && review.kind === "gone" ? (
         <p
           role="alert"
-          className="rounded-md border border-input bg-muted/20 px-3 py-2 text-sm text-muted-foreground"
+          className="rounded-lg border border-border bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant"
         >
           Email ini tidak bisa ditemukan lagi. Kamu bisa mengabaikannya atau
           menambahkan transaksinya secara manual.
         </p>
       ) : null}
 
-      <ul className="flex flex-col divide-y rounded-2xl border bg-card">
+      <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
         {drafts.map((draft) => (
           <GmailDraftRow key={draft.id} draft={draft} onError={setError} />
         ))}

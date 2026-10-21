@@ -67,6 +67,24 @@ export function getGoalIcon(value: string | null): LucideIcon {
   return match ? match.icon : Target;
 }
 
+// Parallel Material Symbols glyph map keyed by the SAME curated `icon` values
+// as GOAL_ICONS, so the display screens (goals list + detail) render lucide-free
+// via components/ui/icon.tsx without touching GOAL_ICONS/getGoalIcon (still used
+// by the goal form). Unknown/null falls back to a neutral "flag" glyph.
+const GOAL_GLYPHS: Record<string, string> = {
+  piggy_bank: "savings",
+  target: "target",
+  plane: "flight",
+  graduation_cap: "school",
+  home: "home",
+  gift: "redeem",
+};
+
+export function getGoalGlyph(value: string | null): string {
+  if (value && value in GOAL_GLYPHS) return GOAL_GLYPHS[value];
+  return "flag";
+}
+
 // Indonesian date display (e.g. "4 Mar 2025"), guarded against invalid input so
 // a malformed date never crashes a row (mirrors formatDate in
 // transaction-list-row.tsx).

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import Link from "next/link";
 
 import {
   deleteGoal,
@@ -10,16 +10,32 @@ import {
   type ActionResult,
 } from "@/app/(app)/goals/actions";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface GoalDetailActionsProps {
   goalId: string;
   // Current stored status, so we can offer "Arsipkan" vs "Pulihkan".
   status: string;
+  // Goal name for the delete confirmation copy.
+  name: string;
 }
 
-// Archive/restore and hard-delete controls for a goal (Decision 4). Errors
-// surface in a shared live region; a successful delete returns to the list.
-export function GoalDetailActions({ goalId, status }: GoalDetailActionsProps) {
+// More-menu for a goal detail: Edit, archive/restore (existing setGoalStatus),
+// and hard-delete (existing deleteGoal). Errors surface in a shared live region;
+// a successful delete returns to the list. No "Kalkulasi Ulang" — progress is
+// always computed live from real contributions, so there is nothing to recompute.
+export function GoalDetailActions({
+  goalId,
+  status,
+  name,
+}: GoalDetailActionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +57,7 @@ export function GoalDetailActions({ goalId, status }: GoalDetailActionsProps) {
   function handleDelete() {
     setError(null);
     const confirmed = window.confirm(
-      "Hapus target ini? Seluruh riwayat kontribusinya juga akan dihapus dan tidak bisa dikembalikan.",
+      `Hapus target "${name}"? Seluruh riwayat kontribusinya juga akan dihapus dan tidak bisa dikembalikan.`,
     );
     if (!confirmed) return;
     startTransition(async () => {
@@ -56,47 +72,57 @@ export function GoalDetailActions({ goalId, status }: GoalDetailActionsProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col items-end gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0 text-on-surface-variant"
+            aria-label="Aksi target"
+            disabled={isPending}
+          >
+            <Icon name="more_vert" size={20} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link href={`/goals/${goalId}/edit`}>
+              <Icon name="edit" size={18} />
+              Edit Target
+            </Link>
+          </DropdownMenuItem>
+          {isArchived ? (
+            <DropdownMenuItem onSelect={handleToggleArchive}>
+              <Icon name="unarchive" size={18} />
+              Pulihkan Target
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onSelect={handleToggleArchive}>
+              <Icon name="archive" size={18} />
+              Arsipkan Target
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={handleDelete}
+            className="text-destructive focus:text-destructive"
+          >
+            <Icon name="delete" size={18} />
+            Hapus Target
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
       {error ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="w-full rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
         >
           {error}
         </p>
       ) : null}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11"
-          onClick={handleToggleArchive}
-          disabled={isPending}
-        >
-          {isArchived ? (
-            <>
-              <ArchiveRestore aria-hidden />
-              Pulihkan
-            </>
-          ) : (
-            <>
-              <Archive aria-hidden />
-              Arsipkan
-            </>
-          )}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11 text-destructive hover:text-destructive"
-          onClick={handleDelete}
-          disabled={isPending}
-        >
-          <Trash2 aria-hidden />
-          Hapus
-        </Button>
-      </div>
     </div>
   );
 }

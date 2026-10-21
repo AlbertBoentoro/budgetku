@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowLeft, Inbox } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -10,8 +9,8 @@ import {
 import { reparseDraftMessage } from "@/lib/gmail/sync";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { GmailConnectCard } from "@/components/finance/gmail-connect-card";
 import { GmailConnectionPanel } from "@/components/finance/gmail-connection-panel";
 import {
@@ -83,7 +82,7 @@ export default function GmailPage({
           // back to Pengaturan, its entry point (mirrors /recurring).
           <Button asChild variant="ghost" size="sm" className="h-9">
             <Link href="/settings">
-              <ArrowLeft aria-hidden />
+              <Icon name="arrow_back" size={18} aria-hidden />
               Pengaturan
             </Link>
           </Button>
@@ -158,7 +157,7 @@ async function GmailContent({
         {isConnectionError && connErrorMessage ? (
           <p
             role="alert"
-            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
           >
             {connErrorMessage}
           </p>
@@ -301,6 +300,24 @@ async function GmailContent({
         lastSyncedAt={connection!.last_synced_at}
       />
 
+      {/* Honest, static context for what a sync looks at. The supported list
+          matches the real senders in lib/gmail/config.ts (BCA, Shopee/
+          ShopeePay, GoPay); the read-only note reflects the real
+          gmail.readonly scope plus token encryption. */}
+      <div className="flex flex-col gap-2">
+        <p className="rounded-xl border border-border bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+          Didukung: BCA, ShopeePay, GoPay
+        </p>
+        <p className="flex items-start gap-2 rounded-xl border border-border bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+          <Icon
+            name="lock"
+            size={18}
+            className="mt-0.5 shrink-0 text-on-surface-variant"
+          />
+          <span>Akses hanya-baca, token kamu dienkripsi.</span>
+        </p>
+      </div>
+
       {hasDrafts ? (
         <GmailDraftList
           drafts={drafts}
@@ -310,10 +327,10 @@ async function GmailContent({
           review={review}
         />
       ) : (
-        <EmptyState
-          icon={Inbox}
-          title="Belum ada yang perlu ditinjau"
-          description="Belum ada email transaksi yang terdeteksi dari BCA, Shopee, atau GoPay. Coba Sync sekarang."
+        <EmptyPanel
+          glyph="inbox"
+          title="Tidak ada draft untuk ditinjau"
+          description="Belum ada email transaksi yang terdeteksi dari BCA, ShopeePay, atau GoPay. Coba Sync sekarang."
         />
       )}
 
@@ -334,7 +351,7 @@ function CallbackNotice({
     return (
       <p
         role="alert"
-        className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
       >
         {error}
       </p>
@@ -344,7 +361,7 @@ function CallbackNotice({
     return (
       <p
         role="status"
-        className="rounded-md border border-input bg-muted/30 px-3 py-2 text-sm text-muted-foreground"
+        className="rounded-lg border border-border bg-surface-container px-3 py-2 text-body-sm text-on-surface-variant"
       >
         Gmail terhubung. Pilih Sync sekarang untuk mendeteksi transaksi terbaru.
       </p>
@@ -353,13 +370,38 @@ function CallbackNotice({
   return null;
 }
 
+// Honest empty state with a Material Symbol glyph, mirroring the dashboard
+// EmptyPanel shape. No action link here: the only next step (Sync) lives in the
+// connection panel above, so the copy points the user back to it.
+function EmptyPanel({
+  glyph,
+  title,
+  description,
+}: {
+  glyph: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-xl bg-surface-container-lowest p-6 text-center shadow-sm">
+      <span className="flex size-12 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+        <Icon name={glyph} size={26} />
+      </span>
+      <div className="flex flex-col gap-1">
+        <p className="text-title-md text-on-surface">{title}</p>
+        <p className="text-body-sm text-on-surface-variant">{description}</p>
+      </div>
+    </div>
+  );
+}
+
 function GmailError({ message }: { message: string }) {
   return (
     <div
       role="alert"
       className="flex flex-col items-center gap-4 py-10 text-center"
     >
-      <p className="max-w-xs text-sm text-muted-foreground">{message}</p>
+      <p className="max-w-xs text-body-sm text-on-surface-variant">{message}</p>
       <Button asChild variant="outline" className="h-11">
         <Link href="/settings/gmail">Muat ulang</Link>
       </Button>
