@@ -113,6 +113,26 @@ async function SettingsContent() {
         </ul>
       </section>
 
+      <section aria-labelledby="settings-data" className="flex flex-col gap-3">
+        <h2
+          id="settings-data"
+          className="px-1 text-label-md font-semibold text-on-surface-variant"
+        >
+          Data
+        </h2>
+        <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm">
+          {/* Downloads all of the user's transactions as CSV via the
+              /api/export/transactions route handler (RLS-scoped). */}
+          <SettingsLinkRow
+            href="/api/export/transactions"
+            glyph="download"
+            title="Ekspor transaksi (CSV)"
+            description="Unduh semua transaksi untuk dibuka di Excel atau Google Sheets."
+            download
+          />
+        </ul>
+      </section>
+
       <LogoutConfirm />
     </div>
   );
@@ -123,35 +143,50 @@ function SettingsLinkRow({
   glyph,
   title,
   description,
+  download = false,
 }: {
   href: string;
   glyph: string;
   title: string;
   description: string;
+  // A file download (API route): plain <a download> so next/link does not
+  // client-navigate or prefetch it, and no navigation chevron.
+  download?: boolean;
 }) {
+  const className =
+    "flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+  const content = (
+    <>
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+        <Icon name={glyph} size={22} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-body-md font-medium text-on-surface">
+          {title}
+        </span>
+        <span className="text-body-sm text-on-surface-variant">
+          {description}
+        </span>
+      </span>
+    </>
+  );
+
   return (
     <li>
-      <Link
-        href={href}
-        className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-      >
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
-          <Icon name={glyph} size={22} />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-body-md font-medium text-on-surface">
-            {title}
-          </span>
-          <span className="text-body-sm text-on-surface-variant">
-            {description}
-          </span>
-        </span>
-        <Icon
-          name="chevron_right"
-          size={20}
-          className="shrink-0 text-on-surface-variant"
-        />
-      </Link>
+      {download ? (
+        <a href={href} download className={className}>
+          {content}
+        </a>
+      ) : (
+        <Link href={href} className={className}>
+          {content}
+          <Icon
+            name="chevron_right"
+            size={20}
+            className="shrink-0 text-on-surface-variant"
+          />
+        </Link>
+      )}
     </li>
   );
 }

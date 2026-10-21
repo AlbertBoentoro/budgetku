@@ -2,7 +2,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 
 // Reusable skeleton mirroring the settings layout (profile card, feature list,
-// Keluar card). Also the Suspense fallback in page.tsx.
+// data row, Keluar card). Also the Suspense fallback in page.tsx.
 export function SettingsLoading() {
   return (
     <div role="status" className="flex flex-col gap-6">
@@ -32,6 +32,18 @@ export function SettingsLoading() {
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* Data section (Ekspor transaksi). */}
+      <div className="flex flex-col gap-3" aria-hidden>
+        <div className="mx-1 h-4 w-12 rounded bg-surface-container" />
+        <div className="flex min-h-[64px] items-center gap-3 rounded-xl bg-surface-container-lowest px-4 py-3 shadow-sm">
+          <div className="size-10 shrink-0 rounded-full bg-surface-container" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="h-4 w-1/2 max-w-40 rounded bg-surface-container" />
+            <div className="h-3 w-5/6 max-w-64 rounded bg-surface-container" />
+          </div>
+        </div>
       </div>
 
       <div
