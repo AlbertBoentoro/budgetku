@@ -115,9 +115,12 @@ function firstValue(value: string | string[] | undefined): string {
 }
 
 const MONTH_PATTERN = /^\d{4}-\d{2}$/;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Reads and normalizes the supported filter keys from the page searchParams.
-// Unknown or empty values are ignored; month must be a YYYY-MM string.
+// Unknown or empty values are ignored; month must be a YYYY-MM string and
+// account must be a UUID (lowercased).
 export function parseTransactionFilters(
   searchParams: Record<string, string | string[] | undefined>,
 ): TransactionFilters {
@@ -129,8 +132,8 @@ export function parseTransactionFilters(
   const type = firstValue(searchParams.type);
   if (isTransactionType(type)) filters.type = type;
 
-  const account = firstValue(searchParams.account);
-  if (account) filters.account = account;
+  const account = firstValue(searchParams.account).toLowerCase();
+  if (UUID_PATTERN.test(account)) filters.account = account;
 
   const category = firstValue(searchParams.category);
   if (category) filters.category = category;
@@ -175,8 +178,14 @@ export function buildTransactionListQuery(
     query = query.eq("transaction_type", filters.type);
   }
 
-  if (filters.account) {
-    query = query.eq("account_id", filters.account);
+  if (filters.account && UUID_PATTERN.test(filters.account)) {
+    // Validated UUID only (never raw input), so the PostgREST or-string
+    // cannot be broken. Matches the source account and the destination of
+    // transfers. A second .or() appends another `or=` param, which
+    // PostgREST ANDs with the search .or() above.
+    query = query.or(
+      `account_id.eq.${filters.account},destination_account_id.eq.${filters.account}`,
+    );
   }
 
   if (filters.category) {

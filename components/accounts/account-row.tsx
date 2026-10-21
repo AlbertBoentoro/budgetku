@@ -131,7 +131,15 @@ export function AccountRow({ account, onError }: AccountRowProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem asChild className="min-h-11">
+            <Link
+              href={`/transactions?account=${encodeURIComponent(account.id)}`}
+            >
+              <Icon name="receipt_long" size={18} />
+              Riwayat transaksi
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild className="min-h-11">
             <Link href={`/accounts/${account.id}/edit`}>
               <Icon name="edit" size={18} />
               Edit
@@ -140,6 +148,7 @@ export function AccountRow({ account, onError }: AccountRowProps) {
           {account.archived ? (
             <DropdownMenuItem
               onSelect={() => run(() => setAccountArchived(account.id, false))}
+              className="min-h-11"
             >
               <Icon name="unarchive" size={18} />
               Pulihkan
@@ -147,6 +156,7 @@ export function AccountRow({ account, onError }: AccountRowProps) {
           ) : (
             <DropdownMenuItem
               onSelect={() => run(() => setAccountArchived(account.id, true))}
+              className="min-h-11"
             >
               <Icon name="archive" size={18} />
               Arsipkan
@@ -155,7 +165,7 @@ export function AccountRow({ account, onError }: AccountRowProps) {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={handleDelete}
-            className="text-expense focus:text-expense"
+            className="min-h-11 text-expense focus:text-expense"
           >
             <Icon name="delete" size={18} />
             Hapus

@@ -35,11 +35,16 @@ const FILTER_KEYS = ["q", "type", "account", "category", "month"] as const;
 interface TransactionFiltersProps {
   accounts: AccountRow[];
   categories: CategoryRow[];
+  // An archived account that is the active (validated) filter. It is not in
+  // the active list, so it is offered as an extra option to keep the select
+  // in sync with the URL.
+  extraAccount?: { id: string; name: string } | null;
 }
 
 export function TransactionFilters({
   accounts,
   categories,
+  extraAccount = null,
 }: TransactionFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -224,6 +229,12 @@ export function TransactionFilters({
                   {account.name}
                 </option>
               ))}
+              {extraAccount &&
+              !accounts.some((a) => a.id === extraAccount.id) ? (
+                <option value={extraAccount.id}>
+                  {extraAccount.name} (diarsipkan)
+                </option>
+              ) : null}
             </select>
           </div>
 
