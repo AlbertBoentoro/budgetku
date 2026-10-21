@@ -3,7 +3,6 @@
 import {
   Bar,
   BarChart,
-  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,7 +15,7 @@ export interface CategoryBreakdownDatum {
   name: string;
   amount: number;
   percent: number;
-  // 0-based index used to cycle the --chart-1..5 tokens.
+  // Kept for API stability; bars now use one fill, so this is not rendered.
   colorIndex: number;
 }
 
@@ -33,9 +32,10 @@ const idrFormatter = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 0,
 });
 
-// Cycle the existing chart tokens; fills are decorative only.
-function chartColor(colorIndex: number): string {
-  return `hsl(var(--chart-${(colorIndex % 5) + 1}))`;
+// Short axis labels so long Indonesian category names fit at 320px; the full
+// name is always in the ledger below and in the tooltip.
+function formatCategoryTick(name: string): string {
+  return name.length > 12 ? `${name.slice(0, 11)}…` : name;
 }
 
 interface TooltipPayloadItem {
@@ -52,9 +52,9 @@ function CategoryTooltip({
   if (!active || !payload || payload.length === 0) return null;
   const item = payload[0].payload;
   return (
-    <div className="rounded-md border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-soft">
+    <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface shadow-sm">
       <p className="font-medium">{item.name}</p>
-      <p className="text-muted-foreground">
+      <p className="text-on-surface-variant">
         {idrFormatter.format(item.amount)} ({item.percent.toFixed(0)}%)
       </p>
     </div>
@@ -79,41 +79,50 @@ export function CategoryBreakdownChart({ data }: CategoryBreakdownChartProps) {
           <YAxis
             type="category"
             dataKey="name"
-            width={96}
+            width={88}
             tickLine={false}
             axisLine={false}
-            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+            tickFormatter={formatCategoryTick}
+            tick={{ fill: "hsl(var(--on-surface-variant))", fontSize: 12 }}
           />
           <Tooltip
             content={<CategoryTooltip />}
-            cursor={{ fill: "hsl(var(--muted))" }}
+            cursor={{ fill: "hsl(var(--surface-container))" }}
           />
-          <Bar dataKey="amount" radius={[4, 4, 4, 4]} isAnimationActive={false}>
-            {data.map((entry) => (
-              <Cell key={entry.name} fill={chartColor(entry.colorIndex)} />
-            ))}
-          </Bar>
+          {/* One navy fill: categories are named by text, so a color cycle
+              would carry no meaning. */}
+          <Bar
+            dataKey="amount"
+            fill="hsl(var(--primary))"
+            radius={[4, 4, 4, 4]}
+            isAnimationActive={false}
+          />
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Text ledger: name + amount + percent. This carries the meaning so the
-          insight never relies on the chart or on color alone. */}
-      <ul className="flex flex-col divide-y rounded-2xl border bg-card">
+      {/* Text ledger: name + percent + amount. This carries the meaning so the
+          breakdown never relies on the chart or on color alone. */}
+      <ul className="flex flex-col divide-y divide-outline-variant">
         {data.map((entry) => (
           <li
             key={entry.name}
-            className="flex items-center justify-between gap-3 px-4 py-3"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3"
           >
-            <span
-              aria-hidden
-              className="size-3 shrink-0 rounded-full"
-              style={{ backgroundColor: chartColor(entry.colorIndex) }}
-            />
-            <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-            <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
+            <span className="min-w-0 flex-1 truncate text-body-md text-on-surface">
+              {entry.name}
+            </span>
+            <span className="shrink-0 text-label-md text-on-surface-variant tabular-nums">
               {entry.percent.toFixed(0)}%
             </span>
-            <AmountText value={entry.amount} size="sm" />
+            {/* Size on the wrapper: tailwind-merge treats text-currency-body
+                as a color and would drop it next to text-on-surface. */}
+            <span className="ml-auto text-currency-body">
+              <AmountText
+                value={entry.amount}
+                size="none"
+                className="text-on-surface"
+              />
+            </span>
           </li>
         ))}
       </ul>

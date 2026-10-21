@@ -1,7 +1,6 @@
-import { AlertTriangle } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 import { AmountText } from "@/components/finance/amount-text";
+import { Icon } from "@/components/ui/icon";
 
 export interface BudgetVsActualRow {
   categoryName: string;
@@ -23,21 +22,44 @@ interface BudgetVsActualListProps {
 // it needs no client interactivity.
 export function BudgetVsActualList({ rows }: BudgetVsActualListProps) {
   return (
-    <ul className="flex flex-col divide-y rounded-2xl border bg-card">
+    <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
       {rows.map((row) => (
         <li key={row.categoryName} className="flex flex-col gap-2 px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="min-w-0 flex-1 truncate font-medium">
+          {/* Wraps on narrow screens so long IDR amounts drop under the name
+              instead of overflowing at 320px. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {/* Neutral glyph: stored category icons are unvalidated, same as
+                budget-item-row. */}
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+              <Icon name="category" size={20} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-body-md text-on-surface">
               {row.categoryName}
             </span>
-            <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
-              <AmountText value={row.spent} size="sm" /> /{" "}
-              <AmountText value={row.planned} size="sm" />
+            {/* Font sizes sit on wrappers: tailwind-merge reads the project's
+                custom text-* size keys as colors, so passing size and color
+                together to AmountText would drop one of them. */}
+            <span className="ml-auto flex shrink-0 flex-col items-end text-right">
+              <span className="text-currency-body">
+                <AmountText
+                  value={row.spent}
+                  size="none"
+                  className="text-on-surface"
+                />
+              </span>
+              <span className="text-label-md text-on-surface-variant">
+                dari{" "}
+                <AmountText
+                  value={row.planned}
+                  size="none"
+                  className="text-on-surface-variant"
+                />
+              </span>
             </span>
           </div>
 
           <div
-            className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+            className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-low"
             aria-hidden
           >
             <div
@@ -49,16 +71,31 @@ export function BudgetVsActualList({ rows }: BudgetVsActualListProps) {
             />
           </div>
 
-          {row.isOverBudget ? (
-            <span className="flex items-center gap-1.5 text-sm text-expense">
-              <AlertTriangle className="size-4 shrink-0" aria-hidden />
-              Lebih <AmountText value={-row.remaining} size="sm" tone="expense" />
-            </span>
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              Sisa <AmountText value={row.remaining} size="sm" />
-            </span>
-          )}
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-body-sm">
+            {/* barPercent is clamped to 100, so the percent is shown only while
+                within budget; over budget the exact excess is printed instead. */}
+            {row.isOverBudget ? null : (
+              <span className="text-on-surface-variant tabular-nums">
+                {Math.round(row.barPercent)}% terpakai
+              </span>
+            )}
+            {row.isOverBudget ? (
+              <span className="inline-flex items-center gap-1 text-expense">
+                <Icon name="error" size={16} />
+                Lebih{" "}
+                <AmountText value={-row.remaining} tone="expense" size="none" />
+              </span>
+            ) : (
+              <span className="text-on-surface-variant">
+                Sisa{" "}
+                <AmountText
+                  value={row.remaining}
+                  size="none"
+                  className="text-on-surface-variant"
+                />
+              </span>
+            )}
+          </div>
         </li>
       ))}
     </ul>

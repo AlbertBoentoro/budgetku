@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ChevronLeft, PieChart } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -23,9 +22,6 @@ import {
 } from "@/lib/reports";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { EmptyState } from "@/components/shared/empty-state";
-import { SectionHeader } from "@/components/shared/section-header";
-import { AmountText } from "@/components/finance/amount-text";
 import { BudgetMonthSwitcher } from "@/components/finance/budget-month-switcher";
 import {
   BudgetVsActualList,
@@ -36,8 +32,13 @@ import {
   type CategoryBreakdownDatum,
 } from "@/components/charts/category-breakdown-chart";
 import { MonthlyTrendChart } from "@/components/charts/monthly-trend-chart";
+import { ReportSummaryCard } from "@/components/reports/report-summary-card";
 import { Button } from "@/components/ui/button";
-import { ReportsLoading } from "@/app/(app)/reports/loading";
+import { Icon } from "@/components/ui/icon";
+import {
+  ReportsBackAction,
+  ReportsLoading,
+} from "@/app/(app)/reports/loading";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -53,16 +54,7 @@ export default function ReportsPage({
     <>
       <AppHeader
         title="Laporan"
-        action={
-          // Reports is not a bottom-nav destination, so offer a clear way back
-          // to the dashboard (the single entry point lives on /dashboard).
-          <Button asChild variant="ghost" size="sm" className="h-9">
-            <Link href="/dashboard">
-              <ChevronLeft aria-hidden />
-              Beranda
-            </Link>
-          </Button>
-        }
+        action={<ReportsBackAction />}
       />
       <PageContainer>
         <Suspense fallback={<ReportsLoading />}>
@@ -231,102 +223,157 @@ async function ReportsContent({
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <BudgetMonthSwitcher monthParam={monthParam} />
 
-      {/* (a) Top-line summary */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader title={`Ringkasan ${monthLabel}`} />
-        {summaryIncomplete ? (
-          <p role="alert" className="text-sm text-muted-foreground">
-            Ringkasan belum bisa dimuat. Coba muat ulang.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 min-[375px]:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1 rounded-2xl border bg-card p-4 shadow-soft">
-              <span className="text-sm text-muted-foreground">Pemasukan</span>
-              <AmountText value={income} tone="income" size="md" signed />
-            </div>
-            <div className="flex flex-col gap-1 rounded-2xl border bg-card p-4 shadow-soft">
-              <span className="text-sm text-muted-foreground">Pengeluaran</span>
-              <AmountText value={-expense} tone="expense" size="md" signed />
-            </div>
-            <div className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-soft min-[375px]:col-span-2">
-              <span className="text-sm text-muted-foreground">Selisih</span>
-              <AmountText
-                value={net}
-                tone={net > 0 ? "income" : net < 0 ? "expense" : "default"}
-                size="md"
-                signed
-              />
-            </div>
-          </div>
-        )}
-      </section>
+      {/* (a) Top-line summary: the month's Selisih is the focal figure. */}
+      <ReportSummaryCard
+        monthLabel={monthLabel}
+        income={income}
+        expense={expense}
+        net={net}
+        incomplete={summaryIncomplete}
+      />
 
       {/* (b) Spending by category */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader title={`Pengeluaran per kategori (${monthLabel})`} />
+      <ReportSection title="Pengeluaran per kategori" caption={monthLabel}>
         {categoryIncomplete ? (
-          <p role="alert" className="text-sm text-muted-foreground">
+          <SectionNotice>
             Rincian kategori belum bisa dimuat. Coba muat ulang.
-          </p>
+          </SectionNotice>
         ) : categoryData.length === 0 ? (
-          <EmptyState
-            icon={PieChart}
+          <ReportEmptyState
+            glyph="pie_chart"
             title="Belum ada pengeluaran untuk periode ini"
             description="Catat pengeluaran bulan ini untuk melihat rinciannya di sini."
           />
         ) : (
           <CategoryBreakdownChart data={categoryData} />
         )}
-      </section>
+      </ReportSection>
 
       {/* (c) Monthly trend */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader title={`Tren pemasukan vs pengeluaran (${TREND_MONTHS} bulan)`} />
+      <ReportSection
+        title="Tren pemasukan vs pengeluaran"
+        caption={`${TREND_MONTHS} bulan terakhir`}
+      >
         {trendIncomplete ? (
-          <p role="alert" className="text-sm text-muted-foreground">
-            Tren belum bisa dimuat. Coba muat ulang.
-          </p>
+          <SectionNotice>Tren belum bisa dimuat. Coba muat ulang.</SectionNotice>
         ) : !trendHasData ? (
-          <EmptyState
+          <ReportEmptyState
+            glyph="bar_chart"
             title="Belum ada data untuk periode ini"
             description="Tren akan muncul setelah ada pemasukan atau pengeluaran dalam enam bulan terakhir."
           />
         ) : (
           <MonthlyTrendChart data={trend} />
         )}
-      </section>
+      </ReportSection>
 
-      {/* (d) Budget vs actual */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader title={`Anggaran vs realisasi (${monthLabel})`} />
+      {/* (d) Budget vs actual. The list is its own card, so the section skips
+          the wrapper only when rows are shown. */}
+      <ReportSection
+        title="Anggaran vs realisasi"
+        caption={monthLabel}
+        bare={!budgetIncomplete && budgetExists && budgetRows.length > 0}
+      >
         {budgetIncomplete ? (
-          <p role="alert" className="text-sm text-muted-foreground">
+          <SectionNotice>
             Perbandingan anggaran belum bisa dimuat. Coba muat ulang.
-          </p>
+          </SectionNotice>
         ) : !budgetExists ? (
-          <div className="flex flex-col items-center gap-4">
-            <EmptyState
-              icon={PieChart}
-              title="Belum ada anggaran untuk bulan ini"
-              description="Buat anggaran untuk membandingkan rencana dengan realisasi pengeluaran."
-            />
-            <Button asChild className="h-11">
-              <Link href={`/budget?month=${monthParam}`}>Buka anggaran</Link>
-            </Button>
-          </div>
+          <ReportEmptyState
+            glyph="savings"
+            title="Belum ada anggaran untuk bulan ini"
+            description="Buat anggaran untuk membandingkan rencana dengan realisasi pengeluaran."
+            action={
+              <Button asChild className="h-11">
+                <Link href={`/budget?month=${monthParam}`}>Buka anggaran</Link>
+              </Button>
+            }
+          />
         ) : budgetRows.length === 0 ? (
-          <EmptyState
-            icon={PieChart}
+          <ReportEmptyState
+            glyph="category"
             title="Belum ada batas kategori"
             description="Tambahkan batas pengeluaran pada anggaran untuk melihat perbandingannya."
           />
         ) : (
           <BudgetVsActualList rows={budgetRows} />
         )}
-      </section>
+      </ReportSection>
+    </div>
+  );
+}
+
+// Section title + caption above a white Calm Ledger card. `bare` skips the
+// card when the child already renders as one (the budget list).
+function ReportSection({
+  title,
+  caption,
+  bare = false,
+  children,
+}: {
+  title: string;
+  caption?: string;
+  bare?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-0.5">
+        <h2 className="text-title-md font-semibold text-on-surface">{title}</h2>
+        {caption ? (
+          <p className="text-body-sm text-on-surface-variant">{caption}</p>
+        ) : null}
+      </div>
+      {bare ? (
+        children
+      ) : (
+        <div className="rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// Quiet per-section notice when that section's query failed; other sections
+// still render.
+function SectionNotice({ children }: { children: React.ReactNode }) {
+  return (
+    <p role="alert" className="text-body-sm text-on-surface-variant">
+      {children}
+    </p>
+  );
+}
+
+// Stitch empty state (Material Symbols, Calm Ledger tokens), same shape as
+// LedgerEmptyState on Transaksi. Kept local so the shared lucide-based
+// EmptyState API stays untouched for other callers.
+function ReportEmptyState({
+  glyph,
+  title,
+  description,
+  action,
+}: {
+  glyph: string;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-4 py-8 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+        <Icon name={glyph} size={24} />
+      </span>
+      <div className="flex flex-col gap-1">
+        <p className="text-title-md font-medium text-on-surface">{title}</p>
+        <p className="max-w-xs text-body-sm text-on-surface-variant">
+          {description}
+        </p>
+      </div>
+      {action}
     </div>
   );
 }
@@ -337,7 +384,7 @@ function ReportsError({ message }: { message: string }) {
       role="alert"
       className="flex flex-col items-center gap-4 py-10 text-center"
     >
-      <p className="max-w-xs text-sm text-muted-foreground">{message}</p>
+      <p className="max-w-xs text-body-sm text-on-surface-variant">{message}</p>
       <Button asChild variant="outline" className="h-11">
         <Link href="/reports">Muat ulang</Link>
       </Button>
