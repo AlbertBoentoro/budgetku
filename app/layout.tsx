@@ -10,7 +10,10 @@ const defaultUrl = process.env.VERCEL_URL
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: "Budgetku",
-  description: "Budgetku — a clean, minimal personal finance app.",
+  description: "Catatan keuangan pribadi untuk kebutuhan sehari-hari.",
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -23,9 +26,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    // Stitch surface (light) and the derived dark background.
-    { media: "(prefers-color-scheme: light)", color: "#f8f9ff" },
-    { media: "(prefers-color-scheme: dark)", color: "#213145" },
+    { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
+    { media: "(prefers-color-scheme: dark)", color: "#0F172A" },
   ],
 };
 
@@ -42,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="id" className={inter.variable} suppressHydrationWarning>
       <head>
         {/* Material Symbols Outlined via Google Fonts stylesheet. This is a
             runtime CDN stylesheet link, NOT an npm dependency; lucide-react

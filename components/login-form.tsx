@@ -1,20 +1,21 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { AuthCard } from "@/components/auth/auth-page";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { getAuthErrorMessage } from "@/lib/auth-error-message";
+import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 export function LoginForm({
   className,
@@ -28,20 +29,28 @@ export function LoginForm({
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
 
     try {
+      const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
       router.push("/dashboard");
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(
+        getAuthErrorMessage(
+          error,
+          {
+            invalid_credentials:
+              "Email atau password salah. Periksa kembali, lalu coba lagi.",
+          },
+          "Belum bisa masuk sekarang. Coba lagi sebentar.",
+        ),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -49,14 +58,16 @@ export function LoginForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
+      <AuthCard>
+        <CardHeader className="space-y-2 p-6 sm:p-8">
+          <h1 className="text-2xl font-semibold leading-none tracking-tight">
+            Masuk
+          </h1>
+          <CardDescription className="text-slate-600 dark:text-slate-600">
+            Masuk ke akun Budgetku kamu.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 pb-6 sm:px-8 sm:pb-8">
           <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
@@ -64,47 +75,62 @@ export function LoginForm({
                 <Input
                   id="email"
                   type="email"
-                  placeholder="m@example.com"
+                  placeholder="nama@email.com"
                   required
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="h-11 border-slate-500 bg-white text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 dark:border-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
                 />
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <Label htmlFor="password">Password</Label>
                   <Link
                     href="/auth/forgot-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                    className="inline-flex min-h-11 items-center text-sm text-slate-700 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
                   >
-                    Forgot your password?
+                    Lupa password?
                   </Link>
                 </div>
                 <Input
                   id="password"
                   type="password"
                   required
+                  autoComplete="current-password"
+                  aria-describedby={error ? "auth-error" : undefined}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="h-11 border-slate-500 bg-white text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 dark:border-slate-500 dark:bg-white dark:text-slate-900"
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Login"}
+              {error && (
+                <p id="auth-error" className="text-sm text-red-700" role="alert">
+                  {error}
+                </p>
+              )}
+              <Button
+                type="submit"
+                className="h-11 w-full focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                disabled={isLoading}
+              >
+                {isLoading ? "Memeriksa..." : "Masuk"}
               </Button>
             </div>
-            <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
+            <div className="mt-4 flex min-h-11 flex-wrap items-center justify-center gap-1 text-center text-sm text-slate-700">
+              <span>Belum punya akun?</span>
               <Link
                 href="/auth/sign-up"
-                className="underline underline-offset-4"
+                className="inline-flex min-h-11 items-center font-medium text-slate-900 underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
               >
-                Sign up
+                Daftar
               </Link>
             </div>
           </form>
         </CardContent>
-      </Card>
+      </AuthCard>
     </div>
   );
 }

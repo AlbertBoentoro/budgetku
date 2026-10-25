@@ -1,19 +1,20 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import Link from "next/link";
+
+import { AuthCard } from "@/components/auth/auth-page";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { useState } from "react";
+import { getAuthErrorMessage } from "@/lib/auth-error-message";
+import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 export function ForgotPasswordForm({
   className,
@@ -26,19 +27,27 @@ export function ForgotPasswordForm({
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient();
     setIsLoading(true);
     setError(null);
 
     try {
-      // The url which will be included in the email. This URL needs to be configured in your redirect URLs in the Supabase dashboard at https://supabase.com/dashboard/project/_/auth/url-configuration
+      const supabase = createClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/update-password`,
       });
       if (error) throw error;
       setSuccess(true);
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(
+        getAuthErrorMessage(
+          error,
+          {
+            over_email_send_rate_limit:
+              "Terlalu banyak permintaan. Tunggu sebentar sebelum mencoba lagi.",
+          },
+          "Email reset belum bisa dikirim. Periksa alamat email dan coba lagi.",
+        ),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -47,28 +56,42 @@ export function ForgotPasswordForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       {success ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">Check Your Email</CardTitle>
-            <CardDescription>Password reset instructions sent</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              If you registered using your email and password, you will receive
-              a password reset email.
-            </p>
-          </CardContent>
-        </Card>
+        <div role="status">
+          <AuthCard>
+            <CardHeader className="space-y-2 p-6 sm:p-8">
+              <h1 className="text-2xl font-semibold leading-none tracking-tight">
+                Cek email kamu
+              </h1>
+              <CardDescription className="text-slate-600 dark:text-slate-600">
+                Jika email terdaftar, tautan untuk mengatur ulang password akan
+                dikirim.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-6 pb-6 sm:px-8 sm:pb-8">
+              <p className="text-sm leading-6 text-slate-700 dark:text-slate-700">
+                Jika alamat email terdaftar, kamu akan menerima tautan untuk
+                membuat password baru.
+              </p>
+              <Link
+                href="/auth/login"
+                className="mt-5 inline-flex min-h-11 items-center text-sm font-medium text-slate-900 underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              >
+                Kembali ke Masuk
+              </Link>
+            </CardContent>
+          </AuthCard>
+        </div>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">Reset Your Password</CardTitle>
-            <CardDescription>
-              Type in your email and we&apos;ll send you a link to reset your
-              password
+        <AuthCard>
+          <CardHeader className="space-y-2 p-6 sm:p-8">
+            <h1 className="text-2xl font-semibold leading-none tracking-tight">
+              Lupa password?
+            </h1>
+            <CardDescription className="text-slate-600 dark:text-slate-600">
+              Masukkan email akun kamu untuk menerima tautan reset password.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-6 sm:px-8 sm:pb-8">
             <form onSubmit={handleForgotPassword}>
               <div className="flex flex-col gap-6">
                 <div className="grid gap-2">
@@ -76,29 +99,41 @@ export function ForgotPasswordForm({
                   <Input
                     id="email"
                     type="email"
-                    placeholder="m@example.com"
+                    placeholder="nama@email.com"
                     required
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className="h-11 border-slate-500 bg-white text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 dark:border-slate-500 dark:bg-white dark:text-slate-900 dark:placeholder:text-slate-500"
                   />
                 </div>
-                {error && <p className="text-sm text-red-500">{error}</p>}
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Sending..." : "Send reset email"}
+                {error && (
+                  <p id="auth-error" className="text-sm text-red-700" role="alert">
+                    {error}
+                  </p>
+                )}
+                <Button
+                  type="submit"
+                  className="h-11 w-full focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Mengirim..." : "Kirim tautan reset"}
                 </Button>
               </div>
-              <div className="mt-4 text-center text-sm">
-                Already have an account?{" "}
+              <div className="mt-4 flex min-h-11 flex-wrap items-center justify-center gap-1 text-center text-sm text-slate-700">
+                <span>Ingat password kamu?</span>
                 <Link
                   href="/auth/login"
-                  className="underline underline-offset-4"
+                  className="inline-flex min-h-11 items-center font-medium text-slate-900 underline underline-offset-4 focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
                 >
-                  Login
+                  Masuk
                 </Link>
               </div>
             </form>
           </CardContent>
-        </Card>
+        </AuthCard>
       )}
     </div>
   );

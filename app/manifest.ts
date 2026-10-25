@@ -4,11 +4,11 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Budgetku",
     short_name: "Budgetku",
-    description: "A clean, minimal personal finance app.",
+    description: "Catatan keuangan pribadi untuk kebutuhan sehari-hari.",
     start_url: "/dashboard",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#0a0a0a",
+    background_color: "#F8FAFC",
+    theme_color: "#0F172A",
     icons: [
       {
         src: "/icons/icon-192.png",

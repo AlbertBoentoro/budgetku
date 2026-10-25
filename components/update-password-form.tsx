@@ -1,42 +1,60 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { AuthCard } from "@/components/auth/auth-page";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { getAuthErrorMessage } from "@/lib/auth-error-message";
+import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 export function UpdatePasswordForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [password, setPassword] = useState("");
+  const [repeatPassword, setRepeatPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    const supabase = createClient();
-    setIsLoading(true);
     setError(null);
 
+    if (password.length < 8) {
+      setError("Gunakan password dengan minimal 8 karakter.");
+      return;
+    }
+
+    if (password !== repeatPassword) {
+      setError("Konfirmasi password belum sama.");
+      return;
+    }
+
+    setIsLoading(true);
+
     try {
+      const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
       router.push("/dashboard");
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      setError(
+        getAuthErrorMessage(
+          error,
+          { weak_password: "Gunakan password yang lebih kuat." },
+          "Password baru belum bisa disimpan. Coba lagi.",
+        ),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -44,35 +62,65 @@ export function UpdatePasswordForm({
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Reset Your Password</CardTitle>
-          <CardDescription>
-            Please enter your new password below.
+      <AuthCard>
+        <CardHeader className="space-y-2 p-6 sm:p-8">
+          <h1 className="text-2xl font-semibold leading-none tracking-tight">
+            Buat password baru
+          </h1>
+          <CardDescription
+            id="password-hint"
+            className="text-slate-600 dark:text-slate-600"
+          >
+            Gunakan minimal 8 karakter.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleForgotPassword}>
+        <CardContent className="px-6 pb-6 sm:px-8 sm:pb-8">
+          <form onSubmit={handleUpdatePassword}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="password">New password</Label>
+                <Label htmlFor="password">Password baru</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="New password"
                   required
+                  minLength={8}
+                  autoComplete="new-password"
+                  aria-describedby="password-hint"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="h-11 border-slate-500 bg-white text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 dark:border-slate-500 dark:bg-white dark:text-slate-900"
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save new password"}
+              <div className="grid gap-2">
+                <Label htmlFor="repeat-password">Konfirmasi password</Label>
+                <Input
+                  id="repeat-password"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  aria-describedby={error ? "auth-error" : undefined}
+                  value={repeatPassword}
+                  onChange={(e) => setRepeatPassword(e.target.value)}
+                  className="h-11 border-slate-500 bg-white text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 dark:border-slate-500 dark:bg-white dark:text-slate-900"
+                />
+              </div>
+              {error && (
+                <p id="auth-error" className="text-sm text-red-700" role="alert">
+                  {error}
+                </p>
+              )}
+              <Button
+                type="submit"
+                className="h-11 w-full focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                disabled={isLoading}
+              >
+                {isLoading ? "Menyimpan..." : "Simpan password baru"}
               </Button>
             </div>
           </form>
         </CardContent>
-      </Card>
+      </AuthCard>
     </div>
   );
 }

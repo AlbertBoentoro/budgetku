@@ -1,6 +1,7 @@
 # App icons
 
-Drop the following PNG files into this folder. They are referenced by
+The PNG variants are generated from the shared vector artwork in this folder.
+They are referenced by
 `app/manifest.ts` (and the Apple touch icon is picked up by the app metadata in
 `app/layout.tsx`). No binary images are checked in yet — add them here:
 
@@ -12,3 +13,5 @@ Drop the following PNG files into this folder. They are referenced by
 | `apple-touch-icon.png` | 180×180 | Apple home-screen icon |
 
 Keep the filenames exactly as above so the manifest and metadata resolve correctly.
+The shared source artwork is `budgetku-ledger.svg`; update it before regenerating
+the PNG variants.
