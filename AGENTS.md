@@ -23,3 +23,13 @@ Design guidance does not authorize new features or changes to auth, Supabase, pe
 For actual UI changes, declare a Design Read and run the upstream four-block Delivery Gate with concrete evidence. Verify affected controls, supported themes, keyboard focus, empty/loading/error states, long IDR amounts, and mobile reflow. Never claim a UI PASS from lint alone. If a check is unavailable, report it as unverified and the UI as incomplete; do not invent evidence or silently suppress a failure. Guidance-only changes require file/reference verification, not a fabricated UI audit.
 
 Use the existing `npm run lint` for source changes and `npm run build` when appropriate. Anti-slop is agent guidance, not an ESLint plugin. Never present the current UI as compliant merely because these files were installed.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
