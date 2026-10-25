@@ -35,16 +35,19 @@ export function BudgetOverviewCard({
 }: BudgetOverviewCardProps) {
   const pct = Math.round(barPercent);
 
+  const progressColor =
+    pct < 80 ? "bg-income" : pct <= 95 ? "bg-amber-700" : "bg-expense";
+
   return (
-    <section className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <section className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Icon name="track_changes" size={20} className="text-on-surface-variant" />
-          <h2 className="text-title-md text-on-surface">Anggaran {monthLabel}</h2>
+          <h2 className="min-w-0 text-title-md font-semibold text-on-surface">Anggaran {monthLabel}</h2>
         </div>
         <Link
           href="/budget"
-          className="rounded-md px-1 text-label-md text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex min-h-11 shrink-0 items-center rounded-md px-1 text-label-md text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Detail
         </Link>
@@ -72,7 +75,7 @@ export function BudgetOverviewCard({
             <AmountText value={planned} size="none" className="text-currency-body" />
           </p>
           <div
-            className="h-2 w-full overflow-hidden rounded-full bg-surface-container-low"
+            className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container"
             role="progressbar"
             aria-valuenow={pct}
             aria-valuemin={0}
@@ -80,11 +83,11 @@ export function BudgetOverviewCard({
             aria-label={`Pemakaian anggaran ${pct} persen`}
           >
             <div
-              className="h-full rounded-full bg-primary"
+              className={`h-full rounded-full ${progressColor}`}
               style={{ width: `${barPercent}%` }}
             />
           </div>
-          <div className="flex items-center justify-between text-body-sm">
+          <div className="flex items-center justify-between gap-2 text-body-sm max-[240px]:flex-col max-[240px]:items-start">
             <span className="text-on-surface-variant">{pct}% terpakai</span>
             <span className="text-on-surface-variant">
               Sisa{" "}

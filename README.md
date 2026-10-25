@@ -98,6 +98,26 @@ If you wish to just develop locally and not deploy to Vercel, [follow the steps 
 
 > Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
 
+## Google Sign-In
+
+Google Sign-In uses Supabase Auth. Configure the provider before using the
+Google button on `/auth/login`:
+
+1. Create a Web application OAuth client in Google Cloud Console. Add the app
+   origin, such as `http://localhost:3000`, to Authorized JavaScript origins.
+2. In Supabase Dashboard, open **Authentication → Sign In / Providers → Google**
+   and enable Google with the OAuth client ID and client secret.
+3. Add the Supabase callback URL shown in the Google provider settings to
+   Authorized redirect URIs in Google Cloud Console. It usually has the form
+   `https://<project-ref>.supabase.co/auth/v1/callback`.
+4. In Supabase URL Configuration, add the app callback URL to Redirect URLs:
+   `http://localhost:3000/auth/callback` for local development and
+   `https://<your-app-domain>/auth/callback` for production. If the local
+   server uses another port, allow that exact callback URL too.
+
+Keep the Google client secret in Supabase provider settings. Do not put it in
+the app source or a `NEXT_PUBLIC_` environment variable.
+
 ## Feedback and issues
 
 Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).

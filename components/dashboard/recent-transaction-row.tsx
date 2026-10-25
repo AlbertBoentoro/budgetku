@@ -74,8 +74,8 @@ export function RecentTransactionRow({
   ].filter(Boolean);
 
   return (
-    <li className="flex items-center gap-3 px-4 py-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+    <li className="flex min-h-[52px] items-center gap-3 px-3 py-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
         <Icon name={transactionTypeGlyph(transaction.transaction_type)} size={20} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -96,12 +96,14 @@ export function RecentTransactionRow({
           </span>
         )}
       </div>
-      <AmountText
-        value={amountValue}
-        tone={amountTone}
-        size="sm"
-        signed={!isTransfer}
-      />
+      <span className="max-w-[42%] shrink-0 overflow-hidden text-ellipsis">
+        <AmountText
+          value={amountValue}
+          tone={amountTone}
+          size="sm"
+          signed={!isTransfer}
+        />
+      </span>
     </li>
   );
 }

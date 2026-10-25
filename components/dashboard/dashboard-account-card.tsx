@@ -34,17 +34,23 @@ export function DashboardAccountCard({
   balance,
 }: DashboardAccountCardProps) {
   return (
-    <div className="flex min-w-[170px] shrink-0 flex-col gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-sm">
-      <span className="flex size-10 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+    <div className="flex min-w-[170px] shrink-0 flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
+      <span className="flex size-9 items-center justify-center rounded-lg bg-surface-container text-on-surface-variant">
         <Icon name={glyph} size={22} />
       </span>
       <div className="flex flex-col gap-0.5">
-        <span className="text-label-xs uppercase text-on-surface-variant">
+        <span className="text-label-xs uppercase tracking-wide text-on-surface-variant">
           {typeLabel}
         </span>
         <span className="truncate text-title-md text-on-surface">{name}</span>
       </div>
-      <AmountText value={balance} size="none" className="text-currency-body" />
+      <span className="max-w-full overflow-hidden text-ellipsis">
+        <AmountText
+          value={balance}
+          size="none"
+          className="text-currency-body"
+        />
+      </span>
     </div>
   );
 }

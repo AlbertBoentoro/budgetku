@@ -30,7 +30,6 @@ import { PageContainer } from "@/components/layout/page-container";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { NetBalanceCard } from "@/components/dashboard/net-balance-card";
-import { QuickActions } from "@/components/dashboard/quick-actions";
 import { BudgetOverviewCard } from "@/components/dashboard/budget-overview-card";
 import {
   DashboardAccountCard,
@@ -45,9 +44,8 @@ import { DashboardLoading } from "@/app/(app)/dashboard/loading";
 const ACCOUNT_CARD_LIMIT = 6;
 
 export default function DashboardPage() {
-  // The per-screen title stays as the Beranda header. The Laporan entry now
-  // lives in Quick Actions below, so the old header action is removed to avoid
-  // two controls for the same destination.
+  // Keep the Beranda header free of duplicate actions; Laporan is linked from
+  // the recent-transactions section.
   return (
     <>
       <AppHeader title="Beranda" />
@@ -135,7 +133,6 @@ async function DashboardContent() {
   } catch {
     monthIncomplete = true;
   }
-  const net = income - expense;
 
   // Current-month budget summary. Replicates the budget page compose pattern
   // (no new shared helper) and is guarded in its own block so a budget failure
@@ -222,7 +219,7 @@ async function DashboardContent() {
   const { data: recentData, error: recentError } =
     await buildTransactionListQuery(supabase, user.id, {});
   const recentIncomplete = Boolean(recentError);
-  const recentRows = ((recentData ?? []) as TransactionRow[]).slice(0, 5);
+  const recentRows = ((recentData ?? []) as TransactionRow[]).slice(0, 4);
 
   // Resolve account/category display names only for the shown rows: two scoped
   // in(...) lookups at most, never per-row (no N+1).
@@ -272,11 +269,8 @@ async function DashboardContent() {
         incomplete={balancesIncomplete}
         income={income}
         expense={expense}
-        net={net}
         monthIncomplete={monthIncomplete}
       />
-
-      <QuickActions />
 
       <BudgetOverviewCard
         monthLabel={monthLabel}
@@ -326,8 +320,10 @@ async function DashboardContent() {
       <section className="flex flex-col gap-3">
         <SectionHeaderRow
           title="Transaksi Terbaru"
-          linkLabel={recentRows.length > 0 ? "Semua Transaksi" : null}
-          href="/transactions"
+          linkLabel="Laporan"
+          href="/reports"
+          secondaryLinkLabel={recentRows.length > 0 ? "Semua Transaksi" : null}
+          secondaryHref="/transactions"
         />
         {recentIncomplete ? (
           <p role="alert" className="text-body-sm text-on-surface-variant">
@@ -342,7 +338,7 @@ async function DashboardContent() {
             actionHref="/transactions/new"
           />
         ) : (
-          <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
+          <ul className="flex flex-col divide-y divide-surface-container rounded-xl border border-outline-variant bg-surface-container-lowest">
             {recentRows.map((transaction) => (
               <RecentTransactionRow
                 key={transaction.id}
@@ -379,22 +375,36 @@ function SectionHeaderRow({
   title,
   linkLabel,
   href,
+  secondaryLinkLabel,
+  secondaryHref,
 }: {
   title: string;
   linkLabel: string | null;
   href: string;
+  secondaryLinkLabel?: string | null;
+  secondaryHref?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 max-[240px]:flex-col max-[240px]:items-start">
       <h2 className="text-title-md text-on-surface">{title}</h2>
-      {linkLabel ? (
-        <Link
-          href={href}
-          className="rounded-md px-1 text-label-md text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {linkLabel}
-        </Link>
-      ) : null}
+      <div className="ml-auto flex items-center gap-2 max-[240px]:ml-0 max-[240px]:w-full max-[240px]:flex-wrap">
+        {linkLabel ? (
+          <Link
+            href={href}
+            className="inline-flex min-h-11 items-center rounded-md px-1 text-label-md text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {linkLabel}
+          </Link>
+        ) : null}
+        {secondaryLinkLabel && secondaryHref ? (
+          <Link
+            href={secondaryHref}
+            className="inline-flex min-h-11 items-center rounded-md px-1 text-label-md text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {secondaryLinkLabel}
+          </Link>
+        ) : null}
+      </div>
     </div>
   );
 }

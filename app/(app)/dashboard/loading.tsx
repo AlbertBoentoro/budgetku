@@ -1,23 +1,20 @@
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 
-// Dashboard skeleton that mirrors the new Stitch layout so the fallback does
-// not jump when data streams in: a net-balance card with three summary pills, a
-// four-tile quick-actions row, a budget card, a horizontal account-card row, and
-// a few recent-transaction rows. No spinner-only view, no visible copy (all
-// aria-hidden). Uses the same Stitch surfaces as the real screen.
+// Dashboard skeleton mirrors the screen sections so streamed data does not
+// shift the page. It stays decorative to assistive technology.
 export function DashboardLoading() {
   return (
     <div className="flex flex-col gap-6" aria-hidden>
-      {/* Net balance card: label + big balance + three summary pills. */}
-      <div className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+      {/* Net balance card: label + big balance + income and expense summaries. */}
+      <div className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
         <div className="flex items-center justify-between">
           <div className="h-3 w-28 rounded bg-surface-container" />
           <div className="size-6 rounded-full bg-surface-container" />
         </div>
         <div className="h-9 w-48 rounded bg-surface-container" />
-        <div className="grid grid-cols-3 gap-2">
-          {Array.from({ length: 3 }).map((_, i) => (
+        <div className="grid grid-cols-1 gap-2 min-[448px]:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
             <div
               key={i}
               className="flex flex-col gap-2 rounded-lg bg-surface-container-low p-2.5"
@@ -29,21 +26,8 @@ export function DashboardLoading() {
         </div>
       </div>
 
-      {/* Quick actions: four tiles. */}
-      <div className="grid grid-cols-4 gap-md">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex flex-col items-center gap-2 rounded-xl bg-surface-container-lowest p-3 shadow-sm"
-          >
-            <div className="size-11 rounded-full bg-surface-container" />
-            <div className="h-3 w-12 rounded bg-surface-container" />
-          </div>
-        ))}
-      </div>
-
       {/* Budget card: title + bar + a figure row. */}
-      <div className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-sm">
+      <div className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
         <div className="flex items-center justify-between">
           <div className="h-4 w-40 rounded bg-surface-container" />
           <div className="h-3 w-12 rounded bg-surface-container" />
@@ -63,7 +47,7 @@ export function DashboardLoading() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="flex min-w-[170px] shrink-0 flex-col gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-sm"
+              className="flex min-w-[170px] shrink-0 flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3"
             >
               <div className="size-10 rounded-full bg-surface-container" />
               <div className="h-3 w-16 rounded bg-surface-container" />
@@ -77,7 +61,7 @@ export function DashboardLoading() {
       {/* Recent transactions: rows mirroring icon + label/meta + amount. */}
       <div className="flex flex-col gap-3">
         <div className="h-5 w-40 rounded bg-surface-container" />
-        <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
+        <ul className="flex flex-col divide-y divide-surface-container rounded-xl border border-outline-variant bg-surface-container-lowest">
           {Array.from({ length: 4 }).map((_, i) => (
             <li key={i} className="flex items-center gap-3 px-4 py-3">
               <div className="size-10 shrink-0 rounded-full bg-surface-container" />
@@ -100,6 +84,9 @@ export default function Loading() {
     <>
       <AppHeader title="Beranda" />
       <PageContainer>
+        <p role="status" className="sr-only">
+          Memuat beranda...
+        </p>
         <div className="animate-pulse">
           <DashboardLoading />
         </div>

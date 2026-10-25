@@ -20,23 +20,31 @@ interface NetBalanceCardProps {
   incomplete: boolean;
   income: number;
   expense: number;
-  net: number;
   // This-month summary could not be loaded; replace the pills with a notice.
   monthIncomplete: boolean;
 }
 
 // Net balance card with a working client-side hide/show toggle. The balance and
-// the three monthly figures are real, server-computed numbers passed in as
-// props; no fetching happens here. Income/expense meaning is carried by label +
+// monthly figures are real, server-computed numbers passed in as props; no
+// fetching happens here. Income/expense meaning is carried by label +
 // sign + tone together, never color alone.
 export function NetBalanceCard({
   balance,
   incomplete,
   income,
   expense,
-  net,
   monthIncomplete,
 }: NetBalanceCardProps) {
+  const balanceLength = new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(balance).length;
+  const balanceSize =
+    balanceLength > 14
+      ? "text-[clamp(0.5rem,4vw,2rem)]"
+      : "text-[clamp(1rem,11vw,2.75rem)]";
+
   // Default visible so the first client render matches the server output; the
   // stored preference is applied after mount to avoid a hydration mismatch.
   const [hidden, setHidden] = useState(false);
@@ -64,12 +72,12 @@ export function NetBalanceCard({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-label-xs uppercase text-on-surface-variant">
+    <section className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+      <div className="flex items-center justify-between gap-2 max-[240px]:flex-col max-[240px]:items-start">
+        <span className="text-label-xs uppercase tracking-wide text-on-surface-variant">
           Total Saldo Bersih
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 max-[240px]:w-full max-[240px]:justify-end">
           {/* Static honest status label: the account is active. No metric. */}
           <span className="inline-flex items-center gap-1 text-label-md text-on-surface-variant">
             <span className="size-2 rounded-full bg-secondary" aria-hidden />
@@ -88,14 +96,16 @@ export function NetBalanceCard({
       </div>
 
       {hidden ? (
-        <span className="text-[2.75rem] font-bold leading-[1.1] tabular-nums tracking-tight text-on-surface">
+        <span
+          className={`max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.1] tabular-nums tracking-tight text-on-surface`}
+        >
           {BALANCE_MASK}
         </span>
       ) : (
         <AmountText
           value={balance}
           size="none"
-          className="text-[2.75rem] font-bold leading-[1.1] tracking-tight text-on-surface"
+          className={`max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.1] tracking-tight text-on-surface`}
         />
       )}
 
@@ -110,7 +120,7 @@ export function NetBalanceCard({
           Ringkasan bulan ini belum bisa dimuat. Coba muat ulang.
         </p>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-2 min-[448px]:grid-cols-2">
           <SummaryPill
             label="Pemasukan"
             glyph="arrow_downward"
@@ -123,12 +133,6 @@ export function NetBalanceCard({
             value={-expense}
             tone="expense"
           />
-          <SummaryPill
-            label="Bersih"
-            glyph="account_balance_wallet"
-            value={net}
-            tone={net > 0 ? "income" : net < 0 ? "expense" : "default"}
-          />
         </div>
       )}
     </section>
@@ -139,29 +143,29 @@ interface SummaryPillProps {
   label: string;
   glyph: string;
   value: number;
-  tone: "default" | "income" | "expense";
+  tone: "income" | "expense";
 }
 
 function SummaryPill({ label, glyph, value, tone }: SummaryPillProps) {
   const toneClass =
     tone === "income"
       ? "text-income"
-      : tone === "expense"
-        ? "text-expense"
-        : "text-on-surface-variant";
+      : "text-expense";
   return (
-    <div className="flex flex-col gap-1 rounded-lg bg-surface-container-low p-2.5">
+    <div className="flex min-w-0 flex-col gap-1 rounded-lg bg-surface-container-low p-2.5">
       <span className="inline-flex items-center gap-1 text-label-md text-on-surface-variant">
         <Icon name={glyph} size={16} className={toneClass} />
         {label}
       </span>
-      <AmountText
-        value={value}
-        tone={tone}
-        size="none"
-        signed
-        className="text-title-md font-semibold tabular-nums"
-      />
+      <span className="max-w-full overflow-hidden text-ellipsis">
+        <AmountText
+          value={value}
+          tone={tone}
+          size="none"
+          signed
+          className="text-[clamp(0.375rem,3.5vw,0.8125rem)] font-semibold tabular-nums sm:text-title-md"
+        />
+      </span>
     </div>
   );
 }

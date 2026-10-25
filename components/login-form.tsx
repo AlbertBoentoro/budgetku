@@ -24,12 +24,14 @@ export function LoginForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMethod, setLoadingMethod] = useState<"email" | "google" | null>(
+    null,
+  );
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLoadingMethod("email");
     setError(null);
 
     try {
@@ -52,7 +54,35 @@ export function LoginForm({
         ),
       );
     } finally {
-      setIsLoading(false);
+      setLoadingMethod(null);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoadingMethod("google");
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch (error: unknown) {
+      setError(
+        getAuthErrorMessage(
+          error,
+          {
+            provider_disabled:
+              "Masuk dengan Google belum tersedia. Coba gunakan email dan password.",
+          },
+          "Google tidak bisa digunakan sekarang. Coba lagi atau masuk dengan email dan password.",
+        ),
+      );
+      setLoadingMethod(null);
     }
   };
 
@@ -114,9 +144,26 @@ export function LoginForm({
               <Button
                 type="submit"
                 className="h-11 w-full focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
-                disabled={isLoading}
+                disabled={loadingMethod !== null}
               >
-                {isLoading ? "Memeriksa..." : "Masuk"}
+                {loadingMethod === "email" ? "Memeriksa..." : "Masuk dengan email"}
+              </Button>
+              <div className="flex items-center gap-3 text-xs text-slate-600">
+                <span aria-hidden="true" className="h-px flex-1 bg-slate-300" />
+                <span className="text-emerald-800">atau</span>
+                <span aria-hidden="true" className="h-px flex-1 bg-slate-300" />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full border-slate-500 bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                disabled={loadingMethod !== null}
+                onClick={handleGoogleLogin}
+                aria-describedby={error ? "auth-error" : undefined}
+              >
+                {loadingMethod === "google"
+                  ? "Menghubungkan..."
+                  : "Lanjutkan dengan Google"}
               </Button>
             </div>
             <div className="mt-4 flex min-h-11 flex-wrap items-center justify-center gap-1 text-center text-sm text-slate-700">
