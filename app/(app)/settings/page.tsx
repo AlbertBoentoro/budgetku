@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { LogoutConfirm } from "@/components/settings/logout-confirm";
 import { ThemeSettingRow } from "@/components/settings/theme-setting-row";
+import { PreferencesForm } from "@/components/settings/preferences-form";
+import { BackupControls } from "@/components/settings/backup-controls";
+import { PushSetup } from "@/components/settings/push-setup";
+import { PasskeySetting } from "@/components/settings/passkey-setting";
 import { SettingsLoading } from "@/app/(app)/settings/loading";
 
 export default function SettingsPage() {
@@ -52,6 +56,20 @@ async function SettingsContent() {
         : "";
   const displayName = rawName.trim();
   const email = user.email?.trim() ?? "";
+  const [settingsResult, passkeysResult] = await Promise.all([
+    supabase
+      .from("user_settings")
+      .select(
+        "first_day_of_week, daily_reminder_enabled, cloud_backup_enabled, last_backup_at, passkey_enabled",
+      )
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("passkey_credentials")
+      .select("credential_id")
+      .eq("user_id", user.id),
+  ]);
+  const { data: settings, error: settingsError } = settingsResult;
 
   return (
     <div className="flex flex-col gap-6">
@@ -125,8 +143,161 @@ async function SettingsContent() {
         </ul>
       </section>
 
+      <section aria-labelledby="settings-preferences" className="flex flex-col gap-3">
+        <h2
+          id="settings-preferences"
+          className="px-1 text-label-md font-semibold text-on-surface-variant"
+        >
+          Preferensi
+        </h2>
+        {settingsError ? (
+          <p
+            role="alert"
+            className="rounded-xl border border-expense/30 bg-surface-container-lowest p-4 text-body-sm text-expense"
+          >
+            Preferensi gagal dimuat. Muat ulang halaman untuk mencoba lagi.
+          </p>
+        ) : (
+          <PreferencesForm
+            firstDayOfWeek={
+              settings?.first_day_of_week === "sunday" ? "sunday" : "monday"
+            }
+            dailyReminderEnabled={settings?.daily_reminder_enabled ?? false}
+            cloudBackupEnabled={settings?.cloud_backup_enabled ?? false}
+            reminderConfigured={Boolean(
+              process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY &&
+                process.env.VAPID_PRIVATE_KEY &&
+                process.env.VAPID_SUBJECT &&
+              process.env.CRON_SECRET &&
+              process.env.SUPABASE_SERVICE_ROLE_KEY,
+            )}
+            backupConfigured={Boolean(
+              process.env.SUPABASE_SERVICE_ROLE_KEY &&
+                process.env.CRON_SECRET,
+            )}
+          />
+        )}
+      </section>
+
+      <section aria-labelledby="settings-notifications" className="flex flex-col gap-3">
+        <h2
+          id="settings-notifications"
+          className="px-1 text-label-md font-semibold text-on-surface-variant"
+        >
+          Pengingat
+        </h2>
+        <PushSetup
+          configured={Boolean(
+            process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY &&
+              process.env.VAPID_PRIVATE_KEY &&
+              process.env.VAPID_SUBJECT &&
+              process.env.CRON_SECRET &&
+              process.env.SUPABASE_SERVICE_ROLE_KEY,
+          )}
+          initiallyEnabled={false}
+        />
+      </section>
+
+      <section aria-labelledby="settings-passkey" className="flex flex-col gap-3">
+        <h2
+          id="settings-passkey"
+          className="px-1 text-label-md font-semibold text-on-surface-variant"
+        >
+          Keamanan
+        </h2>
+        {settingsError || passkeysResult.error ? (
+          <p
+            role="alert"
+            className="rounded-xl border border-expense/30 bg-surface-container-lowest p-4 text-body-sm text-expense"
+          >
+            Status kunci biometrik gagal dimuat. Muat ulang halaman untuk
+            mencoba lagi.
+          </p>
+        ) : (
+          <PasskeySetting
+            enabled={settings?.passkey_enabled ?? false}
+            credentialCount={passkeysResult.data?.length ?? 0}
+            configured={Boolean(
+              process.env.PASSKEY_SESSION_SECRET &&
+                process.env.PASSKEY_SESSION_SECRET.length >= 32 &&
+                process.env.SUPABASE_SERVICE_ROLE_KEY,
+            )}
+          />
+        )}
+      </section>
+
+      <section aria-labelledby="settings-backup" className="flex flex-col gap-3">
+        <h2
+          id="settings-backup"
+          className="px-1 text-label-md font-semibold text-on-surface-variant"
+        >
+          Data dan cadangan
+        </h2>
+        {settingsError ? (
+          <p
+            role="alert"
+            className="rounded-xl border border-expense/30 bg-surface-container-lowest p-4 text-body-sm text-expense"
+          >
+            Status cadangan gagal dimuat. Muat ulang halaman untuk mencoba lagi.
+          </p>
+        ) : (
+          <BackupControls
+            lastBackupAt={settings?.last_backup_at ?? null}
+            hasBackup={Boolean(settings?.last_backup_at)}
+          />
+        )}
+        <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+          <DownloadLinkRow
+            href="/api/export/data"
+            glyph="data_object"
+            title="Ekspor semua data"
+            description="Unduh data Budgetku dalam format JSON."
+          />
+          <DownloadLinkRow
+            href="/api/export/transactions"
+            glyph="table_view"
+            title="Ekspor transaksi"
+            description="Unduh transaksi dalam format CSV."
+          />
+        </ul>
+      </section>
+
       <LogoutConfirm />
     </div>
+  );
+}
+
+function DownloadLinkRow({
+  href,
+  glyph,
+  title,
+  description,
+}: {
+  href: string;
+  glyph: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <li>
+      <a
+        href={href}
+        className="flex min-h-[64px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+          <Icon name={glyph} size={22} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-body-md font-medium text-on-surface">
+            {title}
+          </span>
+          <span className="text-body-sm text-on-surface-variant">
+            {description}
+          </span>
+        </span>
+        <Icon name="download" size={20} className="shrink-0 text-on-surface-variant" />
+      </a>
+    </li>
   );
 }
 

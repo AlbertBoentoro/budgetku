@@ -11,8 +11,13 @@ import { cn } from "@/lib/utils";
 
 export function LoginForm({
   className,
+  callbackPath = "/auth/callback",
+  description = "Masuk atau buat akun Budgetku dengan Google.",
   ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+}: React.ComponentPropsWithoutRef<"div"> & {
+  callbackPath?: string;
+  description?: string;
+}) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +30,7 @@ export function LoginForm({
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}${callbackPath}`,
         },
       });
       if (error) throw error;
@@ -51,7 +56,7 @@ export function LoginForm({
             Masuk
           </h1>
           <CardDescription className="text-slate-600 dark:text-slate-600">
-            Masuk atau buat akun Budgetku dengan Google.
+            {description}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-6 pb-6 sm:px-8 sm:pb-8">

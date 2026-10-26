@@ -14,6 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
+      user_settings: {
+        Row: {
+          cloud_backup_enabled: boolean
+          currency: string
+          daily_reminder_enabled: boolean
+          daily_reminder_time: string
+          first_day_of_week: "monday" | "sunday"
+          last_backup_at: string | null
+          last_reminder_sent_on: string | null
+          locale: string
+          passkey_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cloud_backup_enabled?: boolean
+          currency?: string
+          daily_reminder_enabled?: boolean
+          daily_reminder_time?: string
+          first_day_of_week?: "monday" | "sunday"
+          last_backup_at?: string | null
+          last_reminder_sent_on?: string | null
+          locale?: string
+          passkey_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cloud_backup_enabled?: boolean
+          currency?: string
+          daily_reminder_enabled?: boolean
+          daily_reminder_time?: string
+          first_day_of_week?: "monday" | "sunday"
+          last_backup_at?: string | null
+          last_reminder_sent_on?: string | null
+          locale?: string
+          passkey_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          subscription: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          subscription: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          subscription?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      passkey_credentials: {
+        Row: {
+          counter: number
+          created_at: string
+          credential_id: string
+          device_name: string
+          last_used_at: string | null
+          public_key: string
+          transports: string[]
+          user_id: string
+        }
+        Insert: {
+          counter?: number
+          created_at?: string
+          credential_id: string
+          device_name?: string
+          last_used_at?: string | null
+          public_key: string
+          transports?: string[]
+          user_id: string
+        }
+        Update: {
+          counter?: number
+          created_at?: string
+          credential_id?: string
+          device_name?: string
+          last_used_at?: string | null
+          public_key?: string
+          transports?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      passkey_challenges: {
+        Row: {
+          challenge: string
+          created_at: string
+          expires_at: string
+          id: string
+          purpose: string
+          user_id: string
+        }
+        Insert: {
+          challenge: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          purpose: string
+          user_id: string
+        }
+        Update: {
+          challenge?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          purpose?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       accounts: {
         Row: {
           account_type: string
@@ -674,7 +800,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      register_passkey: {
+        Args: {
+          p_counter: number
+          p_credential_id: string
+          p_device_name: string
+          p_public_key: string
+          p_transports: string[]
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      disable_passkeys: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
+      consume_passkey_challenge: {
+        Args: {
+          p_challenge: string
+          p_challenge_id: string
+          p_purpose: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

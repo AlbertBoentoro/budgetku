@@ -17,5 +17,12 @@ export async function GET(request: NextRequest) {
     redirect("/auth/google-error");
   }
 
+  if (
+    request.nextUrl.searchParams.get("next") ===
+    "/auth/passkey-recovery"
+  ) {
+    redirect("/auth/passkey-recovery");
+  }
+
   redirect("/dashboard");
 }

@@ -35,6 +35,24 @@ export function SettingsLoading() {
         </ul>
       </div>
 
+      <div className="flex flex-col gap-3" aria-hidden>
+        <div className="mx-1 h-4 w-20 rounded bg-surface-container" />
+        <div className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+          <div className="h-11 rounded-lg bg-surface-container" />
+          <div className="h-16 rounded-lg bg-surface-container" />
+          <div className="h-11 w-40 rounded-lg bg-surface-container" />
+          <div className="h-11 w-40 self-end rounded-lg bg-surface-container" />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3" aria-hidden>
+        <div className="mx-1 h-4 w-24 rounded bg-surface-container" />
+        <div className="flex h-28 flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+          <div className="h-4 w-2/3 rounded bg-surface-container" />
+          <div className="h-11 w-40 self-end rounded-lg bg-surface-container" />
+        </div>
+      </div>
+
       <div
         className="flex min-h-[56px] items-center gap-3 rounded-xl bg-surface-container-lowest px-4 py-3 shadow-sm"
         aria-hidden

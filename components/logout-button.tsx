@@ -1,6 +1,7 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
@@ -11,16 +12,37 @@ export function LogoutButton({
   ...rest
 }: Omit<ButtonProps, "onClick">) {
   const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
 
   const logout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+    setPending(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        setError(await response.text());
+        return;
+      }
+      router.replace("/auth/login");
+    } catch {
+      setError("Tidak bisa keluar dari akun. Coba lagi.");
+    } finally {
+      setPending(false);
+    }
   };
 
   return (
-    <Button {...rest} onClick={logout}>
-      {children ?? "Logout"}
-    </Button>
+    <span className="flex flex-col gap-2">
+      {error ? (
+        <span role="alert" className="text-body-sm text-expense">
+          {error}
+        </span>
+      ) : null}
+      <Button {...rest} disabled={pending || rest.disabled} onClick={logout}>
+        {pending ? "Keluar..." : children ?? "Logout"}
+      </Button>
+    </span>
   );
 }
