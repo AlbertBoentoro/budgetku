@@ -7,6 +7,11 @@ import {
 } from "@/lib/gmail/config";
 import { resolveParser } from "@/lib/gmail/parsers";
 import type { ParseResult } from "@/lib/gmail/parsers";
+import {
+  createGmailPreview,
+  type GmailSource,
+} from "@/lib/gmail/preview";
+import type { Json } from "@/lib/supabase/database.types";
 import type { createClient } from "@/lib/supabase/server";
 
 /**
@@ -14,7 +19,7 @@ import type { createClient } from "@/lib/supabase/server";
  * broad sender-domain query, dedups against email_imports with an explicit
  * select-then-write (NOT .upsert(), since no unique index exists on
  * email_imports(user_id, gmail_message_id) — BLOCKER-1), parses each new
- * message, and stores only honest metadata (never a fabricated amount).
+ * message, and stores a preview without creating a transaction.
  *
  * Never imported from a client bundle (pulls googleapis via lib/gmail/client).
  */
@@ -112,10 +117,12 @@ export async function syncGmail(
     const parser = resolveParser(meta.from);
     let status: "pending" | "failed";
     let failureReason: string | null = null;
+    let parsedPreview: Json | null = null;
 
     if (!parser) {
       status = "failed";
       failureReason = "Pengirim tidak dikenali untuk impor otomatis.";
+      parsedPreview = createGmailPreview(null, emptyParseResult());
     } else {
       const result = parser.parse({
         subject: meta.subject,
@@ -123,6 +130,7 @@ export async function syncGmail(
         bodyText: meta.bodyText,
         receivedAt: meta.receivedAtIso,
       });
+      parsedPreview = createGmailPreview(parser.source, result);
       if (result.ok && result.amount !== null) {
         status = "pending";
       } else {
@@ -131,8 +139,7 @@ export async function syncGmail(
       }
     }
 
-    // Store only honest metadata — no parsed amount is persisted (no column
-    // exists; the review form re-parses on demand, design §6.4).
+    // The parsed preview stays a draft and never creates a transaction.
     const { error: insertError } = await supabase.from("email_imports").insert({
       user_id: userId,
       connection_id: connection.id,
@@ -143,6 +150,7 @@ export async function syncGmail(
       received_at: meta.receivedAtIso,
       status,
       failure_reason: failureReason,
+      parsed_preview: parsedPreview,
     });
 
     if (insertError) {
@@ -158,6 +166,70 @@ export async function syncGmail(
     }
 
     inserted += 1;
+  }
+
+  const { data: missingPreviews, error: previewLookupError } = await supabase
+    .from("email_imports")
+    .select("id, gmail_message_id")
+    .eq("user_id", userId)
+    .eq("connection_id", connection.id)
+    .in("status", ["pending", "failed"])
+    .is("parsed_preview", null)
+    .order("received_at", { ascending: false, nullsFirst: false })
+    .limit(MAX_MESSAGES_PER_SYNC);
+
+  if (previewLookupError) {
+    throw new Error(
+      `Gagal memuat email yang perlu dilengkapi: ${previewLookupError.message}`,
+    );
+  }
+
+  for (const row of missingPreviews ?? []) {
+    const outcome = await reparseDraftMessage(
+      supabase,
+      userId,
+      connection.id,
+      row.gmail_message_id,
+    );
+    if (outcome.kind === "transient") continue;
+    if (outcome.kind === "gone") {
+      const { error } = await supabase
+        .from("email_imports")
+        .update({
+          status: "failed",
+          failure_reason: "Email tidak ditemukan lagi di Gmail.",
+          parsed_preview: createGmailPreview(null, emptyParseResult()),
+        })
+        .eq("id", row.id)
+        .eq("user_id", userId);
+      if (error) {
+        throw new Error(`Gagal memperbarui status email: ${error.message}`);
+      }
+      continue;
+    }
+
+    const detectedAmount =
+      outcome.candidate.ok && outcome.candidate.amount !== null;
+    const { error } = await supabase
+      .from("email_imports")
+      .update({
+        parsed_preview: createGmailPreview(
+          outcome.source,
+          outcome.candidate,
+        ),
+        status: detectedAmount ? "pending" : "failed",
+        failure_reason: detectedAmount
+          ? null
+          : outcome.source
+            ? "Tidak ada nominal yang bisa dibaca dari email ini."
+            : "Pengirim tidak dikenali untuk impor otomatis.",
+      })
+      .eq("id", row.id)
+      .eq("user_id", userId);
+
+    if (error) {
+      throw new Error(`Gagal menyimpan detail email: ${error.message}`);
+    }
   }
 
   // Advance the cursor conservatively (§4.3 step 7): only when the cap was NOT
@@ -199,9 +271,9 @@ export async function syncGmail(
 }
 
 /**
- * Outcome of a lazy, single-draft re-parse when the user opens one draft
- * (design §4.4 step 2, §6.4). The candidate values are display-only and NEVER
- * persisted; the user confirms/corrects them in the review form.
+ * Outcome of a Gmail message re-parse, used when opening a draft and to
+ * backfill stored list previews. The preview is never a transaction; the user
+ * confirms/corrects values in the review form.
  *   - ok:    the message was re-fetched and parsed; `candidate` holds the
  *            detected display values (any field may be null = not detected).
  *   - transient: a transient Gmail failure (token/rate-limit/5xx). The caller
@@ -210,14 +282,17 @@ export async function syncGmail(
  *            failed so the user can dismiss it or add it manually.
  */
 export type ReparseOutcome =
-  | { kind: "ok"; candidate: ParseResult }
+  | {
+      kind: "ok";
+      candidate: ParseResult;
+      source: GmailSource | null;
+    }
   | { kind: "transient" }
   | { kind: "gone" };
 
 /**
- * Re-fetch ONE message by gmail_message_id and re-parse it to populate the
- * review form (design §6.4: parsed candidate values are not persisted, they are
- * re-derived on demand). Server-only. The caller must pass the authenticated
+ * Re-fetch ONE message by gmail_message_id and parse it for the review form or
+ * a stored list preview. Server-only. The caller must pass the authenticated
  * user's id and a connection that belongs to that user.
  *
  * A permanent 404 maps to `gone`; any other failure maps to `transient` so the
@@ -250,15 +325,8 @@ export async function reparseDraftMessage(
     // still fill the form manually from the detected date/merchant (none here).
     return {
       kind: "ok",
-      candidate: {
-        ok: false,
-        amount: null,
-        direction: null,
-        transactionAt: null,
-        merchant: null,
-        description: null,
-        confidence: "low",
-      },
+      source: null,
+      candidate: emptyParseResult(),
     };
   }
 
@@ -269,7 +337,19 @@ export async function reparseDraftMessage(
     receivedAt: meta.receivedAtIso,
   });
 
-  return { kind: "ok", candidate };
+  return { kind: "ok", candidate, source: parser.source };
+}
+
+function emptyParseResult(): ParseResult {
+  return {
+    ok: false,
+    amount: null,
+    direction: null,
+    transactionAt: null,
+    merchant: null,
+    description: null,
+    confidence: "low",
+  };
 }
 
 /** True only for a definitive Gmail 404 (message permanently gone). */

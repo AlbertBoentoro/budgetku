@@ -4,6 +4,15 @@ Fitur ini membutuhkan skema Supabase dan environment server untuk cadangan
 otomatis, notifikasi, serta passkey. Kode tidak menerapkan perubahan ke
 Supabase live atau Vercel.
 
+## Preview impor Gmail
+
+Sebelum deploy versi yang menampilkan detail email impor, jalankan
+[2026-10-add-gmail-parsed-preview.sql](./sql/2026-10-add-gmail-parsed-preview.sql)
+di SQL Editor project Supabase. Migrasi menambahkan kolom JSONB untuk preview
+hasil parser. Hak `UPDATE` dan kebijakan RLS yang sudah dipakai tabel
+`email_imports` tetap berlaku. Preview hanya membantu pengguna memeriksa draft,
+dan tidak membuat transaksi.
+
 ## Menyiapkan Supabase
 
 Jalankan [2026-10-settings-integrations.sql](./sql/2026-10-settings-integrations.sql)

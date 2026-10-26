@@ -9,9 +9,12 @@ import {
 } from "@/app/(app)/settings/gmail/actions";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import {
+  GMAIL_SOURCE_LABELS,
+  type GmailParsedPreview,
+} from "@/lib/gmail/preview";
 
-// One row's worth of STORED honest metadata (design §4.4 step 1: list rows use
-// stored metadata only, never a per-row Gmail get and never a parsed amount).
+// One row's stored email metadata and safely parsed preview.
 export interface GmailDraftView {
   id: string;
   subject: string | null;
@@ -19,6 +22,7 @@ export interface GmailDraftView {
   receivedAt: string | null;
   status: "needs_review" | "failed";
   failureReason: string | null;
+  preview: GmailParsedPreview | null;
 }
 
 interface GmailDraftRowProps {
@@ -43,11 +47,25 @@ function formatSender(sender: string | null): string {
   return sender.trim();
 }
 
+function formatAmount(amount: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatTransactionDate(date: string | null): string | null {
+  if (!date) return null;
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(
+    parsed,
+  );
+}
+
 /**
- * One draft row in "Perlu ditinjau". Shows stored metadata only and never an
- * invented amount. A needs_review row offers "Tinjau" (navigates with
- * ?review=<id>, letting the server re-fetch + re-parse that one message) and
- * "Abaikan". A failed row shows an honest "cannot read" note and only "Abaikan".
+ * One draft row in "Perlu ditinjau". Shows stored email metadata and parser
+ * results. A needs_review row offers "Tinjau" and "Abaikan"; a failed row can
+ * be ignored and explains which details could not be read.
  */
 export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
   const [isPending, startTransition] = useTransition();
@@ -55,6 +73,10 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
   const received = formatReceived(draft.receivedAt);
   const senderLabel = formatSender(draft.sender);
   const isFailed = draft.status === "failed";
+  const preview = draft.preview;
+  const transactionDate = formatTransactionDate(
+    preview?.transactionAt ?? null,
+  );
 
   function handleIgnore() {
     startTransition(async () => {
@@ -70,22 +92,85 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
           <Icon name={isFailed ? "error" : "mail"} size={20} />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-body-md text-on-surface">
+          <span className="break-words text-body-md text-on-surface">
             {draft.subject?.trim() || "(Tanpa subjek)"}
           </span>
-          <span className="truncate text-body-sm text-on-surface-variant">
+          <span className="break-words text-body-sm text-on-surface-variant">
             {senderLabel}
             {received ? ` \u00b7 ${received}` : ""}
-          </span>
-          <span className="text-body-sm text-on-surface-variant">
-            {isFailed
-              ? "Tidak bisa membaca detail dari email ini."
-              : "Perlu dicek sebelum disimpan."}
           </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 pl-[52px]">
+      {preview ? (
+        <div className="ml-0 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 sm:ml-[52px]">
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="min-w-0">
+              <dt className="text-label-xs text-on-surface-variant">Nominal</dt>
+              <dd className="break-words text-body-md font-semibold tabular-nums text-on-surface">
+                {preview.amount === null
+                  ? "Belum terbaca"
+                  : `Rp ${formatAmount(preview.amount)}`}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-label-xs text-on-surface-variant">Jenis</dt>
+              <dd className="break-words text-body-sm text-on-surface">
+                {preview.direction === "income"
+                  ? "Pemasukan"
+                  : preview.direction === "expense"
+                    ? "Pengeluaran"
+                    : "Belum terbaca"}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-label-xs text-on-surface-variant">Tanggal transaksi</dt>
+              <dd className="break-words text-body-sm text-on-surface">
+                {transactionDate ?? "Belum terbaca"}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-label-xs text-on-surface-variant">Bank / layanan</dt>
+              <dd className="break-words text-body-sm text-on-surface">
+                {preview.source
+                  ? GMAIL_SOURCE_LABELS[preview.source]
+                  : "Belum dikenali"}
+              </dd>
+            </div>
+          </dl>
+          {preview.merchant ? (
+            <p className="break-words text-body-sm text-on-surface">
+              Merchant: {preview.merchant}
+            </p>
+          ) : null}
+          {preview.description ? (
+            <p className="break-words text-body-sm text-on-surface-variant">
+              Deskripsi: {preview.description}
+            </p>
+          ) : null}
+          {preview.confidence === "low" ? (
+            <p className="text-body-sm text-on-surface-variant">
+              Periksa kembali hasil deteksi sebelum menyimpan.
+            </p>
+          ) : null}
+          {isFailed ? (
+            <p className="text-body-sm text-on-surface-variant">
+              {draft.failureReason ?? "Detail transaksi belum bisa dibaca."}
+            </p>
+          ) : (
+            <p className="text-body-sm text-on-surface-variant">
+              Periksa detail ini sebelum menyimpan.
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="ml-0 break-words text-body-sm text-on-surface-variant sm:ml-[52px]">
+          Detail transaksi belum dimuat. Tekan Sync sekarang untuk melengkapi
+          daftar.
+        </p>
+      )}
+
+      <div className="flex items-center gap-2 pl-0 sm:pl-[52px]">
         {!isFailed ? (
           <Button asChild size="sm" className="h-11">
             <Link href={`/settings/gmail?review=${draft.id}`} scroll={false}>

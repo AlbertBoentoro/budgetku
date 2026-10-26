@@ -7,6 +7,7 @@ import {
   fetchUsableCategories,
 } from "@/lib/transactions";
 import { reparseDraftMessage } from "@/lib/gmail/sync";
+import { readGmailPreview } from "@/lib/gmail/preview";
 import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
@@ -168,7 +169,7 @@ async function GmailContent({
   const { data: imports, error: importsError } = await supabase
     .from("email_imports")
     .select(
-      "id, subject, sender, received_at, processed_at, status, failure_reason, gmail_message_id",
+      "id, subject, sender, received_at, processed_at, status, failure_reason, gmail_message_id, parsed_preview",
     )
     .eq("user_id", user.id)
     .order("received_at", { ascending: false, nullsFirst: false })
@@ -195,6 +196,7 @@ async function GmailContent({
     receivedAt: r.received_at,
     status: r.status === "failed" ? "failed" : "needs_review",
     failureReason: r.failure_reason,
+    preview: readGmailPreview(r.parsed_preview),
   }));
 
   const history: GmailHistoryView[] = historyRows.map((r) => ({

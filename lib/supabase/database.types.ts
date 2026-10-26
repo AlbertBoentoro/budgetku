@@ -414,6 +414,7 @@ export type Database = {
           gmail_message_id: string
           gmail_thread_id: string | null
           id: string
+          parsed_preview: Json | null
           processed_at: string | null
           received_at: string | null
           sender: string | null
@@ -429,6 +430,7 @@ export type Database = {
           gmail_message_id: string
           gmail_thread_id?: string | null
           id?: string
+          parsed_preview?: Json | null
           processed_at?: string | null
           received_at?: string | null
           sender?: string | null
@@ -444,6 +446,7 @@ export type Database = {
           gmail_message_id?: string
           gmail_thread_id?: string | null
           id?: string
+          parsed_preview?: Json | null
           processed_at?: string | null
           received_at?: string | null
           sender?: string | null
