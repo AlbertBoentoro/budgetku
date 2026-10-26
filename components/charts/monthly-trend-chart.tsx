@@ -69,7 +69,7 @@ export function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
   const latest = data[data.length - 1];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {/* The SVG is a visual aid; the sr-only table below and the latest-month
           rows carry every value as text. */}
       <ResponsiveContainer width="100%" height={240}>

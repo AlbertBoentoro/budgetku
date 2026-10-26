@@ -67,7 +67,7 @@ export function CategoryBreakdownChart({ data }: CategoryBreakdownChartProps) {
   const chartHeight = Math.max(data.length * 44, 120);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <ResponsiveContainer width="100%" height={chartHeight}>
         <BarChart
           layout="vertical"
