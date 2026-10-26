@@ -14,15 +14,11 @@ const INITIAL_STATE: SettingsActionState = { ok: false, message: "" };
 export function PreferencesForm({
   firstDayOfWeek,
   dailyReminderEnabled,
-  cloudBackupEnabled,
   reminderConfigured,
-  backupConfigured,
 }: {
   firstDayOfWeek: "monday" | "sunday";
   dailyReminderEnabled: boolean;
-  cloudBackupEnabled: boolean;
   reminderConfigured: boolean;
-  backupConfigured: boolean;
 }) {
   const [state, action, pending] = useActionState(saveSettings, INITIAL_STATE);
 
@@ -91,33 +87,6 @@ export function PreferencesForm({
           {!reminderConfigured ? (
             <p className="text-body-sm text-on-surface-variant">
               Menunggu konfigurasi Web Push di server.
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex items-start gap-3 border-t border-outline-variant pt-4">
-        <Checkbox
-          id="cloudBackupEnabled"
-          name="cloudBackupEnabled"
-          defaultChecked={cloudBackupEnabled}
-          disabled={!backupConfigured && !cloudBackupEnabled}
-          className="size-11 rounded-md"
-          aria-label="Aktifkan cadangan cloud otomatis"
-        />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <label
-            htmlFor="cloudBackupEnabled"
-            className="text-body-md font-medium text-on-surface"
-          >
-            Cadangan cloud otomatis
-          </label>
-          <p className="text-body-sm text-on-surface-variant">
-            Simpan salinan data ke ruang privat Budgetku setiap hari.
-          </p>
-          {!backupConfigured ? (
-            <p className="text-body-sm text-on-surface-variant">
-              Otomatisasi menunggu konfigurasi server.
             </p>
           ) : null}
         </div>

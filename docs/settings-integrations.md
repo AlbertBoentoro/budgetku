@@ -1,8 +1,8 @@
 # Pengaturan dan integrasi
 
-Fitur ini membutuhkan skema Supabase dan environment server sebelum kontrol
-cadangan otomatis, notifikasi, serta passkey dapat diaktifkan. Kode tidak
-menerapkan perubahan ke Supabase live atau Vercel.
+Fitur ini membutuhkan skema Supabase dan environment server untuk cadangan
+otomatis, notifikasi, serta passkey. Kode tidak menerapkan perubahan ke
+Supabase live atau Vercel.
 
 ## Menyiapkan Supabase
 
@@ -27,10 +27,13 @@ grant insert (last_backup_at)
 Kebijakan RLS tetap membatasi perubahan pada baris milik pengguna yang sedang
 masuk. Jangan jalankan ulang seluruh migrasi untuk menambahkan grant.
 
-Cadangan hanya menyimpan data finansial dan preferensi. Kredensial OAuth Gmail,
-langganan push, dan kunci passkey tidak masuk ke file cadangan. Aplikasi
-menyimpan satu file cloud terbaru per akun. File JSON dapat diunduh, tetapi
-belum ada fungsi pemulihan otomatis dari file tersebut.
+Cadangan otomatis dibuat setiap hari untuk semua akun Budgetku yang terdaftar
+di Supabase Auth. Pengguna tidak perlu mengaktifkannya. Satu file cloud terbaru
+disimpan per akun dan digantikan pada jadwal berikutnya. Cadangan mencakup data
+finansial dan preferensi, tetapi tidak mencakup kredensial OAuth Gmail,
+langganan push, atau passkey. File JSON dapat diunduh, tetapi belum ada fungsi
+pemulihan otomatis dari file tersebut. Kolom `cloud_backup_enabled` tetap ada
+di skema lama, tetapi tidak lagi menentukan apakah Cron membuat cadangan.
 
 ## Environment server
 
@@ -90,9 +93,9 @@ error saat tabel atau kolom belum tersedia.
 
 `vercel.json` menjalankan `/api/cron/settings` setiap hari pada 13:00 UTC,
 setara sekitar pukul 20.00 WIB. Jadwal Cron Vercel Hobby dapat terlambat hingga
-sekitar satu jam. Cron membuat cadangan terbaru dan mengirim pengingat untuk akun yang
-mengaktifkannya. `CRON_SECRET` wajib ada; request harus membawa header
-otorisasi dengan secret Cron yang benar.
+sekitar satu jam. Cron membuat cadangan terbaru untuk setiap akun Supabase Auth,
+lalu mengirim pengingat untuk akun yang mengaktifkannya. `CRON_SECRET` wajib
+ada; request harus membawa header otorisasi dengan secret Cron yang benar.
 
 ## Passkey dan pemulihan
 

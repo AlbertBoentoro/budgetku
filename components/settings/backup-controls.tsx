@@ -9,9 +9,11 @@ import { Icon } from "@/components/ui/icon";
 export function BackupControls({
   lastBackupAt,
   hasBackup,
+  configured,
 }: {
   lastBackupAt: string | null;
   hasBackup: boolean;
+  configured: boolean;
 }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
@@ -50,15 +52,27 @@ export function BackupControls({
     <div className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
       <div>
         <p className="text-body-md font-medium text-on-surface">
-          Cadangan data
+          Cadangan cloud otomatis
         </p>
         <p className="text-body-sm text-on-surface-variant">
           {formattedBackupDate
             ? `Terakhir dibuat ${formattedBackupDate} WIB.`
             : hasBackup
-              ? "Cadangan tersedia."
-              : "Belum ada cadangan cloud."}
+              ? "Cadangan cloud tersedia."
+              : "Cadangan pertama belum dibuat."}
         </p>
+        <p className="mt-1 text-body-sm text-on-surface-variant">
+          Transaksi tetap tersimpan di Supabase. Cadangan tambahan mencakup
+          transaksi, rekening, anggaran, dan preferensi. Budgetku memperbarui
+          salinan sekitar pukul 20.00 WIB setiap hari, lalu mengganti salinan
+          sebelumnya. Pemulihan otomatis belum tersedia.
+        </p>
+        {!configured ? (
+          <p role="status" className="mt-1 text-body-sm text-expense">
+            Cadangan otomatis belum berjalan karena konfigurasi server belum
+            lengkap.
+          </p>
+        ) : null}
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button

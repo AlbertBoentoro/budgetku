@@ -11,10 +11,7 @@ const BUCKET = "budgetku-backups";
 const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 type ScheduledSetting = Pick<
   Database["public"]["Tables"]["user_settings"]["Row"],
-  | "user_id"
-  | "cloud_backup_enabled"
-  | "daily_reminder_enabled"
-  | "last_reminder_sent_on"
+  "user_id" | "daily_reminder_enabled" | "last_reminder_sent_on"
 >;
 
 function isAuthorized(request: Request): boolean {
@@ -99,24 +96,82 @@ export async function GET(request: Request) {
     );
   }
 
+  const today = jakartaDate();
+  let backupsCreated = 0;
+  let remindersSent = 0;
+  let failures = 0;
+
+  const backupUserIds = new Set<string>();
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+    if (error) {
+      console.error("Settings cron could not list accounts:", error.message);
+      return Response.json(
+        { error: "Scheduled backups could not load accounts." },
+        { status: 500, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    for (const user of data.users) backupUserIds.add(user.id);
+    if (data.users.length < 1000) break;
+  }
+
+  for (const userId of backupUserIds) {
+    try {
+      const backup = await buildUserBackup(supabase, userId);
+      const body = JSON.stringify(backup);
+      if (new TextEncoder().encode(body).byteLength > MAX_BACKUP_BYTES) {
+        throw new Error("Backup exceeds the configured storage limit.");
+      }
+
+      const path = `${userId}/latest.json`;
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, body, {
+          contentType: "application/json",
+          upsert: true,
+        });
+      if (uploadError) throw new Error(uploadError.message);
+
+      const { error: updateError } = await supabase
+        .from("user_settings")
+        .upsert(
+          {
+            user_id: userId,
+            last_backup_at: backup.generatedAt,
+            updated_at: backup.generatedAt,
+          },
+          { onConflict: "user_id" },
+        );
+      if (updateError) throw new Error(updateError.message);
+      backupsCreated += 1;
+    } catch (error) {
+      console.error("Scheduled backup failed for one account.", error);
+      failures += 1;
+    }
+  }
+
   const settings: ScheduledSetting[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from("user_settings")
-      .select(
-        "user_id, cloud_backup_enabled, daily_reminder_enabled, last_reminder_sent_on",
-      )
-      .or("cloud_backup_enabled.eq.true,daily_reminder_enabled.eq.true")
+      .select("user_id, daily_reminder_enabled, last_reminder_sent_on")
+      .eq("daily_reminder_enabled", true)
       .order("user_id")
       .range(from, from + 999);
 
     if (error) {
-      console.error(
-        "Settings cron could not load schedules:",
-        error.message,
-      );
+      console.error("Settings cron could not load reminder schedules:", error.message);
       return Response.json(
-        { error: "Scheduled settings could not be loaded." },
+        {
+          backupsCreated,
+          remindersSent,
+          failures: failures + 1,
+          error: "Scheduled reminders could not be loaded.",
+        },
         { status: 500, headers: { "Cache-Control": "no-store" } },
       );
     }
@@ -125,48 +180,8 @@ export async function GET(request: Request) {
     if (!data || data.length < 1000) break;
   }
 
-  const today = jakartaDate();
-  let backupsCreated = 0;
-  let remindersSent = 0;
-  let failures = 0;
-
   for (const setting of settings) {
-    if (setting.cloud_backup_enabled) {
-      try {
-        const backup = await buildUserBackup(supabase, setting.user_id);
-        const body = JSON.stringify(backup);
-        if (new TextEncoder().encode(body).byteLength > MAX_BACKUP_BYTES) {
-          throw new Error("Backup exceeds the configured storage limit.");
-        }
-
-        const path = `${setting.user_id}/latest.json`;
-        const { error: uploadError } = await supabase.storage
-          .from(BUCKET)
-          .upload(path, body, {
-            contentType: "application/json",
-            upsert: true,
-          });
-        if (uploadError) throw new Error(uploadError.message);
-
-        const { error: updateError } = await supabase
-          .from("user_settings")
-          .update({
-            last_backup_at: backup.generatedAt,
-            updated_at: backup.generatedAt,
-          })
-          .eq("user_id", setting.user_id);
-        if (updateError) throw new Error(updateError.message);
-        backupsCreated += 1;
-      } catch (error) {
-        console.error("Scheduled backup failed for one account.", error);
-        failures += 1;
-      }
-    }
-
-    if (
-      setting.daily_reminder_enabled &&
-      setting.last_reminder_sent_on !== today
-    ) {
+    if (setting.last_reminder_sent_on !== today) {
       const { data: subscriptions, error: subscriptionError } = await supabase
         .from("push_subscriptions")
         .select("id, subscription")

@@ -15,7 +15,6 @@ export async function saveSettings(
 ): Promise<SettingsActionState> {
   const firstDayOfWeek = formData.get("firstDayOfWeek");
   const reminderEnabled = formData.get("dailyReminderEnabled") === "on";
-  const backupEnabled = formData.get("cloudBackupEnabled") === "on";
 
   if (firstDayOfWeek !== "monday" && firstDayOfWeek !== "sunday") {
     return { ok: false, message: "Pilih hari pertama minggu yang valid." };
@@ -37,17 +36,10 @@ export async function saveSettings(
     process.env.CRON_SECRET &&
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
-  const backupConfigured = Boolean(
-    process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.CRON_SECRET,
-  );
-
-  if (
-    (reminderEnabled && !reminderConfigured) ||
-    (backupEnabled && !backupConfigured)
-  ) {
+  if (reminderEnabled && !reminderConfigured) {
     const { data: current, error: currentError } = await supabase
       .from("user_settings")
-      .select("daily_reminder_enabled, cloud_backup_enabled")
+      .select("daily_reminder_enabled")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -66,17 +58,6 @@ export async function saveSettings(
           "Pengingat belum bisa diaktifkan karena konfigurasi server belum lengkap.",
       };
     }
-    if (
-      backupEnabled &&
-      !backupConfigured &&
-      !current?.cloud_backup_enabled
-    ) {
-      return {
-        ok: false,
-        message:
-          "Cadangan otomatis belum bisa diaktifkan karena konfigurasi server belum lengkap.",
-      };
-    }
   }
 
   const { error } = await supabase.from("user_settings").upsert(
@@ -85,7 +66,6 @@ export async function saveSettings(
       first_day_of_week: firstDayOfWeek,
       daily_reminder_enabled: reminderEnabled,
       daily_reminder_time: "20:00",
-      cloud_backup_enabled: backupEnabled,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" },

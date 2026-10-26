@@ -114,7 +114,7 @@ export async function buildUserBackup(
     supabase
       .from("user_settings")
       .select(
-        "locale, currency, first_day_of_week, daily_reminder_enabled, daily_reminder_time, cloud_backup_enabled",
+        "locale, currency, first_day_of_week, daily_reminder_enabled, daily_reminder_time",
       )
       .eq("user_id", userId)
       .maybeSingle(),

@@ -60,7 +60,7 @@ async function SettingsContent() {
     supabase
       .from("user_settings")
       .select(
-        "first_day_of_week, daily_reminder_enabled, cloud_backup_enabled, last_backup_at, passkey_enabled",
+        "first_day_of_week, daily_reminder_enabled, last_backup_at, passkey_enabled",
       )
       .eq("user_id", user.id)
       .maybeSingle(),
@@ -163,17 +163,12 @@ async function SettingsContent() {
               settings?.first_day_of_week === "sunday" ? "sunday" : "monday"
             }
             dailyReminderEnabled={settings?.daily_reminder_enabled ?? false}
-            cloudBackupEnabled={settings?.cloud_backup_enabled ?? false}
             reminderConfigured={Boolean(
-              process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY &&
-                process.env.VAPID_PRIVATE_KEY &&
+                process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY &&
+                  process.env.VAPID_PRIVATE_KEY &&
                 process.env.VAPID_SUBJECT &&
-              process.env.CRON_SECRET &&
-              process.env.SUPABASE_SERVICE_ROLE_KEY,
-            )}
-            backupConfigured={Boolean(
-              process.env.SUPABASE_SERVICE_ROLE_KEY &&
-                process.env.CRON_SECRET,
+                process.env.CRON_SECRET &&
+                process.env.SUPABASE_SERVICE_ROLE_KEY,
             )}
           />
         )}
@@ -244,6 +239,10 @@ async function SettingsContent() {
           <BackupControls
             lastBackupAt={settings?.last_backup_at ?? null}
             hasBackup={Boolean(settings?.last_backup_at)}
+            configured={Boolean(
+              process.env.SUPABASE_SERVICE_ROLE_KEY &&
+                process.env.CRON_SECRET,
+            )}
           />
         )}
         <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
