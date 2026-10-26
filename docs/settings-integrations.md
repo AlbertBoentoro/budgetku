@@ -36,23 +36,37 @@ Browser harus mendukung Web Push dan pengguna harus memberi izin notifikasi.
 
 ## Menyiapkan project test atau Vercel
 
-1. Terapkan file SQL di Supabase **project test** melalui SQL Editor. File
-   menambahkan kolom `first_day_of_week` serta tabel, RPC, kebijakan, dan
-   bucket yang dibutuhkan fitur Pengaturan.
-2. Tambahkan variabel pada environment lokal atau Vercel. Jangan kirim nilai
-   secret ke chat atau commit ke Git.
-3. Buat pasangan VAPID dari root project dengan
-   `./node_modules/.bin/web-push generate-vapid-keys`. Simpan public key ke
-   `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, private key ke `VAPID_PRIVATE_KEY`.
-4. Buat nilai acak untuk `CRON_SECRET` dan `PASSKEY_SESSION_SECRET` dengan
-   password manager atau pembuat secret tepercaya. `PASSKEY_SESSION_SECRET`
-   harus memiliki setidaknya 32 karakter.
-5. Ambil `SUPABASE_SERVICE_ROLE_KEY` dari pengaturan API Supabase dan isi hanya
-   sebagai server-side environment variable. Isi `VAPID_SUBJECT` dengan kontak
-   yang dapat dihubungi, misalnya alamat `mailto:`, dan
-   `NEXT_PUBLIC_SITE_URL` dengan origin aplikasi.
-6. Setelah migrasi dan environment terpasang, deploy ulang agar route Cron dan
-   fitur terkait tersedia. Jangan deploy sebelum migrasi berhasil diterapkan.
+### Supabase
+
+1. Buka project Supabase **test** yang dipakai oleh aplikasi lokal.
+2. Buka **SQL Editor**, buat query baru, lalu salin seluruh isi
+   `docs/sql/2026-10-settings-integrations.sql` dan jalankan.
+3. Pastikan query berhasil. Di Table Editor, cek tabel `user_settings`,
+   `push_subscriptions`, `passkey_credentials`, dan `passkey_challenges`.
+   Di Storage, pastikan bucket privat `budgetku-backups` tersedia.
+
+Jangan jalankan langkah ini di project produksi tanpa persetujuan khusus.
+
+### Vercel
+
+Di project Vercel, buka **Settings → Environment Variables**. Tambahkan
+variabel berikut untuk **Production**. Pilih Preview juga hanya jika ingin
+memakai fitur tersebut di deployment Preview.
+
+| Variabel | Cara mendapat nilainya |
+| --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase **Project Settings → API Keys**. Gunakan service role/secret key, jangan pernah pakai prefix `NEXT_PUBLIC_`. |
+| `CRON_SECRET` | Buat nilai acak dengan password manager atau `openssl rand -base64 32`. |
+| `PASSKEY_SESSION_SECRET` | Buat secret berbeda dengan password manager atau `openssl rand -base64 48`; minimal 32 karakter. |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` dan `VAPID_PRIVATE_KEY` | Dari root repo jalankan `./node_modules/.bin/web-push generate-vapid-keys`; simpan pasangan yang sama, private key server-only. |
+| `VAPID_SUBJECT` | Kontak yang dapat dihubungi dalam format `mailto:alamat-kontak`. |
+| `NEXT_PUBLIC_SITE_URL` | URL production aplikasi, termasuk `https://`. |
+
+Masukkan secret langsung di dashboard Vercel, bukan ke chat atau Git. Vercel
+Cron berjalan pada deployment Production. Setelah migrasi test berhasil dan
+semua variabel production benar, barulah push commit dan periksa deployment.
+Jangan push sebelum database siap, karena halaman Pengaturan akan menampilkan
+error saat tabel atau kolom belum tersedia.
 
 ## Jadwal
 
