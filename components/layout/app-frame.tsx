@@ -17,7 +17,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         <header className="fixed inset-x-0 top-0 z-40 mx-auto flex h-14 w-full max-w-md items-center justify-between gap-2 border-b border-outline-variant bg-surface/80 px-4 pt-safe backdrop-blur-xl">
           <Link
             href="/dashboard"
-            className="text-title-md font-semibold text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="flex min-h-11 items-center text-title-md font-semibold text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             Budgetku
           </Link>

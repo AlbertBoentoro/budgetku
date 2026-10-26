@@ -64,5 +64,6 @@ Language: natural, concise Indonesian. Labels include Saldo, Rekening, Transaksi
 - Bordered Gmail panels: group connection actions and message history without adding elevation to already information-dense settings.
 - Shrinkable chart wrappers: let Recharts use the available phone width instead of expanding to an SVG's intrinsic width.
 - Higher-contrast input borders: make form-control edges visible against both the light and dark surfaces.
+- 44px control targets: make frequent mobile actions easier to tap without changing their behavior.
 - Ledger rows: help compare merchant, date, and amount quickly.
 - Stable tokens + Inter: give new screens the same identity as the current app.

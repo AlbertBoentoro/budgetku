@@ -40,7 +40,7 @@ export default function BudgetPage({
           // planning. Reachable here instead of taking a bottom-nav slot. The
           // mockup's right-side Target link is satisfied by this header action
           // (one placement, not duplicated below the month row).
-          <Button asChild variant="ghost" size="sm" className="h-9 text-secondary">
+          <Button asChild variant="ghost" size="sm" className="h-11 text-secondary">
             <Link href="/goals">
               <Icon name="savings" size={18} />
               Target Tabungan

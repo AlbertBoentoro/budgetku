@@ -74,7 +74,7 @@ export function TransactionLedgerRow({
     <li className="flex items-center gap-3 px-4 py-3">
       <Link
         href={`/transactions/${transaction.id}/edit`}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
           <Icon name={transactionTypeGlyph(transaction.transaction_type)} size={20} />

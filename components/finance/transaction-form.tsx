@@ -407,7 +407,7 @@ export function TransactionForm({
               key={preset.label}
               type="button"
               onClick={() => addPreset(preset.delta)}
-              className="flex h-9 items-center rounded-full bg-surface-container-low px-3 text-body-sm font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-11 items-center rounded-full bg-surface-container-low px-3 text-body-sm font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {preset.label}
             </button>
@@ -415,7 +415,7 @@ export function TransactionForm({
           <button
             type="button"
             onClick={resetAmount}
-            className="flex h-9 items-center rounded-full px-3 text-body-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-11 items-center rounded-full px-3 text-body-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Reset
           </button>
