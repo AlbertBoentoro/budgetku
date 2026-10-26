@@ -118,7 +118,7 @@ export function GmailDraftList({
         </p>
       ) : null}
 
-      <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
+      <ul className="flex flex-col divide-y divide-outline-variant rounded-xl border border-border bg-surface-container-lowest">
         {drafts.map((draft) => (
           <GmailDraftRow key={draft.id} draft={draft} onError={setError} />
         ))}

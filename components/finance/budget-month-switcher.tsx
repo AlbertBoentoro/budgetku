@@ -33,7 +33,7 @@ export function BudgetMonthSwitcher({ monthParam }: BudgetMonthSwitcherProps) {
 
   return (
     <section aria-label="Pilih bulan" className="flex justify-center">
-      <div className="inline-flex items-center gap-1 rounded-full bg-surface-container-lowest px-2 py-1.5 shadow-sm">
+      <div className="inline-flex items-center gap-1 rounded-full border border-outline-variant bg-surface-container-lowest px-2 py-1.5">
         <button
           type="button"
           className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -57,6 +57,7 @@ export function BudgetMonthSwitcher({ monthParam }: BudgetMonthSwitcherProps) {
           value={monthParam}
           onChange={(e) => goToMonth(e.target.value)}
           className="sr-only"
+          style={{ width: 1, height: 1 }}
         />
 
         <button

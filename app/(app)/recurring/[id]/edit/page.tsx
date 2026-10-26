@@ -17,6 +17,7 @@ import {
   updateRecurring,
   type RecurringFormInput,
 } from "@/app/(app)/recurring/actions";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { Button } from "@/components/ui/button";
 
 interface EditRecurringPageProps {
@@ -26,7 +27,15 @@ interface EditRecurringPageProps {
 export default function EditRecurringPage({ params }: EditRecurringPageProps) {
   return (
     <>
-      <AppHeader title="Ubah transaksi berulang" />
+      <AppHeader
+        title="Ubah transaksi berulang"
+        titleAction={
+          <AppBackLink
+            href="/recurring"
+            label="Kembali ke Transaksi Berulang"
+          />
+        }
+      />
       <PageContainer>
         {/* The dynamic auth + template fetch runs inside Suspense so the shared
             (app) shell can still prerender under PPR. */}

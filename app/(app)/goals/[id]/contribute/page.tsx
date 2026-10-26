@@ -6,6 +6,7 @@ import {
   addContribution,
   type ContributionFormInput,
 } from "@/app/(app)/goals/actions";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { ContributionForm } from "@/components/finance/contribution-form";
@@ -18,7 +19,12 @@ interface ContributePageProps {
 export default function ContributePage({ params }: ContributePageProps) {
   return (
     <>
-      <AppHeader title="Tambah kontribusi" />
+      <AppHeader
+        title="Tambah kontribusi"
+        titleAction={
+          <AppBackLink href="/goals" label="Kembali ke Target Tabungan" />
+        }
+      />
       <PageContainer>
         <Suspense fallback={<ContributeSkeleton />}>
           <ContributeContent params={params} />

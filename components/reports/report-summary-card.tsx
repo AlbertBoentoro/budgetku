@@ -24,7 +24,7 @@ export function ReportSummaryCard({
   return (
     <section
       aria-label="Ringkasan bulan"
-      className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-lg shadow-sm"
+      className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-lg"
     >
       <span className="text-label-xs uppercase text-on-surface-variant">
         Ringkasan {monthLabel}

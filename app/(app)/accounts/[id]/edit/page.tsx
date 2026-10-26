@@ -9,6 +9,7 @@ import {
   AccountForm,
   type AccountFormInitialValues,
 } from "@/components/finance/account-form";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { updateAccount, type AccountFormInput } from "@/app/(app)/accounts/actions";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -20,7 +21,12 @@ interface EditAccountPageProps {
 export default function EditAccountPage({ params }: EditAccountPageProps) {
   return (
     <>
-      <AppHeader title="Ubah rekening" />
+      <AppHeader
+        title="Ubah rekening"
+        titleAction={
+          <AppBackLink href="/accounts" label="Kembali ke Rekening" />
+        }
+      />
       <PageContainer>
         {/* The dynamic auth + account fetch runs inside Suspense so the shared
             (app) shell (BottomNav uses usePathname) can still prerender. */}
@@ -63,7 +69,6 @@ async function EditAccountContent({ params }: EditAccountPageProps) {
     name: account.name,
     account_type: account.account_type,
     initial_balance: account.initial_balance,
-    include_in_total: account.include_in_total,
   };
 
   // Bound server action: the id is fixed server-side, the client only sends

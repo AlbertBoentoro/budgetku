@@ -13,8 +13,8 @@ interface NavItem {
 }
 
 // Five slots with a raised center "Catat" (+) action:
-// Beranda, Transaksi, [Catat], Anggaran, Rekening. Laporan is linked from the
-// recent-transactions section. Pengaturan stays in the shell header.
+// Beranda, Transaksi, [Catat], Anggaran, Rekening. Laporan is linked from
+// Pengaturan. Pengaturan stays in the shell header.
 const leftItems: NavItem[] = [
   { href: "/dashboard", label: "Beranda", icon: "home" },
   { href: "/transactions", label: "Transaksi", icon: "receipt_long" },
@@ -48,7 +48,9 @@ export function BottomNav() {
           )}
         >
           <Icon name={item.icon} size={24} fill={active} />
-          <span className="max-[240px]:sr-only">{item.label}</span>
+          <span className="max-[360px]:text-[10px] max-[240px]:sr-only">
+            {item.label}
+          </span>
         </Link>
       </li>
     );
@@ -75,7 +77,9 @@ export function BottomNav() {
             <span className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft">
               <Icon name="add" size={28} />
             </span>
-            <span className="max-[240px]:sr-only">Catat</span>
+            <span className="max-[360px]:text-[10px] max-[240px]:sr-only">
+              Catat
+            </span>
           </Link>
         </li>
 

@@ -10,6 +10,7 @@ import {
   type RecurringRow,
 } from "@/lib/recurring";
 import { AppHeader } from "@/components/layout/app-header";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { PageContainer } from "@/components/layout/page-container";
 import { RecurringList } from "@/components/finance/recurring-list";
 import type { RecurringRowView } from "@/components/finance/recurring-list-row";
@@ -23,15 +24,8 @@ export default function RecurringPage() {
     <>
       <AppHeader
         title="Transaksi Berulang"
-        action={
-          // Recurring is managed from Settings (not the bottom nav), so offer a
-          // clear way back to Pengaturan, its entry point.
-          <Button asChild variant="ghost" size="sm" className="h-11">
-            <Link href="/settings">
-              <Icon name="arrow_back" size={18} />
-              Pengaturan
-            </Link>
-          </Button>
+        titleAction={
+          <AppBackLink href="/settings" label="Kembali ke Pengaturan" />
         }
       />
       <PageContainer>
@@ -94,8 +88,7 @@ async function RecurringContent() {
   if (templates.length === 0) {
     return (
       <div className="flex flex-col gap-4">
-        <IntroRow />
-        <div className="flex flex-col items-center gap-2 rounded-xl bg-surface-container-lowest p-lg text-center shadow-sm">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-surface-container-lowest p-lg text-center">
           <span
             className="flex size-12 items-center justify-center rounded-full bg-surface-container text-on-surface-variant"
             aria-hidden
@@ -106,8 +99,8 @@ async function RecurringContent() {
             Belum ada transaksi berulang
           </p>
           <p className="max-w-xs text-body-sm text-on-surface-variant">
-            Buat jadwal untuk pemasukan, pengeluaran, atau transfer yang terjadi
-            berulang lewat Tambah transaksi, lalu centang pilihan berulang.
+            Mulai dari formulir transaksi, lalu aktifkan pilihan berulang.
+            Jadwalnya akan muncul di sini.
           </p>
           <Button asChild className="mt-2 h-11">
             <Link href="/transactions/new">
@@ -203,7 +196,7 @@ async function RecurringContent() {
     <div className="flex flex-col gap-6">
       <IntroRow />
 
-      <section className="flex flex-col gap-1 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+      <section className="flex flex-col gap-1 rounded-xl border border-border bg-surface-container-lowest p-lg">
         <span className="text-label-xs uppercase text-on-surface-variant">
           Total Beban Rutin Bulanan
         </span>
@@ -231,15 +224,14 @@ async function RecurringContent() {
 // there; the wording stays honest about where a schedule is created.
 function IntroRow() {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-title-md text-on-surface">Otomatisasi Finansial</h2>
-        <p className="text-body-sm text-on-surface-variant">Jadwal Rutin</p>
-      </div>
-      <Button asChild size="sm" className="h-11 shrink-0">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="max-w-xl text-body-sm text-on-surface-variant">
+        Kelola jadwal transaksi dan catat kembali saat waktunya tiba.
+      </p>
+      <Button asChild size="sm" className="h-11 self-start sm:shrink-0">
         <Link href="/transactions/new">
           <Icon name="add" size={18} />
-          Tambah Jadwal
+          Tambah transaksi
         </Link>
       </Button>
     </div>

@@ -38,7 +38,7 @@ export function GoalCard({ goal }: { goal: GoalCardView }) {
       <Link
         href={`/goals/${goal.id}`}
         className={cn(
-          "flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-md shadow-sm transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-md transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           isArchived && "opacity-70",
         )}
       >

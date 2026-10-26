@@ -69,7 +69,7 @@ export function GmailConnectionPanel({
   const lastSyncedLabel = lastSyncedAt ? formatLastSynced(lastSyncedAt) : "";
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-5 shadow-sm">
+    <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface-container-lowest p-5">
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
           <Icon name="mail" size={22} />

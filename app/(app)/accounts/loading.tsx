@@ -9,7 +9,7 @@ export function AccountsLoading() {
   return (
     <div className="flex flex-col gap-6" aria-hidden>
       {/* Summary card: label + big total + subline + button. */}
-      <div className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+      <div className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-lg">
         <div className="flex flex-col gap-2">
           <div className="h-3 w-28 rounded bg-surface-container" />
           <div className="h-10 w-48 rounded bg-surface-container" />
@@ -22,7 +22,7 @@ export function AccountsLoading() {
       {Array.from({ length: 2 }).map((_, s) => (
         <div
           key={s}
-          className="flex flex-col rounded-xl bg-surface-container-lowest shadow-sm"
+          className="flex flex-col rounded-xl border border-outline-variant bg-surface-container-lowest"
         >
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="size-9 shrink-0 rounded-full bg-surface-container" />

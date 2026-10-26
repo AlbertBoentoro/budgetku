@@ -11,7 +11,7 @@ export function BudgetLoading() {
         <div className="h-11 w-44 rounded-full bg-surface-container" />
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+      <div className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-lg">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-2">
             <div className="h-3 w-28 rounded bg-surface-container" />
@@ -30,7 +30,7 @@ export function BudgetLoading() {
         {Array.from({ length: 4 }).map((_, i) => (
           <li
             key={i}
-            className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-3.5 shadow-sm"
+            className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5"
           >
             <div className="flex items-center gap-3">
               <div className="size-10 shrink-0 rounded-full bg-surface-container" />

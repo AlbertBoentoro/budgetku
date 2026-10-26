@@ -10,22 +10,16 @@ import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { TransactionForm } from "@/components/finance/transaction-form";
 import { createTransaction } from "@/app/(app)/transactions/actions";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
 
 export default function NewTransactionPage() {
   return (
     <>
       <AppHeader
         title="Tambah transaksi"
-        action={
-          <Link
-            href="/transactions"
-            aria-label="Kembali"
-            className="flex size-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Icon name="arrow_back" size={22} />
-          </Link>
+        titleAction={
+          <AppBackLink href="/transactions" label="Kembali ke Transaksi" />
         }
       />
       <PageContainer>

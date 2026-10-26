@@ -21,6 +21,7 @@ import {
   type BudgetItemFormInitialValues,
 } from "@/components/finance/budget-item-form";
 import { AppHeader } from "@/components/layout/app-header";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { PageContainer } from "@/components/layout/page-container";
 import { Button } from "@/components/ui/button";
 
@@ -37,7 +38,12 @@ export default function EditBudgetItemPage({
 }: EditBudgetItemPageProps) {
   return (
     <>
-      <AppHeader title="Ubah batas kategori" />
+      <AppHeader
+        title="Ubah batas kategori"
+        titleAction={
+          <AppBackLink href="/budget" label="Kembali ke Anggaran" />
+        }
+      />
       <PageContainer>
         <Suspense fallback={<FormSkeleton />}>
           <EditBudgetItemContent params={params} searchParams={searchParams} />

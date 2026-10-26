@@ -43,7 +43,7 @@ export function GmailImportHistory({ entries }: GmailImportHistoryProps) {
         </span>
       </div>
 
-      <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
+      <ul className="flex flex-col divide-y divide-outline-variant rounded-xl border border-border bg-surface-container-lowest">
         {entries.map((entry) => {
           const processed = formatProcessed(entry.processedAt);
           const isImported = entry.status === "imported";

@@ -40,9 +40,9 @@ LIGHT (Calm Ledger) is the shipped target for this step. `.dark` is a PROVISIONA
 Material Symbols Outlined is loaded via a Google Fonts stylesheet `<link>` in `app/layout.tsx` (a runtime CDN stylesheet, NOT an npm dependency). The reusable `components/ui/icon.tsx` renders a glyph by name: `<Icon name="account_balance_wallet" />` with `size`, `fill`, `weight`, `className`, and an optional `aria-label` (decorative/`aria-hidden` by default, matching the lucide convention). `lucide-react` stays installed; both icon systems coexist during the per-screen migration, after which screens move to Material Symbols.
 
 ## Shell
-- **Fixed top header** (`app/(app)/layout.tsx`): `bg-surface/80 backdrop-blur-xl`, holds the "Budgetku" wordmark and a settings icon-button linking to `/settings`. This is the new entry point for Pengaturan after it left the bottom nav. `<main>` top padding clears the fixed bar; `AuthGuard` and `BottomNav` stay inside `<Suspense>` for PPR.
-- **Bottom nav** (`components/layout/bottom-nav.tsx`): `bg-surface/90 backdrop-blur-xl`, safe-area padding, Material Symbols icons, active `text-primary` + `font-semibold` / inactive `text-on-surface-variant`, 44px tap targets. Five slots with a raised center action: **Beranda** (`/dashboard`), **Transaksi** (`/transactions`), **Catat** (center, raised circular filled-navy FAB linking to `/transactions/new` with a white `add` glyph and a small "Catat" label), **Anggaran** (`/budget`), **Rekening** (`/accounts`). Laporan moved out of the nav to a Beranda quick action (the `/reports` route still exists). Pengaturan is intentionally not in the nav (reachable via the header gear).
-- **Per-screen `AppHeader`** maps the title to `text-headline-lg` and subtitle to `text-body-sm text-on-surface-variant`; the `action` slot API is unchanged. `PageContainer` keeps the bottom padding that clears the fixed nav.
+- **Global app chrome** (`components/layout/app-frame.tsx`): ordinary app routes show the fixed `bg-surface/80` Budgetku header and the five-slot bottom nav. `/settings` and its child routes hide both bars; the page title row provides a back link to its parent. Main content clears the fixed header only when that header is shown.
+- **Bottom nav** (`components/layout/bottom-nav.tsx`): `bg-surface/90 backdrop-blur-xl`, safe-area padding, Material Symbols icons, active `text-primary` + `font-semibold` / inactive `text-on-surface-variant`, 44px tap targets. Five slots with a raised center action: **Beranda** (`/dashboard`), **Transaksi** (`/transactions`), **Catat** (center, raised circular filled-navy FAB linking to `/transactions/new` with a white `add` glyph and a small "Catat" label), **Anggaran** (`/budget`), **Rekening** (`/accounts`). Laporan is managed from Pengaturan, not the dashboard or bottom navigation.
+- **Per-screen `AppHeader`** maps the title to `text-headline-lg` and subtitle to `text-body-sm text-on-surface-variant`; `titleAction` places a back control immediately to the left of its title, while `action` remains available for page actions. Back links follow the page hierarchy: Laporan to Pengaturan, Pengaturan to Beranda, and child pages to their owning list. `PageContainer` keeps bottom padding for the fixed nav where it is shown.
 - **shadcn primitives** (button/card/input) inherit the new tokens through semantic classes with no API changes.
 
 ## Copy and money
@@ -58,5 +58,9 @@ Language: natural, concise Indonesian. Labels include Saldo, Rekening, Transaksi
 ## Purpose notes
 - Large balance type: answers the user's primary question immediately.
 - Muted account accents: identify accounts without competing with the balance.
+- Bordered account surfaces: keep the total, grouped subtotals, and account rows distinct without making every surface appear elevated.
+- Bordered recurring schedule surfaces: separate the monthly estimate, schedule, and controls without implying elevation.
+- Explicit active/paused labels: keep schedule status understandable without relying on color or opacity.
+- Bordered Gmail panels: group connection actions and message history without adding elevation to already information-dense settings.
 - Ledger rows: help compare merchant, date, and amount quickly.
 - Stable tokens + Inter: give new screens the same identity as the current app.

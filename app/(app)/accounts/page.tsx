@@ -6,6 +6,7 @@ import {
   ACCOUNT_TYPES,
   computeAccountBalances,
   getAccountTypeMeta,
+  sumRunningAccountBalances,
   type AccountRow,
 } from "@/lib/accounts";
 import { accountTypeGlyph } from "@/components/dashboard/dashboard-account-card";
@@ -106,16 +107,7 @@ async function AccountsContent() {
   const balanceOf = (account: AccountRow) =>
     balances.get(account.id) ?? account.initial_balance;
 
-  // Summary total: sum of running balances over accounts flagged
-  // include_in_total, regardless of archived state. Same rule as the dashboard
-  // grand total. Guarded against a non-finite value so one bad row cannot
-  // poison the total.
-  let total = 0;
-  for (const account of accounts) {
-    if (!account.include_in_total) continue;
-    const balance = balanceOf(account);
-    if (Number.isFinite(balance)) total += balance;
-  }
+  const total = sumRunningAccountBalances(accounts, balances);
 
   // Active count: non-archived accounts. A distinct real number from the total.
   const activeCount = accounts.filter((a) => !a.is_archived).length;
@@ -178,7 +170,7 @@ async function AccountsContent() {
 // Honest empty state: only shown when the user truly has zero accounts.
 function AccountsEmpty() {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-xl bg-surface-container-lowest p-lg text-center shadow-sm">
+    <div className="flex flex-col items-center gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-lg text-center">
       <span className="flex size-14 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
         <Icon name="account_balance_wallet" size={28} />
       </span>

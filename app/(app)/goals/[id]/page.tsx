@@ -16,6 +16,7 @@ import { AmountText } from "@/components/finance/amount-text";
 import { GoalProgress } from "@/components/finance/goal-progress";
 import { GoalDetailActions } from "@/components/finance/goal-detail-actions";
 import { GoalContributionHistory } from "@/components/finance/goal-contribution-history";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 
@@ -51,13 +52,8 @@ export default function GoalDetailPage({ params }: GoalDetailPageProps) {
     <>
       <AppHeader
         title="Detail Target"
-        action={
-          <Button asChild variant="ghost" size="sm" className="h-11">
-            <Link href="/goals">
-              <Icon name="arrow_back" size={18} />
-              Target
-            </Link>
-          </Button>
+        titleAction={
+          <AppBackLink href="/goals" label="Kembali ke Target Tabungan" />
         }
       />
       <PageContainer>

@@ -1,3 +1,4 @@
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 
@@ -15,7 +16,7 @@ export function RecurringLoading() {
         <div className="h-11 w-32 rounded-md bg-muted" />
       </div>
 
-      <div className="flex flex-col gap-2 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+      <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface-container-lowest p-lg">
         <div className="h-3 w-40 rounded bg-muted" />
         <div className="h-8 w-48 rounded bg-muted" />
         <div className="h-3 w-32 rounded bg-muted" />
@@ -30,7 +31,7 @@ export function RecurringLoading() {
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
-            className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-md shadow-sm"
+            className="flex flex-col gap-3 rounded-xl border border-border bg-surface-container-lowest p-md"
           >
             <div className="flex items-start gap-3">
               <div className="size-10 shrink-0 rounded-full bg-muted" />
@@ -52,7 +53,12 @@ export function RecurringLoading() {
 export default function Loading() {
   return (
     <>
-      <AppHeader title="Transaksi Berulang" />
+      <AppHeader
+        title="Transaksi Berulang"
+        titleAction={
+          <AppBackLink href="/settings" label="Kembali ke Pengaturan" />
+        }
+      />
       <PageContainer>
         <div className="animate-pulse">
           <RecurringLoading />

@@ -20,6 +20,7 @@ import {
   UNCATEGORIZED_KEY,
   type MonthlyTrendPoint,
 } from "@/lib/reports";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { BudgetMonthSwitcher } from "@/components/finance/budget-month-switcher";
@@ -36,7 +37,6 @@ import { ReportSummaryCard } from "@/components/reports/report-summary-card";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import {
-  ReportsBackAction,
   ReportsLoading,
 } from "@/app/(app)/reports/loading";
 
@@ -54,7 +54,9 @@ export default function ReportsPage({
     <>
       <AppHeader
         title="Laporan"
-        action={<ReportsBackAction />}
+        titleAction={
+          <AppBackLink href="/settings" label="Kembali ke Pengaturan" />
+        }
       />
       <PageContainer>
         <Suspense fallback={<ReportsLoading />}>
@@ -330,7 +332,7 @@ function ReportSection({
       {bare ? (
         children
       ) : (
-        <div className="rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-lg">
           {children}
         </div>
       )}

@@ -22,7 +22,7 @@ interface BudgetVsActualListProps {
 // it needs no client interactivity.
 export function BudgetVsActualList({ rows }: BudgetVsActualListProps) {
   return (
-    <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
+    <ul className="flex flex-col divide-y divide-outline-variant rounded-xl border border-outline-variant bg-surface-container-lowest">
       {rows.map((row) => (
         <li key={row.categoryName} className="flex flex-col gap-2 px-4 py-3">
           {/* Wraps on narrow screens so long IDR amounts drop under the name

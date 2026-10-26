@@ -50,21 +50,21 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
   }
 
   return (
-    <li className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-3.5 shadow-sm">
-      <div className="flex items-center gap-3">
+    <li className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5">
+      <div className="flex items-start gap-3">
         <Link
           href={`/budget/items/${item.id}/edit?month=${monthParam}`}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 flex-1 items-start gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {/* One neutral glyph for every category: the stored category icon is
               unvalidated and no name->glyph map exists, so a per-category icon
               would be fabricated. */}
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container">
+          <span className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container">
             <Icon name="category" size={20} className="text-on-surface-variant" />
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="flex items-center gap-2">
-              <span className="truncate text-body-md text-on-surface">
+            <span className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="break-words text-body-md text-on-surface">
                 {label}
               </span>
               {item.is_fixed ? (
@@ -73,43 +73,18 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
                 </span>
               ) : null}
             </span>
-            <span className="truncate text-body-sm text-on-surface-variant">
-              Batas{" "}
-              <AmountText
-                value={usage.planned}
-                size="none"
-                className="text-body-sm"
-              />
-            </span>
           </span>
         </Link>
 
-        <span className="flex shrink-0 flex-col items-end gap-0.5">
+        <span className="flex shrink-0 flex-col items-end">
           <AmountText
             value={usage.spent}
             size="none"
             className="text-currency-body text-on-surface"
           />
-          {usage.isOverBudget ? (
-            <span className="text-label-xs text-expense">
-              +
-              <AmountText
-                value={-usage.remaining}
-                size="none"
-                tone="expense"
-                className="text-label-xs"
-              />
-            </span>
-          ) : (
-            <span className="text-label-xs text-on-surface-variant">
-              Sisa{" "}
-              <AmountText
-                value={usage.remaining}
-                size="none"
-                className="text-label-xs"
-              />
-            </span>
-          )}
+          <span className="text-label-xs text-on-surface-variant">
+            Terpakai
+          </span>
         </span>
 
         <DropdownMenu>
@@ -142,6 +117,26 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 text-label-md text-on-surface-variant">
+        <span className="min-w-0">
+          Batas{" "}
+          <AmountText
+            value={usage.planned}
+            size="none"
+            className="text-label-md"
+          />
+        </span>
+        <span className="shrink-0">
+          Sisa{" "}
+          <AmountText
+            value={usage.remaining}
+            size="none"
+            tone={usage.isOverBudget ? "expense" : "default"}
+            className="text-label-md"
+          />
+        </span>
       </div>
 
       {/* Usage bar width reflects the real ratio; status is also named in text

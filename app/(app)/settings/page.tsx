@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,13 @@ import { SettingsLoading } from "@/app/(app)/settings/loading";
 export default function SettingsPage() {
   return (
     <>
-      <AppHeader title="Pengaturan" />
-      <PageContainer>
+      <AppHeader
+        title="Pengaturan"
+        titleAction={
+          <AppBackLink href="/dashboard" label="Kembali ke Beranda" />
+        }
+      />
+      <PageContainer className="pb-6">
         <Suspense fallback={<SettingsLoading />}>
           <SettingsContent />
         </Suspense>
@@ -56,7 +62,7 @@ async function SettingsContent() {
         >
           Akun
         </h2>
-        <div className="flex items-center gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-sm">
+        <div className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
           <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
             <Icon name="person" size={26} />
           </span>
@@ -92,7 +98,13 @@ async function SettingsContent() {
         >
           Fitur
         </h2>
-        <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm">
+        <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+          <SettingsLinkRow
+            href="/reports"
+            glyph="bar_chart"
+            title="Laporan"
+            description="Lihat ringkasan keuangan dan pengeluaran."
+          />
           {/* Entry point to manage recurring templates (created via the
               Transaksi berulang checkbox on Tambah transaksi). */}
           <SettingsLinkRow

@@ -9,7 +9,6 @@ export interface AccountFormInput {
   name: string;
   account_type: string;
   initial_balance: number;
-  include_in_total: boolean;
   color?: string | null;
   icon?: string | null;
 }
@@ -64,7 +63,8 @@ export async function createAccount(
     name: input.name.trim(),
     account_type: input.account_type,
     initial_balance: input.initial_balance,
-    include_in_total: input.include_in_total,
+    // Keep the legacy database field consistent with the all-accounts rule.
+    include_in_total: true,
     currency: "IDR",
     color: input.color ?? null,
     icon: input.icon ?? null,
@@ -107,7 +107,8 @@ export async function updateAccount(
       name: input.name.trim(),
       account_type: input.account_type,
       initial_balance: input.initial_balance,
-      include_in_total: input.include_in_total,
+      // Keep the legacy database field consistent with the all-accounts rule.
+      include_in_total: true,
       color: input.color ?? null,
       icon: input.icon ?? null,
     })

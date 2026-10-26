@@ -17,6 +17,7 @@ import {
   updateTransaction,
   type TransactionFormInput,
 } from "@/app/(app)/transactions/actions";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { Button } from "@/components/ui/button";
 
 interface EditTransactionPageProps {
@@ -28,7 +29,12 @@ export default function EditTransactionPage({
 }: EditTransactionPageProps) {
   return (
     <>
-      <AppHeader title="Ubah transaksi" />
+      <AppHeader
+        title="Ubah transaksi"
+        titleAction={
+          <AppBackLink href="/transactions" label="Kembali ke Transaksi" />
+        }
+      />
       <PageContainer>
         {/* The dynamic auth + transaction fetch runs inside Suspense so the
             shared (app) shell can still prerender under PPR. */}

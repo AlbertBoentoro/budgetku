@@ -30,7 +30,7 @@ export function LogoutConfirm() {
   // on the hover surface); the bright #DC2626 (destructive) is kept for the
   // filled "Ya, keluar" button only, per DESIGN.md D3.
   return (
-    <div className="overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
       <button
         ref={triggerRef}
         type="button"

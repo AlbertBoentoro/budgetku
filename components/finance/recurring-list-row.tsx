@@ -90,8 +90,7 @@ export function RecurringListRow({ template, onError }: RecurringListRowProps) {
   return (
     <li
       className={cn(
-        "flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-md shadow-sm",
-        !template.is_active && "opacity-70",
+        "flex flex-col gap-3 rounded-xl border border-border bg-surface-container-lowest p-md",
       )}
     >
       <div className="flex items-start gap-3">
@@ -137,7 +136,7 @@ export function RecurringListRow({ template, onError }: RecurringListRowProps) {
             tone={amountTone}
             size="none"
             signed={!isTransfer}
-            className="text-body-md font-semibold"
+            className="text-body-sm font-semibold sm:text-body-md"
           />
           <span className="text-label-xs text-on-surface-variant">
             {meta.label}

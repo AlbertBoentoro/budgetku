@@ -17,7 +17,7 @@ type Tab = "active" | "paused";
 
 const EMPTY_COPY: Record<Tab, string> = {
   active: "Belum ada jadwal aktif.",
-  paused: "Belum ada jadwal yang dijeda atau nonaktif.",
+  paused: "Belum ada jadwal yang dijeda.",
 };
 
 // Tabbed manager over the server-provided active/paused groups. Client tab
@@ -32,7 +32,7 @@ export function RecurringList({ active, paused }: RecurringListProps) {
   const groups: Record<Tab, RecurringRowView[]> = { active, paused };
   const tabs: { value: Tab; label: string; count: number }[] = [
     { value: "active", label: "Aktif", count: active.length },
-    { value: "paused", label: "Dijeda / Nonaktif", count: paused.length },
+    { value: "paused", label: "Dijeda", count: paused.length },
   ];
   const current = groups[tab];
 
@@ -61,9 +61,9 @@ export function RecurringList({ active, paused }: RecurringListProps) {
               aria-pressed={selected}
               onClick={() => setTab(t.value)}
               className={cn(
-                "flex h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-body-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-body-md",
                 selected
-                  ? "bg-surface-container-lowest text-primary shadow-sm"
+                  ? "border border-border bg-surface-container-lowest text-primary"
                   : "text-on-surface-variant hover:text-on-surface",
               )}
             >
@@ -84,7 +84,7 @@ export function RecurringList({ active, paused }: RecurringListProps) {
           ))}
         </ul>
       ) : (
-        <div className="flex flex-col items-center gap-1 rounded-xl bg-surface-container-lowest p-lg text-center shadow-sm">
+        <div className="flex flex-col items-center gap-1 rounded-xl border border-border bg-surface-container-lowest p-lg text-center">
           <p className="max-w-xs text-body-sm text-on-surface-variant">
             {EMPTY_COPY[tab]}
           </p>

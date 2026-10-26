@@ -177,7 +177,7 @@ export function TransactionFilters({
         ) : null}
       </div>
 
-      <div className="-mx-space-xs flex gap-2 overflow-x-auto px-space-xs pb-1">
+      <div className="-mx-space-xs flex flex-wrap gap-2 px-space-xs pb-1">
         {typeChips.map((chip) => {
           const isActive = currentType === chip.value;
           return (

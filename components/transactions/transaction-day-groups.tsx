@@ -53,7 +53,7 @@ export function TransactionDayGroups({ groups }: TransactionDayGroupsProps) {
                 className="text-label-md font-semibold tabular-nums"
               />
             </div>
-            <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
+            <ul className="flex flex-col divide-y divide-outline-variant rounded-xl border border-outline-variant bg-surface-container-lowest">
               {group.rows.map((transaction) => (
                 <TransactionLedgerRow
                   key={transaction.id}

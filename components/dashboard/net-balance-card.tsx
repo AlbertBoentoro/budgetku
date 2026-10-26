@@ -72,42 +72,43 @@ export function NetBalanceCard({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-      <div className="flex items-center justify-between gap-2 max-[240px]:flex-col max-[240px]:items-start">
+    <section className="relative flex flex-col gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+      <div className="flex min-h-4 items-center justify-between gap-2 pr-12">
         <span className="text-label-xs uppercase tracking-wide text-on-surface-variant">
           Total Saldo Bersih
         </span>
-        <div className="flex items-center gap-2 max-[240px]:w-full max-[240px]:justify-end">
-          {/* Static honest status label: the account is active. No metric. */}
-          <span className="inline-flex items-center gap-1 text-label-md text-on-surface-variant">
-            <span className="size-2 rounded-full bg-secondary" aria-hidden />
-            Aktif
-          </span>
-          <button
-            type="button"
-            onClick={toggleHidden}
-            aria-pressed={hidden}
-            aria-label={hidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
-            className="flex size-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Icon name={hidden ? "visibility_off" : "visibility"} size={22} />
-          </button>
-        </div>
+        {/* Static honest status label: the account is active. No metric. */}
+        <span className="inline-flex items-center gap-1 text-label-md text-on-surface-variant">
+          <span className="size-2 rounded-full bg-secondary" aria-hidden />
+          Aktif
+        </span>
       </div>
 
-      {hidden ? (
-        <span
-          className={`max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.1] tabular-nums tracking-tight text-on-surface`}
-        >
-          {BALANCE_MASK}
-        </span>
-      ) : (
-        <AmountText
-          value={balance}
-          size="none"
-          className={`max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.1] tracking-tight text-on-surface`}
-        />
-      )}
+      <button
+        type="button"
+        onClick={toggleHidden}
+        aria-pressed={hidden}
+        aria-label={hidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
+        className="absolute right-2 top-2 flex size-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Icon name={hidden ? "visibility_off" : "visibility"} size={22} />
+      </button>
+
+      <div className="-mt-1 flex min-h-12 items-center">
+        {hidden ? (
+          <span
+            className={`max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.1] tabular-nums tracking-tight text-on-surface`}
+          >
+            {BALANCE_MASK}
+          </span>
+        ) : (
+          <AmountText
+            value={balance}
+            size="none"
+            className={`max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.1] tracking-tight text-on-surface`}
+          />
+        )}
+      </div>
 
       {incomplete ? (
         <p role="alert" className="text-body-sm text-on-surface-variant">

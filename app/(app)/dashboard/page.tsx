@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   computeAccountBalances,
   getAccountTypeMeta,
+  sumRunningAccountBalances,
   type AccountRow,
 } from "@/lib/accounts";
 import {
@@ -44,8 +45,8 @@ import { DashboardLoading } from "@/app/(app)/dashboard/loading";
 const ACCOUNT_CARD_LIMIT = 6;
 
 export default function DashboardPage() {
-  // Keep the Beranda header free of duplicate actions; Laporan is linked from
-  // the recent-transactions section.
+  // Keep the Beranda header free of duplicate actions; Laporan lives in
+  // Pengaturan.
   return (
     <>
       <AppHeader title="Beranda" />
@@ -72,8 +73,8 @@ async function DashboardContent() {
     );
   }
 
-  // One accounts query feeds both views: the grand total (all accounts honoring
-  // include_in_total) and the card row (non-archived only). No N+1.
+  // One accounts query feeds both views: the grand total (all accounts) and the
+  // card row (non-archived only). No N+1.
   const { data: accountsData, error: accountsError } = await supabase
     .from("accounts")
     .select("*")
@@ -109,16 +110,7 @@ async function DashboardContent() {
     }
   }
 
-  // Grand total (focal): sum running balances over accounts flagged
-  // include_in_total, regardless of archived state (an archived account can
-  // still count toward net worth). Each term is guarded against a non-finite
-  // value so one bad row cannot poison the total.
-  let grandTotal = 0;
-  for (const account of allAccounts) {
-    if (!account.include_in_total) continue;
-    const balance = balances.get(account.id) ?? account.initial_balance;
-    if (Number.isFinite(balance)) grandTotal += balance;
-  }
+  const grandTotal = sumRunningAccountBalances(allAccounts, balances);
 
   // This-month income/expense over the [first of month, first of next month)
   // UTC window; transfers excluded from both. Degrade quietly on failure.
@@ -320,8 +312,6 @@ async function DashboardContent() {
       <section className="flex flex-col gap-3">
         <SectionHeaderRow
           title="Transaksi Terbaru"
-          linkLabel="Laporan"
-          href="/reports"
           secondaryLinkLabel={recentRows.length > 0 ? "Semua Transaksi" : null}
           secondaryHref="/transactions"
         />
@@ -369,8 +359,8 @@ async function DashboardContent() {
   );
 }
 
-// Section header row with an optional "see all" link, styled with Stitch
-// tokens and type scale.
+// Section header row with optional navigation links, styled with the current
+// semantic tokens and type scale.
 function SectionHeaderRow({
   title,
   linkLabel,
@@ -379,8 +369,8 @@ function SectionHeaderRow({
   secondaryHref,
 }: {
   title: string;
-  linkLabel: string | null;
-  href: string;
+  linkLabel?: string | null;
+  href?: string;
   secondaryLinkLabel?: string | null;
   secondaryHref?: string;
 }) {
@@ -388,7 +378,7 @@ function SectionHeaderRow({
     <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 max-[240px]:flex-col max-[240px]:items-start">
       <h2 className="text-title-md text-on-surface">{title}</h2>
       <div className="ml-auto flex items-center gap-2 max-[240px]:ml-0 max-[240px]:w-full max-[240px]:flex-wrap">
-        {linkLabel ? (
+        {linkLabel && href ? (
           <Link
             href={href}
             className="inline-flex min-h-11 items-center rounded-md px-1 text-label-md text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

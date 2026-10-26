@@ -1,3 +1,4 @@
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 
@@ -10,7 +11,7 @@ export function SettingsLoading() {
 
       <div className="flex flex-col gap-3" aria-hidden>
         <div className="mx-1 h-4 w-12 rounded bg-surface-container" />
-        <div className="flex items-center gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-sm">
+        <div className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
           <div className="size-12 shrink-0 rounded-full bg-surface-container" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <div className="h-5 w-3/4 max-w-56 rounded bg-surface-container" />
@@ -21,7 +22,7 @@ export function SettingsLoading() {
 
       <div className="flex flex-col gap-3" aria-hidden>
         <div className="mx-1 h-4 w-12 rounded bg-surface-container" />
-        <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm">
+        <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           {Array.from({ length: 3 }).map((_, i) => (
             <li key={i} className="flex min-h-[64px] items-center gap-3 px-4 py-3">
               <div className="size-10 shrink-0 rounded-full bg-surface-container" />
@@ -49,8 +50,13 @@ export function SettingsLoading() {
 export default function Loading() {
   return (
     <>
-      <AppHeader title="Pengaturan" />
-      <PageContainer>
+      <AppHeader
+        title="Pengaturan"
+        titleAction={
+          <AppBackLink href="/dashboard" label="Kembali ke Beranda" />
+        }
+      />
+      <PageContainer className="pb-6">
         <div className="animate-pulse motion-reduce:animate-none">
           <SettingsLoading />
         </div>

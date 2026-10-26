@@ -95,6 +95,15 @@ export function GoalForm({
       ? null
       : idrPreview.format(parsedAmount);
 
+  function clearFieldError(field: keyof FieldErrors) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
   function validateClient(): {
     errors: FieldErrors;
     input: GoalFormInput | null;
@@ -161,7 +170,10 @@ export function GoalForm({
         <Input
           id={nameId}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            clearFieldError("name");
+          }}
           className="h-11"
           placeholder="Misal: Dana darurat"
           aria-invalid={fieldErrors.name ? true : undefined}
@@ -180,7 +192,10 @@ export function GoalForm({
         <Input
           id={amountId}
           value={amountInput}
-          onChange={(e) => setAmountInput(e.target.value)}
+          onChange={(e) => {
+            setAmountInput(e.target.value);
+            clearFieldError("target_amount");
+          }}
           inputMode="numeric"
           className="h-11 tabular-nums"
           placeholder="0"
@@ -207,7 +222,10 @@ export function GoalForm({
           id={dateId}
           type="date"
           value={targetDate}
-          onChange={(e) => setTargetDate(e.target.value)}
+          onChange={(e) => {
+            setTargetDate(e.target.value);
+            clearFieldError("target_date");
+          }}
           aria-invalid={fieldErrors.target_date ? true : undefined}
           aria-describedby={fieldErrors.target_date ? dateErrId : undefined}
           className={cn(controlClassName, "tabular-nums")}
@@ -225,7 +243,10 @@ export function GoalForm({
         <select
           id={accountFieldId}
           value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
+          onChange={(e) => {
+            setAccountId(e.target.value);
+            clearFieldError("account_id");
+          }}
           className={cn(controlClassName)}
         >
           <option value="">Tanpa rekening</option>

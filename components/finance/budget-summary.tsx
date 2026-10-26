@@ -22,7 +22,7 @@ export function BudgetSummary({ totals, incomplete = false }: BudgetSummaryProps
   return (
     <section
       aria-label="Ringkasan anggaran"
-      className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-lg shadow-sm"
+      className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-lg"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">

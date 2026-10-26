@@ -7,6 +7,7 @@ import {
   fetchUsableCategories,
 } from "@/lib/transactions";
 import { reparseDraftMessage } from "@/lib/gmail/sync";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,9 @@ import {
   GmailImportHistory,
   type GmailHistoryView,
 } from "@/components/finance/gmail-import-history";
-import { GmailLoading } from "@/app/(app)/settings/gmail/loading";
+import {
+  GmailLoading,
+} from "@/app/(app)/settings/gmail/loading";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -77,18 +80,11 @@ export default function GmailPage({
     <>
       <AppHeader
         title="Impor dari Gmail"
-        action={
-          // Managed from Settings (not the bottom nav), so offer a clear way
-          // back to Pengaturan, its entry point (mirrors /recurring).
-          <Button asChild variant="ghost" size="sm" className="h-9">
-            <Link href="/settings">
-              <Icon name="arrow_back" size={18} aria-hidden />
-              Pengaturan
-            </Link>
-          </Button>
+        titleAction={
+          <AppBackLink href="/settings" label="Kembali ke Pengaturan" />
         }
       />
-      <PageContainer>
+      <PageContainer className="pb-6">
         <Suspense fallback={<GmailLoading />}>
           <GmailContent searchParams={searchParams} />
         </Suspense>
@@ -383,7 +379,7 @@ function EmptyPanel({
   description: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl bg-surface-container-lowest p-6 text-center shadow-sm">
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface-container-lowest p-6 text-center">
       <span className="flex size-12 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
         <Icon name={glyph} size={26} />
       </span>

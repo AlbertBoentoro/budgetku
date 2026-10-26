@@ -14,13 +14,11 @@ import type { AccountFormInput, ActionResult } from "@/app/(app)/accounts/action
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 
 export interface AccountFormInitialValues {
   name: string;
   account_type: string;
   initial_balance: number;
-  include_in_total: boolean;
 }
 
 interface AccountFormProps {
@@ -51,9 +49,6 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
   const [balanceInput, setBalanceInput] = useState(
     initialValues ? String(initialValues.initial_balance) : "",
   );
-  const [includeInTotal, setIncludeInTotal] = useState(
-    initialValues?.include_in_total ?? true,
-  );
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -61,7 +56,6 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
   const nameId = useId();
   const typeId = useId();
   const balanceId = useId();
-  const includeId = useId();
   const nameErrId = useId();
   const typeErrId = useId();
   const balanceErrId = useId();
@@ -104,7 +98,6 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
         name: trimmedName,
         account_type: accountType,
         initial_balance: balance,
-        include_in_total: includeInTotal,
       },
     };
   }
@@ -204,24 +197,6 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
           </p>
         ) : null}
       </div>
-
-      <label
-        htmlFor={includeId}
-        className="flex items-center gap-3 rounded-md border bg-card p-3"
-      >
-        <Checkbox
-          id={includeId}
-          className="size-5"
-          checked={includeInTotal}
-          onCheckedChange={(v) => setIncludeInTotal(v === true)}
-        />
-        <span className="flex flex-col">
-          <span className="text-sm font-medium">Masukkan dalam total</span>
-          <span className="text-sm text-muted-foreground">
-            Hitung saldo rekening ini pada total saldo.
-          </span>
-        </span>
-      </label>
 
       {formError ? (
         <p

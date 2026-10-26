@@ -37,14 +37,6 @@ export default function TransactionsPage({
     <>
       <AppHeader
         title="Transaksi"
-        action={
-          <Button asChild size="sm" className="h-9">
-            <Link href="/transactions/new">
-              <Icon name="add" size={18} />
-              Tambah transaksi
-            </Link>
-          </Button>
-        }
       />
       <PageContainer>
         <Suspense fallback={<TransactionsLoading />}>

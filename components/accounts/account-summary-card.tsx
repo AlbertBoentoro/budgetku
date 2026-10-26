@@ -6,11 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 
 interface AccountSummaryCardProps {
-  // Sum of running balances over accounts flagged include_in_total, regardless
-  // of archived state. Same rule as the dashboard grand total.
+  // Sum of running balances across all accounts, including archived accounts.
   total: number;
-  // Count of non-archived accounts. A distinct real number from the total's
-  // include_in_total set; the two are intentionally not conflated.
+  // Count of non-archived accounts.
   activeCount: number;
   // True when the transactions fetch failed and balances fell back to
   // initial_balance, so the figures may be incomplete.
@@ -30,7 +28,7 @@ export function AccountSummaryCard({
   const isNegative = total < 0;
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
+    <section className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-lg">
       <div className="flex flex-col gap-1">
         <span className="text-label-xs uppercase text-on-surface-variant">
           Total Saldo Akun
@@ -42,7 +40,7 @@ export function AccountSummaryCard({
           size="none"
           tone={isNegative ? "expense" : "default"}
           className={cn(
-            "text-[2.75rem] font-bold leading-[1.1] tracking-tight",
+            "text-[clamp(1.5rem,8vw,2.75rem)] font-bold leading-[1.1] tracking-tight tabular-nums",
             !isNegative && "text-on-surface",
           )}
         />

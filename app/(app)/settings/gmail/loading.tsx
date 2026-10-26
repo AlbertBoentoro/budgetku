@@ -1,3 +1,4 @@
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 
@@ -7,7 +8,7 @@ import { PageContainer } from "@/components/layout/page-container";
 export function GmailLoading() {
   return (
     <div className="flex flex-col gap-6" aria-hidden>
-      <div className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-5 shadow-sm">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-container-lowest p-5">
         <div className="flex items-start gap-3">
           <div className="size-10 shrink-0 rounded-full bg-surface-container" />
           <div className="flex flex-1 flex-col gap-2">
@@ -18,7 +19,7 @@ export function GmailLoading() {
         <div className="h-11 w-full rounded-lg bg-surface-container" />
       </div>
       <div className="h-4 w-28 rounded bg-surface-container" />
-      <ul className="flex flex-col divide-y divide-outline-variant rounded-xl bg-surface-container-lowest shadow-sm">
+      <ul className="flex flex-col divide-y divide-outline-variant rounded-xl border border-border bg-surface-container-lowest">
         {Array.from({ length: 3 }).map((_, i) => (
           <li key={i} className="flex items-center gap-3 px-4 py-3">
             <div className="size-10 shrink-0 rounded-full bg-surface-container" />
@@ -38,8 +39,13 @@ export function GmailLoading() {
 export default function Loading() {
   return (
     <>
-      <AppHeader title="Impor dari Gmail" />
-      <PageContainer>
+      <AppHeader
+        title="Impor dari Gmail"
+        titleAction={
+          <AppBackLink href="/settings" label="Kembali ke Pengaturan" />
+        }
+      />
+      <PageContainer className="pb-6">
         <div className="animate-pulse">
           <GmailLoading />
         </div>

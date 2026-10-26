@@ -67,7 +67,7 @@ export function GoalOverview({
       {/* Cumulative banner over the real active goals. */}
       <section
         aria-label="Akumulasi target aktif"
-        className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-lg shadow-sm"
+        className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-lg"
       >
         <div className="flex items-start justify-between gap-3">
           <span className="flex items-center gap-2 text-label-xs uppercase text-on-surface-variant">
@@ -139,7 +139,7 @@ export function GoalOverview({
               className={cn(
                 "flex h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-body-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 selected
-                  ? "bg-surface-container-lowest text-primary shadow-sm"
+                  ? "bg-surface-container-lowest text-primary"
                   : "text-on-surface-variant hover:text-on-surface",
               )}
             >
@@ -156,7 +156,7 @@ export function GoalOverview({
           ))}
         </ul>
       ) : (
-        <div className="flex flex-col items-center gap-1 rounded-xl bg-surface-container-lowest p-lg text-center shadow-sm">
+        <div className="flex flex-col items-center gap-1 rounded-xl border border-outline-variant bg-surface-container-lowest p-lg text-center">
           <p className="text-title-md text-on-surface">
             {EMPTY_COPY[tab].title}
           </p>

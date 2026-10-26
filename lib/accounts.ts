@@ -97,6 +97,19 @@ export async function computeAccountBalances(
   return net;
 }
 
+export function sumRunningAccountBalances(
+  accounts: readonly Pick<AccountRow, "id" | "initial_balance">[],
+  balances: ReadonlyMap<string, number>,
+): number {
+  // All accounts contribute; this intentionally ignores the legacy toggle.
+  let total = 0;
+  for (const account of accounts) {
+    const balance = balances.get(account.id) ?? account.initial_balance;
+    if (Number.isFinite(balance)) total += balance;
+  }
+  return total;
+}
+
 // Muted account accent tokens that already exist in tailwind.config.ts
 // (text-account-*). Account icons are the ONLY place these colors appear.
 export type AccountAccent =

@@ -45,7 +45,7 @@ export function AccountManager({ sections, archived }: AccountManagerProps) {
       {sections.map((section) => (
         <section
           key={section.type}
-          className="flex flex-col rounded-xl bg-surface-container-lowest shadow-sm"
+          className="flex flex-col rounded-xl border border-outline-variant bg-surface-container-lowest"
         >
           <header className="flex items-center gap-3 px-4 py-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
@@ -82,7 +82,7 @@ export function AccountManager({ sections, archived }: AccountManagerProps) {
       ))}
 
       {archived.length > 0 ? (
-        <section className="flex flex-col rounded-xl bg-surface-container-lowest shadow-sm">
+        <section className="flex flex-col rounded-xl border border-outline-variant bg-surface-container-lowest">
           <button
             type="button"
             onClick={() => setArchivedOpen((prev) => !prev)}

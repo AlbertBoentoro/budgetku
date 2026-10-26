@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { fetchActiveAccounts } from "@/lib/transactions";
 import { createGoal, type GoalFormInput } from "@/app/(app)/goals/actions";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { GoalForm } from "@/components/finance/goal-form";
@@ -12,7 +13,12 @@ import { Button } from "@/components/ui/button";
 export default function NewGoalPage() {
   return (
     <>
-      <AppHeader title="Tambah target" />
+      <AppHeader
+        title="Tambah target"
+        titleAction={
+          <AppBackLink href="/goals" label="Kembali ke Target Tabungan" />
+        }
+      />
       <PageContainer>
         <Suspense fallback={<NewGoalSkeleton />}>
           <NewGoalContent />

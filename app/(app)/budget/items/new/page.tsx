@@ -16,6 +16,7 @@ import {
   toMonthStorage,
 } from "@/lib/budgets";
 import { AppHeader } from "@/components/layout/app-header";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { PageContainer } from "@/components/layout/page-container";
 import { BudgetItemForm } from "@/components/finance/budget-item-form";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,12 @@ export default function NewBudgetItemPage({
 }) {
   return (
     <>
-      <AppHeader title="Tambah kategori" />
+      <AppHeader
+        title="Tambah kategori"
+        titleAction={
+          <AppBackLink href="/budget" label="Kembali ke Anggaran" />
+        }
+      />
       <PageContainer>
         <Suspense fallback={<FormSkeleton />}>
           <NewBudgetItemContent searchParams={searchParams} />

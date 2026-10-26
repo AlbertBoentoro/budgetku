@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 interface AppHeaderProps {
   title: string;
   subtitle?: string;
+  titleAction?: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
 }
@@ -10,6 +11,7 @@ interface AppHeaderProps {
 export function AppHeader({
   title,
   subtitle,
+  titleAction,
   action,
   className,
 }: AppHeaderProps) {
@@ -20,8 +22,11 @@ export function AppHeader({
         className,
       )}
     >
-      <div className="flex flex-col gap-0.5">
-        <h1 className="text-headline-lg text-on-surface">{title}</h1>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-2">
+          {titleAction}
+          <h1 className="min-w-0 text-headline-lg text-on-surface">{title}</h1>
+        </div>
         {subtitle ? (
           <p className="text-body-sm text-on-surface-variant">{subtitle}</p>
         ) : null}

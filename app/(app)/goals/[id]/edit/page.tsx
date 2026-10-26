@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchActiveAccounts } from "@/lib/transactions";
 import type { GoalRow } from "@/lib/goals";
 import { updateGoal, type GoalFormInput } from "@/app/(app)/goals/actions";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import {
@@ -20,7 +21,12 @@ interface EditGoalPageProps {
 export default function EditGoalPage({ params }: EditGoalPageProps) {
   return (
     <>
-      <AppHeader title="Ubah target" />
+      <AppHeader
+        title="Ubah target"
+        titleAction={
+          <AppBackLink href="/goals" label="Kembali ke Target Tabungan" />
+        }
+      />
       <PageContainer>
         <Suspense fallback={<EditFormSkeleton />}>
           <EditGoalContent params={params} />

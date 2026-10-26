@@ -17,6 +17,7 @@ import {
   type GoalAggregate,
 } from "@/components/finance/goal-overview";
 import type { GoalCardView } from "@/components/finance/goal-card";
+import { AppBackLink } from "@/components/layout/app-back-link";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { GoalsLoading } from "@/app/(app)/goals/loading";
@@ -26,15 +27,8 @@ export default function GoalsPage() {
     <>
       <AppHeader
         title="Target Tabungan"
-        action={
-          // Goals is reached from Anggaran (not the bottom nav), so offer a
-          // clear way back to Budget.
-          <Button asChild variant="ghost" size="sm" className="h-11">
-            <Link href="/budget">
-              <Icon name="arrow_back" size={18} />
-              Anggaran
-            </Link>
-          </Button>
+        titleAction={
+          <AppBackLink href="/budget" label="Kembali ke Anggaran" />
         }
       />
       <PageContainer>
@@ -159,7 +153,7 @@ async function GoalsContent() {
 // Honest empty state: only shown when the user truly has zero goals.
 function GoalsEmpty() {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-xl bg-surface-container-lowest p-lg text-center shadow-sm">
+    <div className="flex flex-col items-center gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-lg text-center">
       <span className="flex size-14 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
         <Icon name="savings" size={28} />
       </span>
