@@ -7,9 +7,25 @@ menerapkan perubahan ke Supabase live atau Vercel.
 ## Menyiapkan Supabase
 
 Jalankan [2026-10-settings-integrations.sql](./sql/2026-10-settings-integrations.sql)
-sekali di SQL Editor project Supabase. Migrasi membuat tabel preferensi,
+di SQL Editor project Supabase. Migrasi membuat tabel preferensi,
 langganan push, kredensial passkey, challenge sekali pakai, bucket privat
 `budgetku-backups`, serta kebijakan akses per pengguna.
+
+Jika migrasi sudah dijalankan sebelum perubahan grant terbaru, jalankan
+grant tambahan yang diperlukan dari SQL Editor. Untuk perbaikan penyimpanan
+preferensi dan status cadangan, jalankan:
+
+```sql
+grant update (
+  user_id, locale, currency, first_day_of_week, daily_reminder_enabled,
+  daily_reminder_time, cloud_backup_enabled, updated_at, last_backup_at
+) on public.user_settings to authenticated;
+grant insert (last_backup_at)
+  on public.user_settings to authenticated;
+```
+
+Kebijakan RLS tetap membatasi perubahan pada baris milik pengguna yang sedang
+masuk. Jangan jalankan ulang seluruh migrasi untuk menambahkan grant.
 
 Cadangan hanya menyimpan data finansial dan preferensi. Kredensial OAuth Gmail,
 langganan push, dan kunci passkey tidak masuk ke file cadangan. Aplikasi
@@ -34,18 +50,20 @@ rahasia ke variabel `NEXT_PUBLIC_*`, source code, atau chat.
 Pasangan VAPID harus berasal dari satu proses pembuatan kunci yang sama.
 Browser harus mendukung Web Push dan pengguna harus memberi izin notifikasi.
 
-## Menyiapkan project test atau Vercel
+## Menyiapkan Supabase dan Vercel
 
 ### Supabase
 
-1. Buka project Supabase **test** yang dipakai oleh aplikasi lokal.
-2. Buka **SQL Editor**, buat query baru, lalu salin seluruh isi
-   `docs/sql/2026-10-settings-integrations.sql` dan jalankan.
-3. Pastikan query berhasil. Di Table Editor, cek tabel `user_settings`,
+1. Pastikan target Supabase benar. Jika hanya ada project production,
+   perubahan SQL dan penyimpanan dari aplikasi lokal akan memakai database
+   production.
+2. Jika migrasi belum diterapkan, buka **SQL Editor**, buat query baru, lalu
+   jalankan `docs/sql/2026-10-settings-integrations.sql`.
+3. Jika migrasi sudah diterapkan, jalankan hanya grant yang belum ada, bukan
+   seluruh file migrasi.
+4. Pastikan query berhasil. Di Table Editor, cek tabel `user_settings`,
    `push_subscriptions`, `passkey_credentials`, dan `passkey_challenges`.
    Di Storage, pastikan bucket privat `budgetku-backups` tersedia.
-
-Jangan jalankan langkah ini di project produksi tanpa persetujuan khusus.
 
 ### Vercel
 
@@ -100,10 +118,26 @@ laporan lain.
 - Tema Terang, Gelap, dan Sistem merespons klik. Fokus keyboard pada opsi Gelap
   dan aktivasi Enter juga berhasil; tema dikembalikan ke Terang.
 - Pada shell halaman Pengaturan, viewport 320, 375, 768, dan 1024 piksel tidak
-  menunjukkan overflow horizontal. Form preferensi belum tampil saat diuji.
-- Karena migrasi belum diterapkan, bagian Preferensi, Keamanan, dan Cadangan
-  menampilkan error pemuatan. Simpan pilihan minggu, backup, Web Push, passkey,
-  ekspor data, dan validasi visual form belum dapat diuji end-to-end.
+  menunjukkan overflow horizontal. Setelah migrasi dijalankan, halaman
+  Pengaturan dan pilihan awal minggu berhasil dimuat.
+- Setelah grant `user_id` dijalankan, menyimpan preferensi tanpa perubahan dan
+  memuat ulang halaman berhasil mempertahankan pilihan Senin.
+- Tes backup satu kali berhasil setelah grant tambahan dijalankan. Status
+  waktu cadangan tampil, endpoint unduh mengembalikan HTTP 200, dan JSON
+  memiliki bentuk backup Budgetku yang diharapkan.
+- Cadangan otomatis dan pengingat harian sudah diaktifkan dan tersimpan pada
+  akun production. Pengiriman terjadwal belum diverifikasi; Vercel Cron perlu
+  deployment terbaru dan environment production yang lengkap.
+- Endpoint konfigurasi Web Push mengembalikan HTTP 200 dan Cron menolak request
+  tanpa autentikasi dengan HTTP 401. Izin notifikasi browser lokal berstatus
+  ditolak, sehingga subscription perangkat belum didaftarkan.
+- Passkey dan ekspor data belum diuji end-to-end. Browser automation tidak dapat
+  mengubah izin notifikasi yang sudah ditolak; izin untuk localhost perlu
+  diubah manual di pengaturan browser sebelum subscription dapat didaftarkan.
+- Domain deployment yang dibuka saat pengujian masih menampilkan halaman
+  Pengaturan versi lama, tanpa fitur integrasi baru. Environment variables
+  Vercel belum dapat diverifikasi dari dashboard; cocokkan nama variabel di
+  tabel Environment server sebelum mengandalkan Cron atau passkey.
 - Klik navigasi, pemeriksaan tema secara visual, pembesaran teks, dan status
   empty/loading/error setelah migrasi juga belum diverifikasi. UI belum lulus
   Delivery Gate dan belum siap di-deploy.

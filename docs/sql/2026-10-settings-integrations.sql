@@ -25,11 +25,11 @@ revoke all on public.user_settings from authenticated;
 grant select on public.user_settings to authenticated;
 grant insert (
   user_id, locale, currency, first_day_of_week, daily_reminder_enabled,
-  daily_reminder_time, cloud_backup_enabled, updated_at
+  daily_reminder_time, cloud_backup_enabled, last_backup_at, updated_at
 ) on public.user_settings to authenticated;
 grant update (
-  locale, currency, first_day_of_week, daily_reminder_enabled,
-  daily_reminder_time, cloud_backup_enabled, updated_at
+  user_id, locale, currency, first_day_of_week, daily_reminder_enabled,
+  daily_reminder_time, cloud_backup_enabled, last_backup_at, updated_at
 ) on public.user_settings to authenticated;
 
 drop policy if exists "Users can view own settings" on public.user_settings;
