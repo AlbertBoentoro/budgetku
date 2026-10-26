@@ -79,6 +79,11 @@ const EMAIL_FIELD_LABELS = [
   "amount",
   "jumlah",
   "nominal",
+  "merchant location",
+  "merchant pan",
+  "customer pan",
+  "terminal id",
+  "acquirer",
   "transaction date",
   "date",
   "time",
@@ -108,6 +113,7 @@ function extractFieldValue(bodyText: string, label: string): string | null {
 
 export function extractBcaDraftSummary(bodyText: string): string | null {
   if (typeof bodyText !== "string") return null;
+  const normalized = bodyText.replace(/\s+/g, " ").trim();
 
   for (const field of MERCHANT_FIELDS) {
     const value = extractFieldValue(bodyText, field.label);
@@ -131,6 +137,17 @@ export function extractBcaDraftSummary(bodyText: string): string | null {
     }
     return value;
   }
+
+  const legacyMerchantLocation = normalized.match(
+    /(?:^|\s)([^:]+?)\s+merchant\s+location\s*:\s*(.+?)(?=\s+(?:acquirer|merchant\s+pan|customer\s+pan|terminal\s+id|total\s+payment|pay\s+amount|reference\s+no|reference\s+number)\s*:|$)/i,
+  );
+  if (legacyMerchantLocation) {
+    const merchant = legacyMerchantLocation[1].trim();
+    const location = legacyMerchantLocation[2].trim();
+    if (merchant && location) return `${merchant} · ${location}`;
+    return merchant || location || null;
+  }
+
   return null;
 }
 

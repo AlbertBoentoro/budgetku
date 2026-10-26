@@ -9,6 +9,7 @@ import {
 } from "@/app/(app)/settings/gmail/actions";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { getTransactionDisplayLabel } from "@/lib/transactions/display-label";
 import type { GmailParsedPreview } from "@/lib/gmail/preview";
 import { formatGmailDate } from "@/lib/gmail/date-format";
 
@@ -54,6 +55,16 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
   const senderLabel = formatSender(draft.sender);
   const isFailed = draft.status === "failed";
   const preview = draft.preview;
+  const merchantLabel = preview
+    ? getTransactionDisplayLabel(
+        {
+          merchant: preview.merchant,
+          description: preview.description,
+        },
+        null,
+        "Merchant belum terdeteksi",
+      )
+    : "";
 
   function handleIgnore() {
     startTransition(async () => {
@@ -86,7 +97,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
               Ringkasan transaksi
             </p>
             <p className="break-words text-body-sm text-on-surface">
-              {preview.merchant?.trim() || "Merchant belum terdeteksi"}
+              {merchantLabel}
             </p>
           </div>
           {preview.confidence === "low" ? (

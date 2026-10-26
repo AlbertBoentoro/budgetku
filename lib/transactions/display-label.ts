@@ -8,7 +8,7 @@ interface TransactionLabelFields {
 function isStructuredEmailBody(value: string): boolean {
   return (
     value.length > 160 &&
-    /\b(?:merchant|payment to|company\/product name|transaction type|transfer type|pay amount|total payment)\s*:/i.test(
+    /\b(?:merchant|merchant location|payment to|company\/product name|transaction type|transfer type|pay amount|total payment)\s*:/i.test(
       value,
     )
   );
