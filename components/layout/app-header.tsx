@@ -18,7 +18,7 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        "flex items-start justify-between gap-4 px-4",
+        "mx-auto flex w-full max-w-3xl items-start justify-between gap-4 px-4",
         className,
       )}
     >

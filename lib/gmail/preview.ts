@@ -13,6 +13,8 @@ export interface GmailParsedPreview {
   confidence: "high" | "low";
 }
 
+export const GMAIL_PARSER_VERSION = 2;
+
 export const GMAIL_SOURCE_LABELS: Record<GmailSource, string> = {
   bca: "BCA",
   shopee: "ShopeePay",
@@ -24,6 +26,8 @@ export function createGmailPreview(
   result: ParseResult,
 ): Json {
   return {
+    // Sync uses this marker to refresh each older draft once after parser changes.
+    parserVersion: GMAIL_PARSER_VERSION,
     source,
     amount: result.amount,
     direction: result.direction,

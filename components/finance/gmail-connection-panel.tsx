@@ -9,22 +9,12 @@ import {
 } from "@/app/(app)/settings/gmail/actions";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { formatGmailDate } from "@/lib/gmail/date-format";
 
 interface GmailConnectionPanelProps {
   emailAddress: string;
   // ISO timestamp of the last successful sync, or null if never synced.
   lastSyncedAt: string | null;
-}
-
-// Absolute, locale-aware last-sync label. Kept absolute (not "x minutes ago")
-// so it never drifts between server render and client without a live clock.
-function formatLastSynced(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
 }
 
 /**
@@ -66,7 +56,10 @@ export function GmailConnectionPanel({
   }
 
   const busy = isSyncing || isDisconnecting;
-  const lastSyncedLabel = lastSyncedAt ? formatLastSynced(lastSyncedAt) : "";
+  const lastSyncedLabel = formatGmailDate(lastSyncedAt, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface-container-lowest p-5">

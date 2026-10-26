@@ -49,8 +49,11 @@ export default function DashboardPage() {
   // Pengaturan.
   return (
     <>
-      <AppHeader title="Beranda" />
-      <PageContainer>
+      <AppHeader
+        title="Beranda"
+        className="lg:max-w-4xl xl:max-w-6xl"
+      />
+      <PageContainer className="lg:max-w-4xl xl:max-w-6xl">
         <Suspense fallback={<DashboardLoading />}>
           <DashboardContent />
         </Suspense>
@@ -255,7 +258,7 @@ async function DashboardContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
       <NetBalanceCard
         balance={grandTotal}
         incomplete={balancesIncomplete}

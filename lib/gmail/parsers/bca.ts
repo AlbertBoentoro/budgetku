@@ -60,44 +60,76 @@ function countMatches(haystack: string, keywords: string[]): number {
 
 const MERCHANT_FIELDS: {
   kind: "merchant" | "recipient" | "transaction" | "transfer";
-  pattern: RegExp;
+  label: string;
 }[] = [
-  { kind: "merchant", pattern: /^\s*merchant\s*:\s*(.+?)\s*$/i },
-  { kind: "recipient", pattern: /^\s*payment to\s*:\s*(.+?)\s*$/i },
+  { kind: "merchant", label: "merchant" },
+  { kind: "recipient", label: "payment to" },
   {
     kind: "recipient",
-    pattern: /^\s*company\/product name\s*:\s*(.+?)\s*$/i,
+    label: "company/product name",
   },
-  { kind: "transaction", pattern: /^\s*transaction type\s*:\s*(.+?)\s*$/i },
-  { kind: "transfer", pattern: /^\s*transfer type\s*:\s*(.+?)\s*$/i },
+  { kind: "transaction", label: "transaction type" },
+  { kind: "transfer", label: "transfer type" },
 ];
 
-function extractDraftSummary(bodyText: string): string | null {
+const EMAIL_FIELD_LABELS = [
+  ...MERCHANT_FIELDS.map((field) => field.label),
+  "total payment",
+  "pay amount",
+  "amount",
+  "jumlah",
+  "nominal",
+  "transaction date",
+  "date",
+  "time",
+  "reference number",
+  "reference no",
+];
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extractFieldValue(bodyText: string, label: string): string | null {
+  const nextField = EMAIL_FIELD_LABELS.map(escapeRegExp).join("|");
+  const pattern = new RegExp(
+    `(?:^|\\s)${escapeRegExp(label)}\\s*:\\s*(.+?)(?=\\s+(?:${nextField})\\s*:|$)`,
+    "i",
+  );
+
+  for (const line of bodyText.split(/\r?\n/)) {
+    const value = line.match(pattern)?.[1]?.trim();
+    if (value) return value;
+  }
+
+  const normalized = bodyText.replace(/\s+/g, " ").trim();
+  return normalized.match(pattern)?.[1]?.trim() ?? null;
+}
+
+export function extractBcaDraftSummary(bodyText: string): string | null {
   if (typeof bodyText !== "string") return null;
-  const lines = bodyText.split(/\r?\n/);
+
   for (const field of MERCHANT_FIELDS) {
-    for (const line of lines) {
-      const value = line.match(field.pattern)?.[1]?.trim();
-      if (!value) continue;
-      if (field.kind === "merchant") {
-        return value.split("*", 1)[0].trim() || null;
-      }
-      if (field.kind === "transaction") {
-        const walletProvider = value.match(/^e-wallet\s*-\s*(.+)$/i)?.[1];
-        if (!walletProvider) return value;
-        const provider = walletProvider.trim();
-        if (provider.toLowerCase() === "shopeepay") return "ShopeePay";
-        if (provider.toLowerCase() === "gopay") return "GoPay";
-        return provider;
-      }
-      if (field.kind === "transfer") {
-        const recipient = value.match(
-          /^transfer\s+to\s+(.+?)(?:\s+account)?$/i,
-        )?.[1];
-        return recipient ? `Transfer ke ${recipient.trim()}` : value;
-      }
-      return value;
+    const value = extractFieldValue(bodyText, field.label);
+    if (!value) continue;
+    if (field.kind === "merchant") {
+      return value.split("*", 1)[0].trim() || null;
     }
+    if (field.kind === "transaction") {
+      const walletProvider = value.match(/^e-wallet\s*-\s*(.+)$/i)?.[1];
+      if (!walletProvider) return value;
+      const provider = walletProvider.trim();
+      if (provider.toLowerCase() === "shopeepay") return "ShopeePay";
+      if (provider.toLowerCase() === "gopay") return "GoPay";
+      return provider;
+    }
+    if (field.kind === "transfer") {
+      const recipient = value.match(
+        /^transfer\s+to\s+(.+?)(?:\s+account)?$/i,
+      )?.[1];
+      return recipient ? `Transfer ke ${recipient.trim()}` : value;
+    }
+    return value;
   }
   return null;
 }
@@ -116,7 +148,7 @@ export const bcaParser: GmailParser = {
         amount: null,
         direction: null,
         transactionAt: null,
-        merchant: extractDraftSummary(bodyText),
+        merchant: extractBcaDraftSummary(bodyText),
         description: null,
         confidence: "low",
       };
@@ -151,7 +183,7 @@ export const bcaParser: GmailParser = {
       amount,
       direction,
       transactionAt: detectedDate,
-      merchant: extractDraftSummary(bodyText),
+      merchant: extractBcaDraftSummary(bodyText),
       description: subject.trim() || "Transaksi BCA",
       confidence,
     };

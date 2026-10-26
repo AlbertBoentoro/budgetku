@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
+import { toGmailDateInputValue } from "@/lib/gmail/date-format";
 import {
   fetchActiveAccounts,
   fetchUsableCategories,
@@ -59,17 +60,6 @@ function firstValue(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return (value[0] ?? "").trim();
   if (typeof value === "string") return value.trim();
   return "";
-}
-
-// Normalize an ISO timestamp to the YYYY-MM-DD the review date input expects,
-// falling back to today when it cannot be parsed.
-function toDateInputValue(iso: string | null): string {
-  const date = iso ? new Date(iso) : new Date();
-  const base = Number.isNaN(date.getTime()) ? new Date() : date;
-  const year = base.getFullYear();
-  const month = String(base.getMonth() + 1).padStart(2, "0");
-  const day = String(base.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 export default function GmailPage({
@@ -254,7 +244,7 @@ async function GmailContent({
               description: outcome.candidate.description,
               confidence: outcome.candidate.confidence,
             },
-            receivedDate: toDateInputValue(target.received_at),
+            receivedDate: toGmailDateInputValue(target.received_at),
           };
         } else if (outcome.kind === "transient") {
           // Keep the row needs_review; show an honest retry message. No value

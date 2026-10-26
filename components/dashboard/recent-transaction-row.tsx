@@ -4,6 +4,7 @@ import {
   getTransactionTypeMeta,
   type TransactionRow,
 } from "@/lib/transactions";
+import { getTransactionDisplayLabel } from "@/lib/transactions/display-label";
 
 // Transaction type -> Material Symbol glyph, local to the dashboard. income
 // reads as an inbound arrow, expense as outbound, transfer as a swap. The
@@ -40,11 +41,9 @@ interface RecentTransactionRowProps {
   categoryName: string | null;
 }
 
-// Read-only recent-transaction row, Stitch styling. Reuses AmountText,
-// getTransactionTypeMeta, and the exact sign/tone/label conventions from the
-// ledger (merchant, then description, then category, then type label). The
-// dashboard is a glance view so there are no edit/delete actions. It never
-// fabricates a label or an amount.
+// Read-only recent-transaction row. Reuses the ledger's amount formatting,
+// transaction metadata, and shared label fallback. The dashboard is a glance
+// view, so there are no edit/delete actions.
 export function RecentTransactionRow({
   transaction,
   accountName,
@@ -56,11 +55,11 @@ export function RecentTransactionRow({
   const isExpense = transaction.transaction_type === "expense";
   const isIncome = transaction.transaction_type === "income";
 
-  const primaryLabel =
-    transaction.merchant ||
-    transaction.description ||
-    categoryName ||
-    meta.label;
+  const primaryLabel = getTransactionDisplayLabel(
+    transaction,
+    categoryName,
+    meta.label,
+  );
 
   // Expense negated so it reads "-Rp"; income positive so it reads "+Rp"; a
   // transfer stays neutral with no sign. The stored amount is never scaled.

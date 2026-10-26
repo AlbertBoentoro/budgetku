@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import type { GmailParsedPreview } from "@/lib/gmail/preview";
+import { formatGmailDate } from "@/lib/gmail/date-format";
 
 // One row's stored email metadata and safely parsed preview.
 export interface GmailDraftView {
@@ -29,10 +30,7 @@ interface GmailDraftRowProps {
 
 // Absolute received date (date only). No time-ago to avoid server/client drift.
 function formatReceived(iso: string | null): string {
-  if (!iso) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(date);
+  return formatGmailDate(iso, { dateStyle: "medium" });
 }
 
 // Trim a raw "From" header to a readable label. Prefers the display name,
@@ -88,7 +86,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
               Ringkasan transaksi
             </p>
             <p className="break-words text-body-sm text-on-surface">
-              {preview.merchant?.trim() || "Belum terbaca"}
+              {preview.merchant?.trim() || "Merchant belum terdeteksi"}
             </p>
           </div>
           {preview.confidence === "low" ? (

@@ -9,6 +9,7 @@ import { resolveParser } from "@/lib/gmail/parsers";
 import type { ParseResult } from "@/lib/gmail/parsers";
 import {
   createGmailPreview,
+  GMAIL_PARSER_VERSION,
   type GmailSource,
 } from "@/lib/gmail/preview";
 import type { Json } from "@/lib/supabase/database.types";
@@ -168,23 +169,26 @@ export async function syncGmail(
     inserted += 1;
   }
 
-  const { data: missingPreviews, error: previewLookupError } = await supabase
+  // Refresh old pending/failed previews once, in bounded batches.
+  const { data: stalePreviews, error: previewLookupError } = await supabase
     .from("email_imports")
     .select("id, gmail_message_id")
     .eq("user_id", userId)
     .eq("connection_id", connection.id)
     .in("status", ["pending", "failed"])
-    .is("parsed_preview", null)
-    .order("received_at", { ascending: false, nullsFirst: false })
+    .or(
+      `parsed_preview.is.null,parsed_preview->>parserVersion.is.null,parsed_preview->>parserVersion.neq.${GMAIL_PARSER_VERSION}`,
+    )
+    .order("received_at", { ascending: true, nullsFirst: false })
     .limit(MAX_MESSAGES_PER_SYNC);
 
   if (previewLookupError) {
     throw new Error(
-      `Gagal memuat email yang perlu dilengkapi: ${previewLookupError.message}`,
+      `Gagal memuat draft yang perlu diperbarui: ${previewLookupError.message}`,
     );
   }
 
-  for (const row of missingPreviews ?? []) {
+  for (const row of stalePreviews ?? []) {
     const outcome = await reparseDraftMessage(
       supabase,
       userId,
@@ -440,12 +444,17 @@ function htmlToText(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<br\b[^>]*>|<\/(?:p|div|tr|td|th|li|h[1-6])\s*>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
-    .replace(/\s+/g, " ")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&#x27;/gi, "'")
+    .replace(/[ \t\f\v]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{2,}/g, "\n")
     .trim();
 }
 

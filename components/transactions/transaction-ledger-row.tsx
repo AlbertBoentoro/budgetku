@@ -7,6 +7,7 @@ import {
 import { AmountText } from "@/components/finance/amount-text";
 import { Icon } from "@/components/ui/icon";
 import { RowActionsMenu } from "@/components/transactions/row-actions-menu";
+import { getTransactionDisplayLabel } from "@/lib/transactions/display-label";
 
 // Transaction type -> Material Symbol glyph (same mapping as the dashboard
 // recent row): income inbound, expense outbound, transfer a swap. The type
@@ -49,13 +50,11 @@ export function TransactionLedgerRow({
   const isExpense = transaction.transaction_type === "expense";
   const isIncome = transaction.transaction_type === "income";
 
-  // Primary label falls back through the most descriptive field so a row is
-  // never blank: merchant, then note, then category, then the type label.
-  const primaryLabel =
-    transaction.merchant ||
-    transaction.description ||
-    transaction.categoryName ||
-    meta.label;
+  const primaryLabel = getTransactionDisplayLabel(
+    transaction,
+    transaction.categoryName,
+    meta.label,
+  );
 
   // Expense negated so it reads "-Rp"; income positive "+Rp"; transfer neutral,
   // no sign. The stored amount is never scaled.
