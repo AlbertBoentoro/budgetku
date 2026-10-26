@@ -2,7 +2,6 @@
 
 import { useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import {
@@ -112,7 +111,11 @@ export function TransactionForm({
   const [transactionType, setTransactionType] = useState<string>(initialType);
   // Keep the raw string so the user can type freely; parse on submit/preview.
   const [amountInput, setAmountInput] = useState(
-    initialValues ? String(initialValues.amount) : "",
+    initialValues
+      ? String(initialValues.amount)
+      : mode === "create"
+        ? "0"
+        : "",
   );
   const [accountId, setAccountId] = useState(
     initialValues?.account_id ?? accounts[0]?.id ?? "",
@@ -347,8 +350,7 @@ export function TransactionForm({
     });
   }
 
-  const submitLabel =
-    mode === "create" ? "Tambah transaksi" : "Simpan perubahan";
+  const submitLabel = mode === "create" ? "Submit" : "Simpan perubahan";
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
@@ -732,9 +734,6 @@ export function TransactionForm({
       <div className="flex flex-col gap-3">
         <Button type="submit" className="h-11 w-full" disabled={isPending}>
           {isPending ? "Menyimpan..." : submitLabel}
-        </Button>
-        <Button asChild type="button" variant="outline" className="h-11 w-full">
-          <Link href="/transactions">Batal</Link>
         </Button>
       </div>
     </form>

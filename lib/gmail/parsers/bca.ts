@@ -21,10 +21,8 @@
 //   income (money arriving): "kredit", "transfer dari", "penerimaan",
 //     "setoran", "masuk", "diterima".
 //
-// Merchant extraction: QRIS payment emails carry the counterparty after a
-// "Payment to" label; transfer emails carry it after "Company/Product Name".
-// Whichever is present (checked in that order) becomes the merchant; when
-// neither appears, merchant stays null (never fabricated).
+// The compact draft summary uses the most useful transaction label available:
+// merchant, payment recipient, transaction type, then transfer type.
 
 import type { GmailParser, ParseResult } from "./types";
 import {
@@ -60,26 +58,45 @@ function countMatches(haystack: string, keywords: string[]): number {
   );
 }
 
-// Read the counterparty label from the body. QRIS payments use "Payment to";
-// transfers use "Company/Product Name". The value is the remainder of the
-// label's line, trimmed. Returns null when no label is present (do not
-// fabricate a merchant).
-const MERCHANT_LABELS = ["payment to", "company/product name"];
+const MERCHANT_FIELDS: {
+  kind: "merchant" | "recipient" | "transaction" | "transfer";
+  pattern: RegExp;
+}[] = [
+  { kind: "merchant", pattern: /^\s*merchant\s*:\s*(.+?)\s*$/i },
+  { kind: "recipient", pattern: /^\s*payment to\s*:\s*(.+?)\s*$/i },
+  {
+    kind: "recipient",
+    pattern: /^\s*company\/product name\s*:\s*(.+?)\s*$/i,
+  },
+  { kind: "transaction", pattern: /^\s*transaction type\s*:\s*(.+?)\s*$/i },
+  { kind: "transfer", pattern: /^\s*transfer type\s*:\s*(.+?)\s*$/i },
+];
 
-function extractMerchant(bodyText: string): string | null {
+function extractDraftSummary(bodyText: string): string | null {
   if (typeof bodyText !== "string") return null;
   const lines = bodyText.split(/\r?\n/);
-  for (const label of MERCHANT_LABELS) {
+  for (const field of MERCHANT_FIELDS) {
     for (const line of lines) {
-      const lower = line.toLowerCase();
-      const labelIndex = lower.indexOf(label);
-      if (labelIndex === -1) continue;
-      // Take everything after the label, then drop a leading ":"/separator.
-      const after = line
-        .slice(labelIndex + label.length)
-        .replace(/^\s*:?\s*/, "")
-        .trim();
-      if (after !== "") return after;
+      const value = line.match(field.pattern)?.[1]?.trim();
+      if (!value) continue;
+      if (field.kind === "merchant") {
+        return value.split("*", 1)[0].trim() || null;
+      }
+      if (field.kind === "transaction") {
+        const walletProvider = value.match(/^e-wallet\s*-\s*(.+)$/i)?.[1];
+        if (!walletProvider) return value;
+        const provider = walletProvider.trim();
+        if (provider.toLowerCase() === "shopeepay") return "ShopeePay";
+        if (provider.toLowerCase() === "gopay") return "GoPay";
+        return provider;
+      }
+      if (field.kind === "transfer") {
+        const recipient = value.match(
+          /^transfer\s+to\s+(.+?)(?:\s+account)?$/i,
+        )?.[1];
+        return recipient ? `Transfer ke ${recipient.trim()}` : value;
+      }
+      return value;
     }
   }
   return null;
@@ -91,14 +108,15 @@ export const bcaParser: GmailParser = {
     const haystack = `${subject}\n${bodyText}`.toLowerCase();
     const amount = parseRupiah(bodyText) ?? parseRupiah(subject);
 
-    // No confident amount => needs_review, never fabricate one.
+    // Keep a readable merchant or transaction label even when the amount is
+    // missing, so the failed draft still gives the user useful context.
     if (amount === null) {
       return {
         ok: false,
         amount: null,
         direction: null,
         transactionAt: null,
-        merchant: null,
+        merchant: extractDraftSummary(bodyText),
         description: null,
         confidence: "low",
       };
@@ -133,7 +151,7 @@ export const bcaParser: GmailParser = {
       amount,
       direction,
       transactionAt: detectedDate,
-      merchant: extractMerchant(bodyText),
+      merchant: extractDraftSummary(bodyText),
       description: subject.trim() || "Transaksi BCA",
       confidence,
     };

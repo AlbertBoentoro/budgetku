@@ -9,10 +9,7 @@ import {
 } from "@/app/(app)/settings/gmail/actions";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import {
-  GMAIL_SOURCE_LABELS,
-  type GmailParsedPreview,
-} from "@/lib/gmail/preview";
+import type { GmailParsedPreview } from "@/lib/gmail/preview";
 
 // One row's stored email metadata and safely parsed preview.
 export interface GmailDraftView {
@@ -47,21 +44,6 @@ function formatSender(sender: string | null): string {
   return sender.trim();
 }
 
-function formatAmount(amount: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function formatTransactionDate(date: string | null): string | null {
-  if (!date) return null;
-  const parsed = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(
-    parsed,
-  );
-}
-
 /**
  * One draft row in "Perlu ditinjau". Shows stored email metadata and parser
  * results. A needs_review row offers "Tinjau" and "Abaikan"; a failed row can
@@ -74,9 +56,6 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
   const senderLabel = formatSender(draft.sender);
   const isFailed = draft.status === "failed";
   const preview = draft.preview;
-  const transactionDate = formatTransactionDate(
-    preview?.transactionAt ?? null,
-  );
 
   function handleIgnore() {
     startTransition(async () => {
@@ -104,50 +83,14 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
 
       {preview ? (
         <div className="ml-0 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 sm:ml-[52px]">
-          <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="min-w-0">
-              <dt className="text-label-xs text-on-surface-variant">Nominal</dt>
-              <dd className="break-words text-body-md font-semibold tabular-nums text-on-surface">
-                {preview.amount === null
-                  ? "Belum terbaca"
-                  : `Rp ${formatAmount(preview.amount)}`}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-label-xs text-on-surface-variant">Jenis</dt>
-              <dd className="break-words text-body-sm text-on-surface">
-                {preview.direction === "income"
-                  ? "Pemasukan"
-                  : preview.direction === "expense"
-                    ? "Pengeluaran"
-                    : "Belum terbaca"}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-label-xs text-on-surface-variant">Tanggal transaksi</dt>
-              <dd className="break-words text-body-sm text-on-surface">
-                {transactionDate ?? "Belum terbaca"}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-label-xs text-on-surface-variant">Bank / layanan</dt>
-              <dd className="break-words text-body-sm text-on-surface">
-                {preview.source
-                  ? GMAIL_SOURCE_LABELS[preview.source]
-                  : "Belum dikenali"}
-              </dd>
-            </div>
-          </dl>
-          {preview.merchant ? (
+          <div className="min-w-0">
+            <p className="text-label-xs text-on-surface-variant">
+              Ringkasan transaksi
+            </p>
             <p className="break-words text-body-sm text-on-surface">
-              Merchant: {preview.merchant}
+              {preview.merchant?.trim() || "Belum terbaca"}
             </p>
-          ) : null}
-          {preview.description ? (
-            <p className="break-words text-body-sm text-on-surface-variant">
-              Deskripsi: {preview.description}
-            </p>
-          ) : null}
+          </div>
           {preview.confidence === "low" ? (
             <p className="text-body-sm text-on-surface-variant">
               Periksa kembali hasil deteksi sebelum menyimpan.
@@ -157,11 +100,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
             <p className="text-body-sm text-on-surface-variant">
               {draft.failureReason ?? "Detail transaksi belum bisa dibaca."}
             </p>
-          ) : (
-            <p className="text-body-sm text-on-surface-variant">
-              Periksa detail ini sebelum menyimpan.
-            </p>
-          )}
+          ) : null}
         </div>
       ) : (
         <p className="ml-0 break-words text-body-sm text-on-surface-variant sm:ml-[52px]">

@@ -18,7 +18,7 @@ export interface ParseResult {
   direction: "income" | "expense" | null;
   // Transaction date as "YYYY-MM-DD", or null when no date was detected.
   transactionAt: string | null;
-  // Best-effort counterparty/merchant label, or null.
+  // Best-effort merchant or transaction label for the draft summary, or null.
   merchant: string | null;
   // Short human-readable description, or null.
   description: string | null;

@@ -10,8 +10,12 @@ import { Icon } from "@/components/ui/icon";
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isHomePage = pathname === "/dashboard";
-  const isSettingsPage =
-    pathname === "/settings" || pathname.startsWith("/settings/");
+  const isPrimaryNavigationPage = [
+    "/dashboard",
+    "/transactions",
+    "/budget",
+    "/accounts",
+  ].includes(pathname);
 
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col">
@@ -49,7 +53,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {isSettingsPage ? null : <BottomNav />}
+      {isPrimaryNavigationPage ? <BottomNav /> : null}
     </div>
   );
 }
