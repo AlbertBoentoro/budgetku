@@ -7,6 +7,7 @@ import {
   ignoreImport,
   type ActionResult,
 } from "@/app/(app)/settings/gmail/actions";
+import { AmountText } from "@/components/finance/amount-text";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { getTransactionDisplayLabel } from "@/lib/transactions/display-label";
@@ -43,6 +44,12 @@ function formatSender(sender: string | null): string {
   return sender.trim();
 }
 
+function formatDirection(direction: GmailParsedPreview["direction"]): string {
+  if (direction === "income") return "Pemasukan";
+  if (direction === "expense") return "Pengeluaran";
+  return "Jenis belum terbaca";
+}
+
 /**
  * One draft row in "Perlu ditinjau". Shows stored email metadata and parser
  * results. A needs_review row offers "Tinjau" and "Abaikan"; a failed row can
@@ -59,7 +66,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
     ? getTransactionDisplayLabel(
         {
           merchant: preview.merchant,
-          description: null,
+          description: preview.description,
         },
         null,
         "Merchant belum terdeteksi",
@@ -92,6 +99,31 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
 
       {preview ? (
         <div className="ml-0 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 sm:ml-[52px]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-label-xs text-on-surface-variant">Nominal</p>
+              {preview.amount !== null ? (
+                <AmountText
+                  value={preview.amount}
+                  tone={
+                    preview.direction === "income"
+                      ? "income"
+                      : preview.direction === "expense"
+                        ? "expense"
+                        : "default"
+                  }
+                  size="lg"
+                />
+              ) : (
+                <p className="text-body-md text-on-surface-variant">
+                  Nominal belum terbaca
+                </p>
+              )}
+            </div>
+            <span className="shrink-0 rounded-full bg-surface-container px-2.5 py-1 text-label-xs text-on-surface-variant">
+              {formatDirection(preview.direction)}
+            </span>
+          </div>
           <div className="min-w-0">
             <p className="text-label-xs text-on-surface-variant">
               Ringkasan transaksi
