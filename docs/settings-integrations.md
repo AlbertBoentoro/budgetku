@@ -1,7 +1,7 @@
 # Pengaturan dan integrasi
 
 Fitur ini membutuhkan skema Supabase dan environment server untuk cadangan
-otomatis, notifikasi, serta passkey. Kode tidak menerapkan perubahan ke
+otomatis dan notifikasi. Kode tidak menerapkan perubahan ke
 Supabase live atau Vercel.
 
 ## Preview impor Gmail
@@ -17,7 +17,7 @@ dan tidak membuat transaksi.
 
 Jalankan [2026-10-settings-integrations.sql](./sql/2026-10-settings-integrations.sql)
 di SQL Editor project Supabase. Migrasi membuat tabel preferensi,
-langganan push, kredensial passkey, challenge sekali pakai, bucket privat
+langganan push, bucket privat
 `budgetku-backups`, serta kebijakan akses per pengguna.
 
 Jika migrasi sudah dijalankan sebelum perubahan grant terbaru, jalankan
@@ -40,7 +40,7 @@ Cadangan otomatis dibuat setiap hari untuk semua akun Budgetku yang terdaftar
 di Supabase Auth. Pengguna tidak perlu mengaktifkannya. Satu file cloud terbaru
 disimpan per akun dan digantikan pada jadwal berikutnya. Cadangan mencakup data
 finansial dan preferensi, tetapi tidak mencakup kredensial OAuth Gmail,
-langganan push, atau passkey. File JSON dapat diunduh, tetapi belum ada fungsi
+atau langganan push. File JSON dapat diunduh, tetapi belum ada fungsi
 pemulihan otomatis dari file tersebut. Kolom `cloud_backup_enabled` tetap ada
 di skema lama, tetapi tidak lagi menentukan apakah Cron membuat cadangan.
 
@@ -51,13 +51,12 @@ rahasia ke variabel `NEXT_PUBLIC_*`, source code, atau chat.
 
 | Variabel | Kegunaan |
 | --- | --- |
-| `SUPABASE_SERVICE_ROLE_KEY` | Pekerjaan terjadwal dan perubahan server-side pada kredensial passkey. Hanya server. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Pekerjaan terjadwal (cadangan dan pengingat). Hanya server. |
 | `CRON_SECRET` | Mengautentikasi endpoint Cron. Gunakan nilai acak yang panjang. |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Kunci publik untuk pendaftaran Web Push. |
 | `VAPID_PRIVATE_KEY` | Kunci privat pengiriman Web Push. Hanya server. |
 | `VAPID_SUBJECT` | Kontak VAPID, misalnya `mailto:alamat-kontak`. |
-| `PASSKEY_SESSION_SECRET` | Penandatangan cookie sesi passkey, minimal 32 karakter. |
-| `NEXT_PUBLIC_SITE_URL` | Origin utama HTTPS untuk verifikasi passkey. Lokal dapat memakai `http://localhost:3000`. |
+| `NEXT_PUBLIC_SITE_URL` | Origin utama HTTPS aplikasi. Lokal dapat memakai `http://localhost:3000`. |
 
 Pasangan VAPID harus berasal dari satu proses pembuatan kunci yang sama.
 Browser harus mendukung Web Push dan pengguna harus memberi izin notifikasi.
@@ -74,7 +73,7 @@ Browser harus mendukung Web Push dan pengguna harus memberi izin notifikasi.
 3. Jika migrasi sudah diterapkan, jalankan hanya grant yang belum ada, bukan
    seluruh file migrasi.
 4. Pastikan query berhasil. Di Table Editor, cek tabel `user_settings`,
-   `push_subscriptions`, `passkey_credentials`, dan `passkey_challenges`.
+   dan `push_subscriptions`.
    Di Storage, pastikan bucket privat `budgetku-backups` tersedia.
 
 ### Vercel
@@ -87,7 +86,6 @@ memakai fitur tersebut di deployment Preview.
 | --- | --- |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase **Project Settings → API Keys**. Gunakan service role/secret key, jangan pernah pakai prefix `NEXT_PUBLIC_`. |
 | `CRON_SECRET` | Buat nilai acak dengan password manager atau `openssl rand -base64 32`. |
-| `PASSKEY_SESSION_SECRET` | Buat secret berbeda dengan password manager atau `openssl rand -base64 48`; minimal 32 karakter. |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` dan `VAPID_PRIVATE_KEY` | Dari root repo jalankan `./node_modules/.bin/web-push generate-vapid-keys`; simpan pasangan yang sama, private key server-only. |
 | `VAPID_SUBJECT` | Kontak yang dapat dihubungi dalam format `mailto:alamat-kontak`. |
 | `NEXT_PUBLIC_SITE_URL` | URL production aplikasi, termasuk `https://`. |
@@ -106,12 +104,11 @@ sekitar satu jam. Cron membuat cadangan terbaru untuk setiap akun Supabase Auth,
 lalu mengirim pengingat untuk akun yang mengaktifkannya. `CRON_SECRET` wajib
 ada; request harus membawa header otorisasi dengan secret Cron yang benar.
 
-## Passkey dan pemulihan
+## Kunci biometrik (dihapus)
 
-Passkey memakai verifikasi WebAuthn server-side, challenge sekali pakai, dan
-cookie bertanda tangan yang berlaku 12 jam. Jika perangkat passkey hilang,
-pengguna dapat keluar lalu masuk kembali dengan Google untuk menonaktifkan
-passkey lama dan mendaftarkan yang baru.
+Fitur passkey/Face ID sudah dihapus dari aplikasi. Untuk membersihkan sisa
+tabel dan fungsinya di Supabase, jalankan opsional
+[2026-10-remove-passkeys.sql](./sql/2026-10-remove-passkeys.sql).
 
 Pengaturan menyediakan pilihan Senin atau Minggu sebagai awal minggu. Nilainya
 disimpan di `user_settings.first_day_of_week`. Laporan Budgetku yang tersedia
@@ -143,13 +140,13 @@ laporan lain.
 - Endpoint konfigurasi Web Push mengembalikan HTTP 200 dan Cron menolak request
   tanpa autentikasi dengan HTTP 401. Izin notifikasi browser lokal berstatus
   ditolak, sehingga subscription perangkat belum didaftarkan.
-- Passkey dan ekspor data belum diuji end-to-end. Browser automation tidak dapat
+- Ekspor data belum diuji end-to-end. Browser automation tidak dapat
   mengubah izin notifikasi yang sudah ditolak; izin untuk localhost perlu
   diubah manual di pengaturan browser sebelum subscription dapat didaftarkan.
 - Domain deployment yang dibuka saat pengujian masih menampilkan halaman
   Pengaturan versi lama, tanpa fitur integrasi baru. Environment variables
   Vercel belum dapat diverifikasi dari dashboard; cocokkan nama variabel di
-  tabel Environment server sebelum mengandalkan Cron atau passkey.
+  tabel Environment server sebelum mengandalkan Cron.
 - Klik navigasi, pemeriksaan tema secara visual, pembesaran teks, dan status
   empty/loading/error setelah migrasi juga belum diverifikasi. UI belum lulus
   Delivery Gate dan belum siap di-deploy.

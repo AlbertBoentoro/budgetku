@@ -1,6 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { PASSKEY_SESSION_COOKIE, verifyPasskeySession } from "@/lib/passkey/session";
 import { hasEnvVars } from "../utils";
 
 export async function updateSession(request: NextRequest) {
@@ -60,58 +59,6 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
-  }
-
-  const passkeyExempt =
-    pathname === "/service-worker.js" ||
-    pathname === "/api/auth/logout" ||
-    pathname === "/auth/passkey" ||
-    pathname.startsWith("/auth/passkey-recovery") ||
-    pathname.startsWith("/api/auth/passkey");
-  const userId =
-    user && typeof user.sub === "string" ? user.sub : null;
-
-  if (
-    userId &&
-    !passkeyExempt &&
-    process.env.PASSKEY_SESSION_SECRET
-  ) {
-    const { data: settings, error } = await supabase
-      .from("user_settings")
-      .select("passkey_enabled")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Passkey state could not be checked:", error.message);
-      const unavailable = NextResponse.json(
-        { error: "Account security settings are temporarily unavailable." },
-        { status: 503 },
-      );
-      supabaseResponse.cookies.getAll().forEach((cookie) => {
-        unavailable.cookies.set(cookie);
-      });
-      return unavailable;
-    }
-
-    if (settings?.passkey_enabled) {
-      const session = request.cookies.get(PASSKEY_SESSION_COOKIE)?.value;
-      const unlocked = await verifyPasskeySession(session, userId);
-      if (!unlocked) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/auth/passkey";
-        url.search = "";
-        url.searchParams.set(
-          "next",
-          `${request.nextUrl.pathname}${request.nextUrl.search}`,
-        );
-        const redirect = NextResponse.redirect(url);
-        supabaseResponse.cookies.getAll().forEach((cookie) => {
-          redirect.cookies.set(cookie);
-        });
-        return redirect;
-      }
-    }
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.

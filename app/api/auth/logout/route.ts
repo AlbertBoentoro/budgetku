@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { clearPasskeySession } from "@/lib/passkey/cookie";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -22,10 +21,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const response = NextResponse.json(
+  return NextResponse.json(
     { ok: true },
     { headers: { "Cache-Control": "no-store" } },
   );
-  clearPasskeySession(response);
-  return response;
 }
