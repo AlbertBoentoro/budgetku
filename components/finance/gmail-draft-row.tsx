@@ -59,7 +59,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
     ? getTransactionDisplayLabel(
         {
           merchant: preview.merchant,
-          description: preview.description,
+          description: null,
         },
         null,
         "Merchant belum terdeteksi",
