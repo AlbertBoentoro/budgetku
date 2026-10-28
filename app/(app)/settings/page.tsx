@@ -44,8 +44,8 @@ async function SettingsContent() {
     return <SettingsError />;
   }
 
-  // Email/password sign-up stores no name, so a name is shown only when the
-  // auth metadata really has one (e.g. a future OAuth sign-in). Never invented.
+  // A name is shown only when the Google auth metadata really has one.
+  // Never invented.
   const meta = user.user_metadata ?? {};
   const rawName =
     typeof meta.full_name === "string"

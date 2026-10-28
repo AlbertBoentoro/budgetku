@@ -46,3 +46,5 @@ next-env.d.ts
 
 # supabase CLI local link metadata (may contain pooler/connection URL)
 /supabase/.temp/
+# Kiro local MCP/settings (per-developer, not shared)
+/.kiro/settings/

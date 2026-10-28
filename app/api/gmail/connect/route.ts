@@ -11,7 +11,6 @@ import { createClient } from "@/lib/supabase/server";
  * GET /api/gmail/connect — start the Gmail OAuth round-trip (design §4.1).
  * Authenticated only; generates a single-use CSRF `state`, stores it in an
  * httpOnly short-lived cookie, and redirects to Google's consent screen.
- * Mirrors the NextRequest + redirect() pattern in app/auth/confirm/route.ts.
  */
 export async function GET() {
   const supabase = await createClient();
