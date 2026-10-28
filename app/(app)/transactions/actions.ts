@@ -73,6 +73,13 @@ function validate(input: TransactionFormInput): Record<string, string> {
     fieldErrors.transaction_type = "Pilih jenis transaksi yang tersedia.";
   }
 
+  // The form always sends a date-only "YYYY-MM-DD"; reject anything else so a
+  // tampered request cannot store an arbitrary timestamp. Same rule and copy
+  // as importDraft in settings/gmail/actions.ts.
+  if (!input.transaction_at || !isValidDateString(input.transaction_at)) {
+    fieldErrors.transaction_at = "Pilih tanggal transaksi yang valid.";
+  }
+
   if (
     input.transaction_type === "income" ||
     input.transaction_type === "expense"

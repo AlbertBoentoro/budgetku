@@ -56,7 +56,6 @@ rahasia ke variabel `NEXT_PUBLIC_*`, source code, atau chat.
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Kunci publik untuk pendaftaran Web Push. |
 | `VAPID_PRIVATE_KEY` | Kunci privat pengiriman Web Push. Hanya server. |
 | `VAPID_SUBJECT` | Kontak VAPID, misalnya `mailto:alamat-kontak`. |
-| `NEXT_PUBLIC_SITE_URL` | Origin utama HTTPS aplikasi. Lokal dapat memakai `http://localhost:3000`. |
 
 Pasangan VAPID harus berasal dari satu proses pembuatan kunci yang sama.
 Browser harus mendukung Web Push dan pengguna harus memberi izin notifikasi.
@@ -88,7 +87,6 @@ memakai fitur tersebut di deployment Preview.
 | `CRON_SECRET` | Buat nilai acak dengan password manager atau `openssl rand -base64 32`. |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` dan `VAPID_PRIVATE_KEY` | Dari root repo jalankan `./node_modules/.bin/web-push generate-vapid-keys`; simpan pasangan yang sama, private key server-only. |
 | `VAPID_SUBJECT` | Kontak yang dapat dihubungi dalam format `mailto:alamat-kontak`. |
-| `NEXT_PUBLIC_SITE_URL` | URL production aplikasi, termasuk `https://`. |
 
 Masukkan secret langsung di dashboard Vercel, bukan ke chat atau Git. Vercel
 Cron berjalan pada deployment Production. Setelah migrasi test berhasil dan
