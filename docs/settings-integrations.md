@@ -36,6 +36,12 @@ grant insert (last_backup_at)
 Kebijakan RLS tetap membatasi perubahan pada baris milik pengguna yang sedang
 masuk. Jangan jalankan ulang seluruh migrasi untuk menambahkan grant.
 
+Cron harian memakai service role. Role ini melewati RLS, tetapi tetap butuh
+grant tabel. Jalankan
+[2026-10-grant-service-role-cron.sql](./sql/2026-10-grant-service-role-cron.sql)
+di SQL Editor. Tanpa grant ini, cadangan dan pengingat gagal dengan
+`permission denied for table ...`.
+
 Cadangan otomatis dibuat setiap hari untuk semua akun Budgetku yang terdaftar
 di Supabase Auth. Pengguna tidak perlu mengaktifkannya. Satu file cloud terbaru
 disimpan per akun dan digantikan pada jadwal berikutnya. Cadangan mencakup data

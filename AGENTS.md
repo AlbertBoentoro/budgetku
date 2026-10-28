@@ -24,6 +24,9 @@ For actual UI changes, declare a Design Read and run the upstream four-block Del
 
 Use the existing `npm run lint` for source changes and `npm run build` when appropriate. Anti-slop is agent guidance, not an ESLint plugin. Never present the current UI as compliant merely because these files were installed.
 
+## Request-time Supabase reads
+Render code (pages, layouts, server components) that calls `createClient()` from `@/lib/supabase/server` must start that function with `await connection()` from `next/server`. With `partialPrefetching`, the clock read inside the Supabase client is rejected before `connection()`. `npm run lint` enforces this with `budgetku/connection-before-supabase` (`eslint-rules/connection-before-supabase.mjs`).
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know
