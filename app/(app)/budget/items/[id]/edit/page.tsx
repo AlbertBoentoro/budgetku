@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -57,6 +58,10 @@ async function EditBudgetItemContent({
   params,
   searchParams,
 }: EditBudgetItemPageProps) {
+  // Request-time work: creating the Supabase client reads the clock (session
+  // expiry), which partialPrefetching rejects before connection().
+  await connection();
+
   const { id } = await params;
   const resolved = await searchParams;
   const rawMonth = Array.isArray(resolved.month)

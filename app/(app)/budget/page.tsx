@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -63,6 +64,10 @@ async function BudgetContent({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  // Request-time work: the current-month fallback and the Supabase client both
+  // read the clock, which partialPrefetching rejects before connection().
+  await connection();
+
   const resolvedSearchParams = await searchParams;
   const monthParam = resolveMonthParam(resolvedSearchParams);
 

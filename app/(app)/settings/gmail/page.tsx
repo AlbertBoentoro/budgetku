@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection as waitForRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { toGmailDateInputValue } from "@/lib/gmail/date-format";
@@ -89,6 +90,11 @@ async function GmailContent({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  // Request-time work: creating the Supabase client reads the clock (session
+  // expiry), which partialPrefetching rejects before connection(). Imported as
+  // waitForRequest because `connection` below is the Gmail connection row.
+  await waitForRequest();
+
   const resolved = await searchParams;
 
   // Reading request state (cookies via getUser()) INSIDE the Suspense boundary

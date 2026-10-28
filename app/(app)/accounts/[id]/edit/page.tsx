@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import type { AccountRow } from "@/lib/accounts";
@@ -39,6 +40,10 @@ export default function EditAccountPage({ params }: EditAccountPageProps) {
 }
 
 async function EditAccountContent({ params }: EditAccountPageProps) {
+  // Request-time work: creating the Supabase client reads the clock (session
+  // expiry), which partialPrefetching rejects before connection().
+  await connection();
+
   const { id } = await params;
 
   const supabase = await createClient();

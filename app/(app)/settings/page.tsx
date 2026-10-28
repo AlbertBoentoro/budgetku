@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { AppBackLink } from "@/components/layout/app-back-link";
@@ -33,6 +34,10 @@ export default function SettingsPage() {
 }
 
 async function SettingsContent() {
+  // Request-time work: creating the Supabase client reads the clock (session
+  // expiry), which partialPrefetching rejects before connection().
+  await connection();
+
   const supabase = await createClient();
   const {
     data: { user },
