@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -62,7 +63,120 @@ export default function DashboardPage() {
   );
 }
 
+type DashboardSupabase = Awaited<ReturnType<typeof createClient>>;
+
+type Settled<T> = { ok: true; value: T } | { ok: false };
+
+// Runs a promise and turns a thrown error into { ok: false }, so one failing
+// section degrades on its own instead of taking the whole dashboard down.
+async function settle<T>(promise: PromiseLike<T>): Promise<Settled<T>> {
+  try {
+    return { ok: true, value: await promise };
+  } catch {
+    return { ok: false };
+  }
+}
+
+interface BudgetSummary {
+  hasBudget: boolean;
+  planned: number;
+  spent: number;
+  remaining: number;
+  barPercent: number;
+  incomplete: boolean;
+}
+
+// Current-month budget summary. Guarded so a budget failure degrades to an
+// incomplete notice rather than crashing the dashboard.
+async function loadBudgetSummary(
+  supabase: DashboardSupabase,
+  userId: string,
+  month: string,
+): Promise<BudgetSummary> {
+  const empty: BudgetSummary = {
+    hasBudget: false,
+    planned: 0,
+    spent: 0,
+    remaining: 0,
+    barPercent: 0,
+    incomplete: false,
+  };
+
+  try {
+    const budget = await fetchBudgetForMonth(
+      supabase,
+      userId,
+      toMonthStorage(month),
+    );
+    if (!budget) return empty;
+
+    const items = await fetchBudgetItems(supabase, userId, budget.id);
+
+    // De-duplicate defensively by category_id (first item per category wins).
+    const seenCategories = new Set<string>();
+    const uniqueItems = items.filter((item) => {
+      if (seenCategories.has(item.category_id)) return false;
+      seenCategories.add(item.category_id);
+      return true;
+    });
+    const categoryIds = uniqueItems.map((item) => item.category_id);
+
+    const loadCategoryNames = async () => {
+      const names = new Map<string, string>();
+      if (categoryIds.length === 0) return names;
+      const { data: cats } = await supabase
+        .from("categories")
+        .select("id, name")
+        .in("id", categoryIds);
+      for (const c of (cats ?? []) as Pick<
+        BudgetCategoryRow,
+        "id" | "name"
+      >[]) {
+        names.set(c.id, c.name);
+      }
+      return names;
+    };
+
+    // Category names and spending only need the category ids, so they are
+    // fetched together instead of one after the other.
+    const [categoryNameById, spendingResult] = await Promise.all([
+      loadCategoryNames(),
+      settle(computeCategorySpending(supabase, userId, month, categoryIds)),
+    ]);
+    const spending = spendingResult.ok
+      ? spendingResult.value
+      : new Map<string, number>();
+
+    const views: BudgetItemView[] = uniqueItems.map((item) => {
+      const planned = Number(item.planned_amount);
+      const spent = spending.get(item.category_id) ?? 0;
+      return {
+        ...item,
+        categoryName: categoryNameById.get(item.category_id) ?? null,
+        usage: computeItemUsage(planned, spent),
+      };
+    });
+
+    const totals = computeBudgetTotals(views);
+    return {
+      hasBudget: true,
+      planned: totals.planned,
+      spent: totals.spent,
+      remaining: totals.remaining,
+      // Same clamp as computeItemUsage.barPercent, applied to the totals.
+      barPercent: computeItemUsage(totals.planned, totals.spent).barPercent,
+      incomplete: !spendingResult.ok,
+    };
+  } catch {
+    return { ...empty, incomplete: true };
+  }
+}
+
 async function DashboardContent() {
+  // Reading the clock (token expiry check) before this point is flagged by
+  // cacheComponents; connection() marks the rest as request-time work.
+  await connection();
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -76,14 +190,30 @@ async function DashboardContent() {
     );
   }
 
-  // One accounts query feeds both views: the grand total (all accounts) and the
-  // card row (non-archived only). No N+1.
-  const { data: accountsData, error: accountsError } = await supabase
-    .from("accounts")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: true });
+  const month = currentMonthParam();
 
+  // These five reads do not depend on each other, so they run in parallel
+  // (one round trip of waiting instead of five in a row).
+  // - accounts: feeds both the grand total (all) and the card row (active).
+  // - balances: initial_balance + net of this user's transactions.
+  // - month: this-month income/expense; transfers excluded from both.
+  // - budget: current-month budget summary.
+  // - recent: the ledger's newest-first ordering, limited to the 4 rows the
+  //   dashboard shows (it used to download every transaction).
+  const [accountsResult, balancesResult, monthResult, budget, recentResult] =
+    await Promise.all([
+      supabase
+        .from("accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true }),
+      settle(computeAccountBalances(supabase, user.id)),
+      settle(computeMonthIncomeExpense(supabase, user.id, month)),
+      loadBudgetSummary(supabase, user.id, month),
+      buildTransactionListQuery(supabase, user.id, {}).limit(4),
+    ]);
+
+  const { data: accountsData, error: accountsError } = accountsResult;
   if (accountsError) {
     return (
       <DashboardError message="Beranda gagal dimuat. Periksa koneksi lalu coba lagi." />
@@ -93,131 +223,37 @@ async function DashboardContent() {
   const allAccounts = (accountsData ?? []) as AccountRow[];
   const activeAccounts = allAccounts.filter((a) => !a.is_archived);
 
-  // Running balance = initial_balance + net of this user's transactions. If the
-  // transactions fetch fails we degrade to initial_balance (never crash) and
-  // flag it so the UI can note the figures may be incomplete.
+  // If the transactions fetch failed we degrade to initial_balance (never
+  // crash) and flag it so the UI can note the figures may be incomplete.
   const balances = new Map<string, number>();
-  let balancesIncomplete = false;
-  try {
-    const net = await computeAccountBalances(supabase, user.id);
-    for (const account of allAccounts) {
-      balances.set(
-        account.id,
-        account.initial_balance + (net.get(account.id) ?? 0),
-      );
-    }
-  } catch {
-    balancesIncomplete = true;
-    for (const account of allAccounts) {
-      balances.set(account.id, account.initial_balance);
-    }
+  const balancesIncomplete = !balancesResult.ok;
+  const net = balancesResult.ok ? balancesResult.value : null;
+  for (const account of allAccounts) {
+    balances.set(
+      account.id,
+      account.initial_balance + (net?.get(account.id) ?? 0),
+    );
   }
-
   const grandTotal = sumRunningAccountBalances(allAccounts, balances);
 
-  // This-month income/expense over the [first of month, first of next month)
-  // UTC window; transfers excluded from both. Degrade quietly on failure.
-  const month = currentMonthParam();
-  let income = 0;
-  let expense = 0;
-  let monthIncomplete = false;
-  try {
-    const summary = await computeMonthIncomeExpense(supabase, user.id, month);
-    income = summary.income;
-    expense = summary.expense;
-  } catch {
-    monthIncomplete = true;
-  }
+  const monthIncomplete = !monthResult.ok;
+  const income = monthResult.ok ? monthResult.value.income : 0;
+  const expense = monthResult.ok ? monthResult.value.expense : 0;
 
-  // Current-month budget summary. Replicates the budget page compose pattern
-  // (no new shared helper) and is guarded in its own block so a budget failure
-  // degrades to an incomplete notice rather than crashing the dashboard.
-  let hasBudget = false;
-  let budgetPlanned = 0;
-  let budgetSpent = 0;
-  let budgetRemaining = 0;
-  let budgetBarPercent = 0;
-  let budgetIncomplete = false;
-  try {
-    const budget = await fetchBudgetForMonth(
-      supabase,
-      user.id,
-      toMonthStorage(month),
-    );
-    if (budget) {
-      hasBudget = true;
-      const items = await fetchBudgetItems(supabase, user.id, budget.id);
-
-      // De-duplicate defensively by category_id (first item per category wins).
-      const seenCategories = new Set<string>();
-      const uniqueItems = items.filter((item) => {
-        if (seenCategories.has(item.category_id)) return false;
-        seenCategories.add(item.category_id);
-        return true;
-      });
-
-      const categoryNameById = new Map<string, string>();
-      const categoryIds = uniqueItems.map((item) => item.category_id);
-      if (categoryIds.length > 0) {
-        const { data: cats } = await supabase
-          .from("categories")
-          .select("id, name")
-          .in("id", categoryIds);
-        for (const c of (cats ?? []) as Pick<
-          BudgetCategoryRow,
-          "id" | "name"
-        >[]) {
-          categoryNameById.set(c.id, c.name);
-        }
-      }
-
-      let spending = new Map<string, number>();
-      try {
-        spending = await computeCategorySpending(
-          supabase,
-          user.id,
-          month,
-          categoryIds,
-        );
-      } catch {
-        budgetIncomplete = true;
-      }
-
-      const views: BudgetItemView[] = uniqueItems.map((item) => {
-        const planned = Number(item.planned_amount);
-        const spent = spending.get(item.category_id) ?? 0;
-        return {
-          ...item,
-          categoryName: categoryNameById.get(item.category_id) ?? null,
-          usage: computeItemUsage(planned, spent),
-        };
-      });
-
-      const totals = computeBudgetTotals(views);
-      budgetPlanned = totals.planned;
-      budgetSpent = totals.spent;
-      budgetRemaining = totals.remaining;
-      // Same clamp as computeItemUsage.barPercent, applied to the totals:
-      // computeItemUsage(planned, spent) yields barPercent = clamp(spent/planned).
-      budgetBarPercent = computeItemUsage(
-        totals.planned,
-        totals.spent,
-      ).barPercent;
-    }
-  } catch {
-    budgetIncomplete = true;
-  }
+  const hasBudget = budget.hasBudget;
+  const budgetPlanned = budget.planned;
+  const budgetSpent = budget.spent;
+  const budgetRemaining = budget.remaining;
+  const budgetBarPercent = budget.barPercent;
+  const budgetIncomplete = budget.incomplete;
   const monthLabel = formatMonthLabel(month);
 
-  // Recent transactions: reuse the ledger's exact newest-first ordering, then
-  // keep the top few. A failed fetch degrades to an empty list + a quiet flag.
-  const { data: recentData, error: recentError } =
-    await buildTransactionListQuery(supabase, user.id, {});
-  const recentIncomplete = Boolean(recentError);
-  const recentRows = ((recentData ?? []) as TransactionRow[]).slice(0, 4);
+  // A failed fetch degrades to an empty list + a quiet flag.
+  const recentIncomplete = Boolean(recentResult.error);
+  const recentRows = (recentResult.data ?? []) as TransactionRow[];
 
   // Resolve account/category display names only for the shown rows: two scoped
-  // in(...) lookups at most, never per-row (no N+1).
+  // in(...) lookups at most (run together), never per-row (no N+1).
   const accountNameById = new Map<string, string>();
   const categoryNameById = new Map<string, string>();
   if (recentRows.length > 0) {
@@ -229,31 +265,34 @@ async function DashboardContent() {
       if (t.category_id) categoryIds.add(t.category_id);
     }
 
-    if (accountIds.size > 0) {
-      const { data: accountNames } = await supabase
-        .from("accounts")
-        .select("id, name")
-        .eq("user_id", user.id)
-        .in("id", Array.from(accountIds));
-      for (const a of accountNames ?? []) accountNameById.set(a.id, a.name);
-    }
+    const [accountNamesResult, categoryNamesResult] = await Promise.all([
+      accountIds.size > 0
+        ? supabase
+            .from("accounts")
+            .select("id, name")
+            .eq("user_id", user.id)
+            .in("id", Array.from(accountIds))
+        : null,
+      // Scope to the user's own categories OR system categories (user_id
+      // null), mirroring the scoping used elsewhere. The ids already come from
+      // the user's own transactions; this is defense-in-depth.
+      categoryIds.size > 0
+        ? supabase
+            .from("categories")
+            .select("id, name")
+            .in("id", Array.from(categoryIds))
+            .or(`user_id.eq.${user.id},user_id.is.null`)
+        : null,
+    ]);
 
-    if (categoryIds.size > 0) {
-      // Scope to the user's own categories OR system categories (user_id null),
-      // mirroring the scoping used elsewhere. The ids already come from the
-      // user's own transactions, but this keeps the lookup consistent and
-      // defense-in-depth rather than relying only on that.
-      const { data: categoryNames } = await supabase
-        .from("categories")
-        .select("id, name")
-        .in("id", Array.from(categoryIds))
-        .or(`user_id.eq.${user.id},user_id.is.null`);
-      for (const c of (categoryNames ?? []) as Pick<
-        CategoryRow,
-        "id" | "name"
-      >[]) {
-        categoryNameById.set(c.id, c.name);
-      }
+    for (const a of accountNamesResult?.data ?? []) {
+      accountNameById.set(a.id, a.name);
+    }
+    for (const c of (categoryNamesResult?.data ?? []) as Pick<
+      CategoryRow,
+      "id" | "name"
+    >[]) {
+      categoryNameById.set(c.id, c.name);
     }
   }
 

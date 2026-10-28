@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -52,6 +53,10 @@ async function TransactionsContent({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  // Reading the clock (token expiry check) before this point is flagged by
+  // cacheComponents; connection() marks the rest as request-time work.
+  await connection();
+
   const resolvedSearchParams = await searchParams;
   const supabase = await createClient();
   const {
