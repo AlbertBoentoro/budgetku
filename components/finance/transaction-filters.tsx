@@ -209,7 +209,7 @@ export function TransactionFilters({
         ) : null}
       </div>
 
-      <div className="-mx-space-xs flex flex-wrap gap-2 px-space-xs pb-1">
+      <div className="flex flex-wrap gap-2 pb-1">
         {typeChips.map((chip) => {
           const isActive = currentType === chip.value;
           return (

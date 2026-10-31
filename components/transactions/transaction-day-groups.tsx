@@ -41,7 +41,7 @@ export function TransactionDayGroups({ groups }: TransactionDayGroupsProps) {
               : "default";
         return (
           <section key={group.key} className="flex flex-col gap-2">
-            <div className="flex items-baseline justify-between gap-2 px-space-xs">
+            <div className="flex items-baseline justify-between gap-2 px-xs">
               <h2 className="text-label-md font-medium text-on-surface-variant">
                 {group.label}
               </h2>

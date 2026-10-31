@@ -230,4 +230,56 @@ Request: the user checked iteration 2 on production and confirmed it works. They
 - Block 3, Liveliness: dials unchanged; no new motion.
 - Block 4, Craftsmanship: C-1 reasons written above. C-2 no dead controls. C-3 no new section; the new empty states replace existing ones. C-4 states, themes, widths, and keyboard checked. C-5 no claims.
 
-Verdict: PASS for the client UI as checked in Chrome. Open: a signed-in check of the server behavior after deploy.
+Verdict: PASS for the client UI as checked in Chrome.
+
+Result after deploy (2026-10-31): deployed as `4bad11b` (`dpl_61isnoyf7xfoL4fQECJUaEc5em6p`). The user ran the five signed-in steps on production and confirmed that all of them match: the list and summary show the current month by default, the centered picker switches to September, "Tampilkan semua bulan" lists every month, an empty month shows the empty-month state, and saving a backdated transaction opens its month. Still not verified: Safari, Firefox, iOS, and screen readers.
+
+## Follow-up (2026-10-31): the six open items
+
+Request: after the explanation of the open items, the user replied "deploy semua". For item 1 the recommended option (discard) was applied, in a recoverable way.
+
+### Changes
+
+1. Auth patch (12 files, `getAuthenticatedUser()`) and 2. the two patch scripts (`budgetku_fix_auth_latency.py`, `budgetku_fix_auth_latency_fixed.py`): set aside with `git --literal-pathspecs stash push -u` as `stash@{0}` ("Budgetku: patch auth getAuthenticatedUser + 2 skrip Python (disisihkan 2026-10-28)"). The stash holds exactly those 14 files. The working tree is back to the committed auth code: the layout uses `getClaims()` and the pages use `getUser()`. `git stash pop` restores both. Reason: the project signs JWTs with ES256 (public JWKS) and `@supabase/auth-js` 2.117.3 caches the key for 10 minutes, so the old layout check made no network call. The patch kept 1 Auth call on the list pages and made 2 on the form pages.
+3. `docs/sql/2026-10-add-gmail-parsed-preview.sql`: restored with `git restore`. The file ends with a newline again.
+4. `lib/supabase/proxy.ts`: `/manifest.webmanifest` (exact match) joins the public paths. The manifest has no user data. Its icons are `.png` files, which the proxy matcher already skips.
+5. Padding classes:
+   - `components/transactions/transaction-day-groups.tsx`: day header `px-space-xs` to `px-xs` (4px, the intended value).
+   - `app/(app)/transactions/loading.tsx`: skeleton day header `px-xs`; skeleton row `px-space-md` to `px-4`, the padding of the real `TransactionLedgerRow`, so the skeleton matches the row it stands in for; the two text bars get `max-w-full`.
+   - `components/finance/transaction-filters.tsx`: `-mx-space-xs` and `px-space-xs` removed from the chip row. As valid classes they would cancel each other, and the row wraps instead of scrolling, so they had no job.
+6. This report.
+
+Design Read (item 5): reading this as the Transaksi ledger (day headers, loading skeleton, chip row) of a personal finance app for Indonesian users, in the Calm Ledger style from DESIGN.md, dial ENERGY 1 / RHYTHM 1 / MOTION 1.
+
+### Checks run
+
+- Before the change, the CSS of the previous build had no rule for `space-xs` or `space-md`, which confirms the old classes did nothing.
+- `npm run lint`: exit 0. `npx --no-install tsc --noEmit`: exit 0.
+- `npm run build` with the dev server stopped (after removing the generated `.next/dev/types`): exit 0. Route markers unchanged (6 static, 21 partial prerender, 10 dynamic). `/transactions` stays partial prerender and `/manifest.webmanifest` is static. The new CSS has `.px-xs` and `.max-w-full` and no `space-` rule.
+- `curl` against `next dev`, signed out: `/manifest.webmanifest` 200 `application/manifest+json`; the three icons 200; `/manifest.webmanifestx` 307; `/dashboard` and `/transactions` 307 to `/auth/login`; `/service-worker.js` 200; `/auth/login` 200.
+- Browser: headless Chrome 156 over the DevTools protocol against `next dev`, on a temporary preview route (`/auth/kiro-padding-preview`, deleted afterwards). It rendered the real `TransactionFilters`, `TransactionDayGroups` with demo rows (largest: -Rp 123.456.789.012), and `TransactionsLoading`. Runs at 320px light, 375px dark, 1280px light, and 1280px dark, plus the login page. Final run: 123 of 124 checks passed.
+  - Changed elements, 96/96: day header padding 4px with the label and the amount 4px inside the card edge, no overlap, amount not clipped (at 320px the label wraps to two lines next to -Rp 123.444.443.342); skeleton header 4px; skeleton rows 16px with the avatar at the same 16px inset as the real row icon; skeleton bars inside their column; chip row without margin or horizontal padding and aligned with the content edge; chips at least 44px tall; Tab reaches the first chip, which shows its `focus-visible` ring, not clipped by any ancestor.
+  - Page, 12/12: theme applied, no horizontal overflow, no console errors. Earlier runs logged 7 to 10 manifest errors each.
+  - Manifest on `/auth/login`, signed out, 4/4: `Page.getAppManifest` reports `/manifest.webmanifest` with no parse errors and the Budgetku body; no console errors.
+  - Context, 11/12: the one failure is in the unchanged ledger row (see findings).
+  - The first run found the skeleton text bars (`w-36`) running into the amount bar at 320px once the row had its 16px padding. `max-w-full` fixed it, and the rerun passed.
+- Screenshots reviewed at 320px light and 375px dark: header insets, skeleton insets, and the chip row match the measurements.
+
+### Not verified
+
+- The real Transaksi page and its loading state with a signed-in session.
+- Installing the app from the login page on a phone.
+- Safari, Firefox, iOS, and screen readers.
+
+### Findings outside this change
+
+- `components/transactions/transaction-ledger-row.tsx` at 320px: a 12-digit amount (-Rp 123.456.789.012) is wider than the space left beside the icon and the menu. It runs outside its link and hides the merchant and category. Rp 12.345.670 fits. The row component was not changed.
+
+### Delivery Gate (follow-up)
+
+- Block 1, Hard Gate (all answers no): R-02 no em dash in the new code or comments. R-03 no overflow at 320, 375, or 1280px; chips at least 44px. R-25 no new color pairing, only padding. R-26 no control changed; the chips act as before. R-27 the loading state now matches the real row inset; empty and error states untouched. R-32 Tab reaches the chips with a visible, unclipped ring. R-34 both themes checked. R-35 build and click-through recorded; the signed-in check is open. R-37 DESIGN.md. The others do not apply.
+- Block 2, Purpose-Gate: no new icon, arrow, or decoration.
+- Block 3, Liveliness: dials unchanged; no motion added.
+- Block 4, Craftsmanship: C-1 each class change has its reason above. C-2 no dead controls. C-3 no new section. C-4 loading state, both themes, three widths, and keyboard checked. C-5 no claims.
+
+Verdict: PASS for the changed elements as checked in Chrome on the preview route. Open: the signed-in check of the real page, plus Safari and iOS.
