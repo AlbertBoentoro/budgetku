@@ -30,6 +30,21 @@ const chipActive = "bg-primary text-primary-foreground";
 const chipInactive =
   "bg-surface-container text-on-surface-variant hover:bg-surface-container-high";
 
+// Moves focus to the month field and opens the browser's month picker where
+// one exists. Browsers without one render type="month" as a text field, where
+// focus alone lets the user type the month.
+function focusMonthField(field: HTMLInputElement | null) {
+  if (!field) return;
+  field.focus();
+  if (field.type !== "month" || typeof field.showPicker !== "function") return;
+  try {
+    field.showPicker();
+  } catch {
+    // Not allowed here (for example without a user gesture); the focused
+    // field still works.
+  }
+}
+
 const FILTER_KEYS = ["q", "type", "account", "category", "month"] as const;
 
 interface TransactionFiltersProps {
@@ -82,6 +97,26 @@ export function TransactionFilters({
   const [advancedOpen, setAdvancedOpen] = useState(
     Boolean(currentAccount || currentCategory || currentMonth),
   );
+
+  // The month chip opens the panel at the Bulan field. While the panel is
+  // closed the field does not exist yet, so focusing waits for that render.
+  const monthFieldRef = useRef<HTMLInputElement>(null);
+  const pendingMonthFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (!advancedOpen || !pendingMonthFocusRef.current) return;
+    pendingMonthFocusRef.current = false;
+    focusMonthField(monthFieldRef.current);
+  }, [advancedOpen]);
+
+  function openMonthFilter() {
+    if (advancedOpen) {
+      focusMonthField(monthFieldRef.current);
+      return;
+    }
+    pendingMonthFocusRef.current = true;
+    setAdvancedOpen(true);
+  }
 
   // Local search text so typing stays responsive; the URL updates on a debounce
   // so each keystroke does not trigger a navigation.
@@ -193,10 +228,17 @@ export function TransactionFilters({
           );
         })}
 
-        <span className={cn(chipBase, chipInactive, "cursor-default")}>
+        {/* Filled while a month filter narrows the list, like the type
+            chips; the label also changes from "Bulan Ini" to the month. */}
+        <button
+          type="button"
+          onClick={openMonthFilter}
+          aria-label={`Ganti bulan: ${monthChipLabel}`}
+          className={cn(chipBase, parsed.month ? chipActive : chipInactive)}
+        >
           <Icon name="calendar_month" size={16} />
           {monthChipLabel}
-        </span>
+        </button>
 
         <button
           type="button"
@@ -258,6 +300,7 @@ export function TransactionFilters({
           <div className="flex flex-col gap-2">
             <Label htmlFor={monthId}>Bulan</Label>
             <Input
+              ref={monthFieldRef}
               id={monthId}
               type="month"
               value={currentMonth}
