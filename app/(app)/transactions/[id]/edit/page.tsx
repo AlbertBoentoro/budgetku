@@ -8,6 +8,7 @@ import {
   fetchUsableCategories,
   type TransactionRow,
 } from "@/lib/transactions";
+import { currentMonthParam } from "@/lib/budgets";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import {
@@ -110,6 +111,7 @@ async function EditTransactionContent({ params }: EditTransactionPageProps) {
       incomeCategories={incomeCategories}
       expenseCategories={expenseCategories}
       initialValues={initialValues}
+      currentMonth={currentMonthParam()}
     />
   );
 }

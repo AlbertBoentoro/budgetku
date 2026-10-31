@@ -7,6 +7,7 @@ import {
   fetchActiveAccounts,
   fetchUsableCategories,
 } from "@/lib/transactions";
+import { currentMonthParam } from "@/lib/budgets";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { TransactionForm } from "@/components/finance/transaction-form";
@@ -67,6 +68,7 @@ async function NewTransactionContent() {
       accounts={accounts}
       incomeCategories={incomeCategories}
       expenseCategories={expenseCategories}
+      currentMonth={currentMonthParam()}
     />
   );
 }

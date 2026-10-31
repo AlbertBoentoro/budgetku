@@ -8,7 +8,7 @@ import {
 import type { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { type AccountRow, parseIdrInput } from "@/lib/accounts";
-import { currentMonthParam, monthRange } from "@/lib/budgets";
+import { monthRange } from "@/lib/budgets";
 
 // Re-export the shared IDR parser so transaction forms/actions use the exact
 // same unscaled money parsing as accounts (never a duplicate implementation).
@@ -277,11 +277,37 @@ export async function computeMonthIncomeExpense(
   return { income, expense };
 }
 
-// The active month the list summarizes: the explicit `month` filter when set,
-// otherwise the current local month (matches resolveMonthParam / the dashboard
-// default). Additive helper; the filter parsing itself is unchanged.
-export function activeMonthFrom(filters: TransactionFilters): string {
-  return filters.month ?? currentMonthParam();
+// `?month=all` lists every month. Without a month param the ledger lists the
+// current month.
+export const ALL_MONTHS_PARAM = "all";
+
+// The month the ledger lists ("YYYY-MM"), or null while every month is listed:
+// the `month` filter when set, every month for `?month=all`, otherwise
+// `currentMonth`. The caller passes the current month so one clock read serves
+// the whole page.
+export function resolveListMonth(
+  searchParams: Record<string, string | string[] | undefined>,
+  filters: TransactionFilters,
+  currentMonth: string,
+): string | null {
+  if (firstValue(searchParams.month) === ALL_MONTHS_PARAM) return null;
+  return filters.month ?? currentMonth;
+}
+
+// Whether the user has a transaction in any month, to tell a first-time user
+// apart from a month without transactions. null when the lookup fails, so an
+// error is never read as "no transactions yet".
+export async function hasAnyTransaction(
+  supabase: ServerSupabaseClient,
+  userId: string,
+): Promise<boolean | null> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1);
+  if (error) return null;
+  return (data ?? []).length > 0;
 }
 
 // Minimal structural shape the day-grouping needs. Keeping it structural (not

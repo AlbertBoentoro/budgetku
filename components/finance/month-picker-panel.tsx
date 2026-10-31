@@ -48,13 +48,12 @@ function clampYear(year: number): number {
 
 interface MonthPickerPanelProps {
   id: string;
-  // The month filter from the URL ("YYYY-MM"), or null while every month is
-  // shown.
+  // The month the list shows ("YYYY-MM"), or null while every month is listed.
   selectedMonth: string | null;
-  // The current month ("YYYY-MM"), read when the panel was opened.
+  // The current month ("YYYY-MM") from the server render.
   todayMonth: string;
   onSelect: (month: string) => void;
-  onClear: () => void;
+  onShowAll: () => void;
   onClose: () => void;
 }
 
@@ -63,7 +62,7 @@ export function MonthPickerPanel({
   selectedMonth,
   todayMonth,
   onSelect,
-  onClear,
+  onShowAll,
   onClose,
 }: MonthPickerPanelProps) {
   const startMonth = selectedMonth ?? todayMonth;
@@ -79,7 +78,7 @@ export function MonthPickerPanel({
   }, []);
 
   // Capped at sm:max-w-sm so the year arrows stay next to the year on wide
-  // screens; phones use the full width.
+  // screens, and centered under the chip row; phones use the full width.
   return (
     <div
       id={id}
@@ -88,7 +87,7 @@ export function MonthPickerPanel({
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();
       }}
-      className="flex w-full flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:max-w-sm"
+      className="mx-auto flex w-full flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:max-w-sm"
     >
       <div className="flex items-center justify-between gap-2">
         <button
@@ -146,7 +145,7 @@ export function MonthPickerPanel({
         <div className="flex justify-end">
           <button
             type="button"
-            onClick={onClear}
+            onClick={onShowAll}
             className="inline-flex h-11 items-center rounded-md px-3 text-body-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Tampilkan semua bulan

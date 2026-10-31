@@ -41,6 +41,9 @@ interface TransactionFormProps {
   incomeCategories: CategoryRow[];
   expenseCategories: CategoryRow[];
   initialValues?: TransactionFormInitialValues;
+  // The current month ("YYYY-MM") from the server render: the month the
+  // ledger shows by default.
+  currentMonth: string;
 }
 
 type FieldErrors = Partial<
@@ -99,6 +102,7 @@ export function TransactionForm({
   incomeCategories,
   expenseCategories,
   initialValues,
+  currentMonth,
 }: TransactionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -339,7 +343,14 @@ export function TransactionForm({
     startTransition(async () => {
       const result = await action(input);
       if (result.ok) {
-        router.push("/transactions");
+        // The ledger lists one month at a time, so open the month of the saved
+        // transaction; the current month is the ledger's default view.
+        const savedMonth = input.transaction_at.slice(0, 7);
+        router.push(
+          savedMonth === currentMonth || !/^\d{4}-\d{2}$/.test(savedMonth)
+            ? "/transactions"
+            : `/transactions?month=${savedMonth}`,
+        );
         router.refresh();
         return;
       }

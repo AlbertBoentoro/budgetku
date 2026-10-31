@@ -4,19 +4,21 @@ import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import {
-  activeMonthFrom,
+  ALL_MONTHS_PARAM,
   buildTransactionListQuery,
   computeMonthIncomeExpense,
   fetchActiveAccounts,
   fetchUsableCategories,
   groupTransactionsByDay,
+  hasAnyTransaction,
   parseTransactionFilters,
+  resolveListMonth,
   type CategoryRow,
   type TransactionFilters as TransactionFilterValues,
   type TransactionRow,
 } from "@/lib/transactions";
 import { accountTypeGlyph } from "@/components/dashboard/dashboard-account-card";
-import { formatMonthLabel } from "@/lib/budgets";
+import { currentMonthParam, formatMonthLabel } from "@/lib/budgets";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { TransactionFilters } from "@/components/finance/transaction-filters";
@@ -107,12 +109,23 @@ async function TransactionsContent({
   const filterAccount: FilterAccount | null = accountLookup.data ?? null;
   const filters = filterAccount ? parsedFilters : withoutAccount(parsedFilters);
   const accountNotFound = accountRequested && !filterAccount;
-  const hasActiveFilter = Object.keys(filters).length > 0;
+
+  // The ledger lists one month: the `month` filter, or the current month when
+  // none is set. `?month=all` lists every month.
+  const currentMonth = currentMonthParam();
+  const listMonth = resolveListMonth(resolvedSearchParams, filters, currentMonth);
+  const monthLabel = listMonth ? formatMonthLabel(listMonth) : null;
+  // The month param to keep in links: an explicit month, "all", or none for
+  // the default current month.
+  const monthParam = listMonth ? filters.month : ALL_MONTHS_PARAM;
+  // Search, type, account, and category: the filters besides the month.
+  const otherFilters = withoutMonth(filters);
+  const hasOtherFilter = Object.keys(otherFilters).length > 0;
 
   const { data, error } = await buildTransactionListQuery(
     supabase,
     user.id,
-    filters,
+    listMonth ? { ...otherFilters, month: listMonth } : otherFilters,
   );
 
   if (error) {
@@ -123,8 +136,16 @@ async function TransactionsContent({
 
   const transactions = (data ?? []) as TransactionRow[];
 
-  // No transactions at all: a first-run empty state inviting the first entry.
-  if (transactions.length === 0 && !hasActiveFilter) {
+  // Nothing listed and no filter besides the month. A user without any
+  // transaction gets the first-run state; a user with transactions in other
+  // months gets the empty-month state below, next to the month picker.
+  const isFirstRun =
+    transactions.length === 0 &&
+    !hasOtherFilter &&
+    (listMonth === null ||
+      (await hasAnyTransaction(supabase, user.id)) === false);
+
+  if (isFirstRun) {
     return (
       <div className="flex flex-col gap-6">
         {accountNotFound ? <AccountNotFoundNotice /> : null}
@@ -220,11 +241,11 @@ async function TransactionsContent({
     ).values(),
   );
 
-  // Month summary pill: the active month is the explicit `month` filter or the
-  // current month. It reuses the same income/expense math as the dashboard and
-  // budget, so the totals line up (transfers excluded). A failed compute
-  // degrades to a quiet notice instead of crashing the page.
-  const activeMonth = activeMonthFrom(filters);
+  // Month summary pill: the month the list shows, or the current month while
+  // every month is listed. It reuses the same income/expense math as the
+  // dashboard and budget, so the totals line up (transfers excluded). A failed
+  // compute degrades to a quiet notice instead of crashing the page.
+  const summaryMonth = listMonth ?? currentMonth;
   let monthIncome = 0;
   let monthExpense = 0;
   let monthIncomplete = false;
@@ -232,7 +253,7 @@ async function TransactionsContent({
     const summary = await computeMonthIncomeExpense(
       supabase,
       user.id,
-      activeMonth,
+      summaryMonth,
     );
     monthIncome = summary.income;
     monthExpense = summary.expense;
@@ -248,8 +269,9 @@ async function TransactionsContent({
   // a generic "no match".
   const accountOnlyFilter =
     filterAccount !== null &&
-    Object.keys(filters).length === 1 &&
-    Boolean(filters.account);
+    Object.keys(otherFilters).length === 1 &&
+    Boolean(otherFilters.account);
+  const allMonthsHref = ledgerHref(otherFilters, ALL_MONTHS_PARAM);
 
   return (
     <div className="flex flex-col gap-6">
@@ -258,13 +280,14 @@ async function TransactionsContent({
       {filterAccount ? (
         <AccountFilterBanner
           account={filterAccount}
-          clearHref={transactionsHref(filters)}
+          clearHref={ledgerHref(withoutAccount(otherFilters), monthParam)}
         />
       ) : null}
 
       <TransactionFilters
         accounts={accounts}
         categories={filterCategories}
+        currentMonth={currentMonth}
         extraAccount={
           filterAccount?.is_archived
             ? { id: filterAccount.id, name: filterAccount.name }
@@ -275,32 +298,70 @@ async function TransactionsContent({
       <LedgerSummaryPill
         income={monthIncome}
         expense={monthExpense}
-        monthLabel={formatMonthLabel(activeMonth)}
+        monthLabel={formatMonthLabel(summaryMonth)}
         incomplete={monthIncomplete}
       />
 
-      {rows.length === 0 && accountOnlyFilter ? (
+      {rows.length === 0 && !hasOtherFilter && monthLabel ? (
+        // Empty month: the user has transactions, just not in this month.
         <LedgerEmptyState
-          glyph="receipt_long"
-          title="Belum ada transaksi di rekening ini"
-          description="Transaksi dari dan ke rekening ini akan muncul di sini."
+          glyph="calendar_month"
+          title={`Belum ada transaksi di ${monthLabel}`}
+          description="Pilih bulan lain di atas atau tampilkan semua bulan."
           action={
             <Button asChild variant="outline" className="h-11">
-              <Link href="/transactions">Lihat semua transaksi</Link>
+              <Link href={allMonthsHref}>Tampilkan semua bulan</Link>
+            </Button>
+          }
+        />
+      ) : rows.length === 0 && accountOnlyFilter ? (
+        <LedgerEmptyState
+          glyph="receipt_long"
+          title={
+            monthLabel
+              ? `Belum ada transaksi rekening ini di ${monthLabel}`
+              : "Belum ada transaksi di rekening ini"
+          }
+          description={
+            monthLabel
+              ? "Pilih bulan lain di atas atau tampilkan semua bulan."
+              : "Transaksi dari dan ke rekening ini akan muncul di sini."
+          }
+          action={
+            <Button asChild variant="outline" className="h-11">
+              {monthLabel ? (
+                <Link href={allMonthsHref}>Tampilkan semua bulan</Link>
+              ) : (
+                <Link href={`/transactions?month=${ALL_MONTHS_PARAM}`}>
+                  Lihat semua transaksi
+                </Link>
+              )}
             </Button>
           }
         />
       ) : rows.length === 0 ? (
         // Filtered-empty: distinct from the first-run empty state. Names the
-        // cause and offers a reset back to the unfiltered list.
+        // cause, offers the same search across every month, and a reset back
+        // to the default view.
         <LedgerEmptyState
           glyph="search_off"
           title="Tidak ada transaksi ditemukan"
-          description="Tidak ada transaksi yang cocok dengan filter atau pencarian saat ini."
+          description={
+            monthLabel
+              ? `Tidak ada transaksi yang cocok dengan filter atau pencarian di ${monthLabel}.`
+              : "Tidak ada transaksi yang cocok dengan filter atau pencarian saat ini."
+          }
           action={
-            <Button asChild variant="outline" className="h-11">
-              <Link href="/transactions">Atur ulang filter</Link>
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              {monthLabel ? (
+                <Button asChild variant="outline" className="h-11">
+                  <Link href={allMonthsHref}>Cari di semua bulan</Link>
+                </Button>
+              ) : null}
+              <Button asChild variant="outline" className="h-11">
+                <Link href="/transactions">Atur ulang filter</Link>
+              </Button>
+            </div>
           }
         />
       ) : (
@@ -327,13 +388,25 @@ function withoutAccount(
   return rest;
 }
 
-// /transactions URL that keeps the other active filters and drops `account`.
-function transactionsHref(filters: TransactionFilterValues): string {
+// Copy of the filters without `month`, so the month scope is handled apart from
+// search, type, account, and category.
+function withoutMonth(
+  filters: TransactionFilterValues,
+): TransactionFilterValues {
+  const rest = { ...filters };
+  delete rest.month;
+  return rest;
+}
+
+// /transactions URL for the given filters. `month` is the month param to set:
+// a "YYYY-MM", "all", or undefined for the default current month.
+function ledgerHref(filters: TransactionFilterValues, month?: string): string {
   const params = new URLSearchParams();
   if (filters.q) params.set("q", filters.q);
   if (filters.type) params.set("type", filters.type);
+  if (filters.account) params.set("account", filters.account);
   if (filters.category) params.set("category", filters.category);
-  if (filters.month) params.set("month", filters.month);
+  if (month) params.set("month", month);
   const query = params.toString();
   return query ? `/transactions?${query}` : "/transactions";
 }
@@ -396,7 +469,8 @@ function AccountNotFoundNotice() {
       role="status"
       className="rounded-lg bg-surface-container-low px-3 py-2 text-body-sm text-on-surface-variant"
     >
-      Rekening pada tautan ini tidak ditemukan. Menampilkan semua transaksi.
+      Rekening pada tautan ini tidak ditemukan. Menampilkan transaksi semua
+      rekening.
     </p>
   );
 }

@@ -179,3 +179,55 @@ Block 3, Liveliness: dials declared and held. No motion beyond color transitions
 Block 4, Craftsmanship: C-1 reasons written above. C-2 no dead controls (the dead span and the duplicate native field are gone). C-3 no new section. C-4 states, both themes, three widths, and keyboard checked. C-5 no claims. R-11: chips stay pill-shaped, months use `rounded-lg`, panels `rounded-xl`, all from the existing scale. R-29: palette unchanged.
 
 Verdict: PASS for the month picker as checked in Chrome on the preview route. Open: a signed-in check of the real Transaksi page, plus Safari and iOS.
+
+## Iteration 3 (2026-10-31): centered picker, current month by default
+
+Request: the user checked iteration 2 on production and confirmed it works. They asked to show the picker in the center instead of the left corner, and chose to make the ledger list the current month by default.
+
+### Change
+
+- `components/finance/month-picker-panel.tsx`: `mx-auto`, so the panel is centered under the chip row (384px on wide screens, full width on phones). The `onClear` prop is now `onShowAll`.
+- Ledger default (`app/(app)/transactions/page.tsx`, `lib/transactions.ts`):
+  - Without `?month=` the list shows the current month (`resolveListMonth`). `?month=YYYY-MM` shows that month, and `?month=all` shows every month.
+  - The summary covers the listed month, or the current month while every month is listed.
+  - Empty states: a user without any transaction still gets the first-run state. `hasAnyTransaction` checks this only when the month is empty and no other filter is set. A user with transactions in other months gets "Belum ada transaksi di <bulan>" with "Tampilkan semua bulan". The account-only and filtered states name the month and offer "Tampilkan semua bulan" or "Cari di semua bulan".
+  - Clearing the account filter keeps the month scope. The account-not-found notice now says "Menampilkan transaksi semua rekening".
+  - `activeMonthFrom` was replaced; this page was its only caller.
+- `components/finance/transaction-filters.tsx`: takes `currentMonth` from the server render, so the chip, the picker, and the list agree on the month, with no clock read in the client. Chip labels: "Bulan Ini · <bulan>" for the default (not filled), "<bulan>" for an explicit month (filled), "Semua bulan" (filled). Picking the current month removes `?month=`; "Tampilkan semua bulan" sets `?month=all`.
+- `components/finance/transaction-form.tsx` and the new and edit pages: after saving, the form opens the month of the saved transaction (`/transactions?month=YYYY-MM`), or the default view when it is the current month. A backdated transaction stays visible after saving.
+- Unchanged: the money math, the query per month, and the database.
+
+### Checks run
+
+- `npm run lint`: exit 0. `tsc --noEmit`: exit 0.
+- `npm run build` with the dev server stopped. The first attempt failed with TS2307 on stale route types in `.next/dev/types` that still listed the deleted preview route. After removing the generated `.next/dev/types`, exit 0. Route markers unchanged (6 static, 21 partial prerender, 10 dynamic); `/transactions`, `/transactions/new`, and `/transactions/[id]/edit` stay partial prerender. The working tree again held the user's uncommitted auth patch, which is not part of this change.
+- Contrast: no new color pairings; the tokens and pairings from iteration 2 apply.
+- Browser click-through: headless Chrome 156 against `next dev` on a temporary preview route with `currentMonth="2026-10"` (deleted afterwards). 104 checks, 0 failures, at 320px light, 375px dark, 1280px light, and 1280px dark. Each run checked:
+  1. Default chip reads "Bulan Ini · Oktober 2026" and is not filled; no horizontal overflow.
+  2. Enter opens the picker with Oktober selected and focused (`:focus-visible`), and "Tampilkan semua bulan" offered.
+  3. Panel centered: center offset 0px in all four runs; 384px of 736px at 1280; full width (288px, 343px) on phones. Month buttons at least 44x44px; no overflow with the panel open. Escape closes it and focus returns to the chip.
+  4. September sets `?month=2026-09` and the chip reads "September 2026", filled. Oktober then removes `?month` and the chip returns to the default label, not filled.
+  5. "Tampilkan semua bulan" sets `?month=all` and the chip reads "Semua bulan", filled. In that mode no month is selected, the footer button is hidden, and Oktober is still marked as the current month. Oktober returns to the default view.
+  6. The Filter chip shows only the two selects and no picker.
+  7. Console: no errors except the `manifest.webmanifest` redirect, 7 or 8 per run.
+- Screenshots reviewed: the panel is centered in both themes on phone and desktop.
+
+### Not verified
+
+- The server side with a signed-in session: the ledger listing only the current month, the summary, the empty-month and first-run states, the account history, and the redirect after saving. These need the user's session.
+- Safari, Firefox, iOS, and screen readers.
+
+### Known limitations
+
+- "This month" uses the server clock (UTC on Vercel), like the summary, dashboard, and budget. From 00:00 to 07:00 WIB on the 1st, the default view is still the previous month.
+- Search covers the listed month. In an empty result, "Cari di semua bulan" widens it to every month.
+- The account "Riwayat transaksi" links also open on the current month.
+
+### Delivery Gate (iteration 3)
+
+- Block 1, Hard Gate (all answers no): R-03 no overflow at three widths and all targets at least 44px. R-25 no new pairings. R-26 every control acts. R-27 the empty-month and first-run states are distinct, the filtered state names the month, and loading and error are untouched. R-32 keyboard path checked. R-34 both themes checked. R-35 click-through recorded; the signed-in server check is open. R-02 no em dash; the "·" in the chip label is a middle dot. The others do not apply.
+- Block 2, Purpose-Gate: the empty-month state uses `calendar_month`, the same glyph as the month chip. No decorative arrows.
+- Block 3, Liveliness: dials unchanged; no new motion.
+- Block 4, Craftsmanship: C-1 reasons written above. C-2 no dead controls. C-3 no new section; the new empty states replace existing ones. C-4 states, themes, widths, and keyboard checked. C-5 no claims.
+
+Verdict: PASS for the client UI as checked in Chrome. Open: a signed-in check of the server behavior after deploy.

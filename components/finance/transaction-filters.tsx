@@ -5,12 +5,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import {
+  ALL_MONTHS_PARAM,
   TRANSACTION_TYPES,
   parseTransactionFilters,
   type AccountRow,
 } from "@/lib/transactions";
 import type { CategoryRow } from "@/lib/transactions";
-import { currentMonthParam, formatMonthLabel } from "@/lib/budgets";
+import { formatMonthLabel } from "@/lib/budgets";
 import { MonthPickerPanel } from "@/components/finance/month-picker-panel";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,9 @@ const FILTER_KEYS = ["q", "type", "account", "category", "month"] as const;
 interface TransactionFiltersProps {
   accounts: AccountRow[];
   categories: CategoryRow[];
+  // The current month ("YYYY-MM") from the server render, so the chip, the
+  // picker, and the list agree on what "this month" is.
+  currentMonth: string;
   // An archived account that is the active (validated) filter. It is not in
   // the active list, so it is offered as an extra option to keep the select
   // in sync with the URL.
@@ -45,6 +49,7 @@ interface TransactionFiltersProps {
 export function TransactionFilters({
   accounts,
   categories,
+  currentMonth,
   extraAccount = null,
 }: TransactionFiltersProps) {
   const router = useRouter();
@@ -67,15 +72,19 @@ export function TransactionFilters({
     Boolean(searchParams.get(key)),
   );
 
-  // The list is limited to one month only while ?month= is set. Without it the
-  // list shows every month (the summary below still totals the current month),
-  // so the chip says "Semua bulan" instead of naming a month.
+  // The month the list shows, resolved the same way as on the server: the
+  // ?month= filter, every month for ?month=all, otherwise the current month.
+  // The chip is filled while the URL picks something other than that default.
   const paramsRecord = Object.fromEntries(searchParams.entries());
   const parsed = parseTransactionFilters(paramsRecord);
-  const selectedMonth = parsed.month ?? null;
-  const monthChipLabel = selectedMonth
-    ? formatMonthLabel(selectedMonth)
-    : "Semua bulan";
+  const showsAllMonths =
+    (searchParams.get("month") ?? "").trim() === ALL_MONTHS_PARAM;
+  const listMonth = showsAllMonths ? null : (parsed.month ?? currentMonth);
+  const monthChipLabel = showsAllMonths
+    ? "Semua bulan"
+    : parsed.month
+      ? formatMonthLabel(parsed.month)
+      : `Bulan Ini \u00b7 ${formatMonthLabel(currentMonth)}`;
 
   // One panel at a time below the chip row: the month picker, or the account
   // and category filters. The filter panel opens on load when one of its
@@ -83,17 +92,10 @@ export function TransactionFilters({
   const [openPanel, setOpenPanel] = useState<"month" | "filter" | null>(
     currentAccount || currentCategory ? "filter" : null,
   );
-  // Read on the tap that opens the picker, not during render.
-  const [todayMonth, setTodayMonth] = useState<string | null>(null);
   const monthChipRef = useRef<HTMLButtonElement>(null);
 
   function toggleMonthPanel() {
-    if (openPanel === "month") {
-      setOpenPanel(null);
-      return;
-    }
-    setTodayMonth(currentMonthParam());
-    setOpenPanel("month");
+    setOpenPanel((panel) => (panel === "month" ? null : "month"));
   }
 
   function closeMonthPanel() {
@@ -131,13 +133,15 @@ export function TransactionFilters({
     router.replace(buildHref(key, value), { scroll: false });
   }
 
+  // Picking the current month returns to the default view, so the URL stays
+  // clean and the chip reads "Bulan Ini" again.
   function selectMonth(month: string) {
-    updateParam("month", month);
+    updateParam("month", month === currentMonth ? "" : month);
     closeMonthPanel();
   }
 
   function showAllMonths() {
-    updateParam("month", "");
+    updateParam("month", ALL_MONTHS_PARAM);
     closeMonthPanel();
   }
 
@@ -235,7 +239,10 @@ export function TransactionFilters({
           aria-label={`Pilih bulan: ${monthChipLabel}`}
           aria-expanded={openPanel === "month"}
           aria-controls={openPanel === "month" ? monthPanelId : undefined}
-          className={cn(chipBase, selectedMonth ? chipActive : chipInactive)}
+          className={cn(
+            chipBase,
+            showsAllMonths || parsed.month ? chipActive : chipInactive,
+          )}
         >
           <Icon name="calendar_month" size={16} />
           {monthChipLabel}
@@ -262,13 +269,13 @@ export function TransactionFilters({
         </button>
       </div>
 
-      {openPanel === "month" && todayMonth ? (
+      {openPanel === "month" ? (
         <MonthPickerPanel
           id={monthPanelId}
-          selectedMonth={selectedMonth}
-          todayMonth={todayMonth}
+          selectedMonth={listMonth}
+          todayMonth={currentMonth}
           onSelect={selectMonth}
-          onClear={showAllMonths}
+          onShowAll={showAllMonths}
           onClose={closeMonthPanel}
         />
       ) : null}
