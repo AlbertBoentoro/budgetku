@@ -283,3 +283,5 @@ Design Read (item 5): reading this as the Transaksi ledger (day headers, loading
 - Block 4, Craftsmanship: C-1 each class change has its reason above. C-2 no dead controls. C-3 no new section. C-4 loading state, both themes, three widths, and keyboard checked. C-5 no claims.
 
 Verdict: PASS for the changed elements as checked in Chrome on the preview route. Open: the signed-in check of the real page, plus Safari and iOS.
+
+Result after deploy (2026-10-31): deployed as `a69a3e0` (`dpl_BqqmAxQUTKxUTt1C5jfvFNvdTnGK`), READY and aliased to budgetku-weld.vercel.app. Signed-out `curl` on production: `/manifest.webmanifest` 200 `application/manifest+json` (before: 307 to `/auth/login`); the three icons 200; `/manifest.webmanifestx`, `/dashboard`, and `/transactions` 307 to `/auth/login`; `/service-worker.js` and `/auth/login` 200. The deployed CSS has `.px-xs` and `.max-w-full` and no `space-` rule. Vercel runtime errors in the 15 minutes after the deploy: none. Still open: the signed-in look of the day headers and the loading state, installing from the login page on a phone, and Safari and iOS.
