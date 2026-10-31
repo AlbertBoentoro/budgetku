@@ -67,4 +67,5 @@ Language: natural, concise Indonesian. Labels include Saldo, Rekening, Transaksi
 - Higher-contrast input borders: make form-control edges visible against both the light and dark surfaces.
 - 44px control targets: make frequent mobile actions easier to tap without changing their behavior.
 - Ledger rows: help compare merchant, date, and amount quickly.
+- Transaksi month picker: a year stepper and 12-month grid in the chip colors replace the browser's month field, so choosing a month looks the same in both themes; the selected month uses the navy fill and the current month an outline.
 - Stable tokens + Inter: give new screens the same identity as the current app.

@@ -6,12 +6,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   TRANSACTION_TYPES,
-  activeMonthFrom,
   parseTransactionFilters,
   type AccountRow,
 } from "@/lib/transactions";
 import type { CategoryRow } from "@/lib/transactions";
-import { formatMonthLabel } from "@/lib/budgets";
+import { currentMonthParam, formatMonthLabel } from "@/lib/budgets";
+import { MonthPickerPanel } from "@/components/finance/month-picker-panel";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,27 +23,13 @@ const selectClassName =
 
 // Shared chip styling (44px tap target); active vs inactive differ in fill +
 // text tone, so the active chip is never conveyed by color alone (the selected
-// filter is also reflected in the URL and the list below).
+// filter is also reflected in the URL and the list below). The ring offset
+// keeps the focus ring visible on a filled chip, which has the ring's color.
 const chipBase =
-  "inline-flex h-11 shrink-0 items-center gap-1 rounded-full px-4 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex h-11 shrink-0 items-center gap-1 rounded-full px-4 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const chipActive = "bg-primary text-primary-foreground";
 const chipInactive =
   "bg-surface-container text-on-surface-variant hover:bg-surface-container-high";
-
-// Moves focus to the month field and opens the browser's month picker where
-// one exists. Browsers without one render type="month" as a text field, where
-// focus alone lets the user type the month.
-function focusMonthField(field: HTMLInputElement | null) {
-  if (!field) return;
-  field.focus();
-  if (field.type !== "month" || typeof field.showPicker !== "function") return;
-  try {
-    field.showPicker();
-  } catch {
-    // Not allowed here (for example without a user gesture); the focused
-    // field still works.
-  }
-}
 
 const FILTER_KEYS = ["q", "type", "account", "category", "month"] as const;
 
@@ -69,53 +55,50 @@ export function TransactionFilters({
   const typeId = useId();
   const accountId = useId();
   const categoryId = useId();
-  const monthId = useId();
+  const monthPanelId = useId();
 
   // Read the live URL values so the controls reflect a shared/bookmarked URL.
   const currentQ = searchParams.get("q") ?? "";
   const currentType = searchParams.get("type") ?? "";
   const currentAccount = searchParams.get("account") ?? "";
   const currentCategory = searchParams.get("category") ?? "";
-  const currentMonth = searchParams.get("month") ?? "";
 
   const hasActiveFilter = FILTER_KEYS.some((key) =>
     Boolean(searchParams.get(key)),
   );
 
-  // The month the summary/ledger is scoped to: the explicit filter or the
-  // current month. Labeled "Bulan Ini" only when no explicit month is set.
+  // The list is limited to one month only while ?month= is set. Without it the
+  // list shows every month (the summary below still totals the current month),
+  // so the chip says "Semua bulan" instead of naming a month.
   const paramsRecord = Object.fromEntries(searchParams.entries());
   const parsed = parseTransactionFilters(paramsRecord);
-  const activeMonth = activeMonthFrom(parsed);
-  const monthChipLabel = parsed.month
-    ? formatMonthLabel(parsed.month)
-    : `Bulan Ini \u00b7 ${formatMonthLabel(activeMonth)}`;
+  const selectedMonth = parsed.month ?? null;
+  const monthChipLabel = selectedMonth
+    ? formatMonthLabel(selectedMonth)
+    : "Semua bulan";
 
-  // Advanced panel (account/category/month) is hidden behind a tune toggle so
-  // the chip row stays compact; it opens automatically when one of those
-  // filters is already active from the URL.
-  const [advancedOpen, setAdvancedOpen] = useState(
-    Boolean(currentAccount || currentCategory || currentMonth),
+  // One panel at a time below the chip row: the month picker, or the account
+  // and category filters. The filter panel opens on load when one of its
+  // filters is already set in the URL.
+  const [openPanel, setOpenPanel] = useState<"month" | "filter" | null>(
+    currentAccount || currentCategory ? "filter" : null,
   );
+  // Read on the tap that opens the picker, not during render.
+  const [todayMonth, setTodayMonth] = useState<string | null>(null);
+  const monthChipRef = useRef<HTMLButtonElement>(null);
 
-  // The month chip opens the panel at the Bulan field. While the panel is
-  // closed the field does not exist yet, so focusing waits for that render.
-  const monthFieldRef = useRef<HTMLInputElement>(null);
-  const pendingMonthFocusRef = useRef(false);
-
-  useEffect(() => {
-    if (!advancedOpen || !pendingMonthFocusRef.current) return;
-    pendingMonthFocusRef.current = false;
-    focusMonthField(monthFieldRef.current);
-  }, [advancedOpen]);
-
-  function openMonthFilter() {
-    if (advancedOpen) {
-      focusMonthField(monthFieldRef.current);
+  function toggleMonthPanel() {
+    if (openPanel === "month") {
+      setOpenPanel(null);
       return;
     }
-    pendingMonthFocusRef.current = true;
-    setAdvancedOpen(true);
+    setTodayMonth(currentMonthParam());
+    setOpenPanel("month");
+  }
+
+  function closeMonthPanel() {
+    setOpenPanel(null);
+    monthChipRef.current?.focus();
   }
 
   // Local search text so typing stays responsive; the URL updates on a debounce
@@ -146,6 +129,16 @@ export function TransactionFilters({
 
   function updateParam(key: string, value: string) {
     router.replace(buildHref(key, value), { scroll: false });
+  }
+
+  function selectMonth(month: string) {
+    updateParam("month", month);
+    closeMonthPanel();
+  }
+
+  function showAllMonths() {
+    updateParam("month", "");
+    closeMonthPanel();
   }
 
   // Debounce the search term so the ledger does not re-query on every keystroke.
@@ -229,33 +222,63 @@ export function TransactionFilters({
         })}
 
         {/* Filled while a month filter narrows the list, like the type
-            chips; the label also changes from "Bulan Ini" to the month. */}
+            chips. The chevron shows that the chip opens the month picker. */}
         <button
+          ref={monthChipRef}
           type="button"
-          onClick={openMonthFilter}
-          aria-label={`Ganti bulan: ${monthChipLabel}`}
-          className={cn(chipBase, parsed.month ? chipActive : chipInactive)}
+          onClick={toggleMonthPanel}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && openPanel === "month") {
+              closeMonthPanel();
+            }
+          }}
+          aria-label={`Pilih bulan: ${monthChipLabel}`}
+          aria-expanded={openPanel === "month"}
+          aria-controls={openPanel === "month" ? monthPanelId : undefined}
+          className={cn(chipBase, selectedMonth ? chipActive : chipInactive)}
         >
           <Icon name="calendar_month" size={16} />
           {monthChipLabel}
+          <Icon
+            name={openPanel === "month" ? "expand_less" : "expand_more"}
+            size={18}
+          />
         </button>
 
         <button
           type="button"
-          onClick={() => setAdvancedOpen((prev) => !prev)}
-          aria-expanded={advancedOpen}
+          onClick={() =>
+            setOpenPanel((panel) => (panel === "filter" ? null : "filter"))
+          }
+          aria-expanded={openPanel === "filter"}
           aria-controls={`${typeId}-panel`}
-          className={cn(chipBase, advancedOpen ? chipActive : chipInactive)}
+          className={cn(
+            chipBase,
+            openPanel === "filter" ? chipActive : chipInactive,
+          )}
         >
           <Icon name="tune" size={16} />
           Filter
         </button>
       </div>
 
-      {advancedOpen ? (
+      {openPanel === "month" && todayMonth ? (
+        <MonthPickerPanel
+          id={monthPanelId}
+          selectedMonth={selectedMonth}
+          todayMonth={todayMonth}
+          onSelect={selectMonth}
+          onClear={showAllMonths}
+          onClose={closeMonthPanel}
+        />
+      ) : null}
+
+      {/* Same bordered surface as the month picker, so both panels opened
+          from this row read as one family and stay visible in light mode. */}
+      {openPanel === "filter" ? (
         <div
           id={`${typeId}-panel`}
-          className="grid grid-cols-1 gap-3 rounded-xl bg-surface-container-low p-space-md min-[375px]:grid-cols-2"
+          className="grid grid-cols-1 gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 min-[375px]:grid-cols-2"
         >
           <div className="flex flex-col gap-2">
             <Label htmlFor={accountId}>Rekening</Label>
@@ -295,18 +318,6 @@ export function TransactionFilters({
                 </option>
               ))}
             </select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={monthId}>Bulan</Label>
-            <Input
-              ref={monthFieldRef}
-              id={monthId}
-              type="month"
-              value={currentMonth}
-              onChange={(e) => updateParam("month", e.target.value)}
-              className="h-11"
-            />
           </div>
 
           {hasActiveFilter ? (
