@@ -1,3 +1,4 @@
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import {
   ArrowDownLeft,
   ArrowLeftRight,
@@ -254,16 +255,14 @@ export async function computeMonthIncomeExpense(
 ): Promise<MonthIncomeExpense> {
   const { startISO, endISO } = monthRange(monthParam);
 
-  const { data, error } = await supabase
+  const data = await fetchAllPages((from, to) => supabase
     .from("transactions")
     .select("transaction_type, amount")
     .eq("user_id", userId)
     .gte("transaction_at", startISO)
-    .lt("transaction_at", endISO);
-
-  if (error) {
-    throw new Error(`Gagal menghitung ringkasan bulan ini: ${error.message}`);
-  }
+    .lt("transaction_at", endISO)
+    .order("id")
+    .range(from, to));
 
   let income = 0;
   let expense = 0;
