@@ -94,140 +94,30 @@ async function ReportsContent({
     );
   }
 
-  // --- (a) Top-line summary (income / expense / net) for the month. ---
-  let income = 0;
-  let expense = 0;
-  let summaryIncomplete = false;
-  try {
-    const summary = await computeMonthIncomeExpense(supabase, user.id, monthParam);
-    income = summary.income;
-    expense = summary.expense;
-  } catch {
-    summaryIncomplete = true;
-  }
+  const sections = await loadReportSections(supabase, user.id, monthParam);
+
+  // (a) Top-line summary.
+  const {
+    income,
+    expense,
+    incomplete: summaryIncomplete,
+  } = sections.summary;
   const net = income - expense;
 
-  // --- (b) Spending breakdown by category (expense only). ---
-  let categoryData: CategoryBreakdownDatum[] = [];
-  let categoryIncomplete = false;
-  try {
-    const byCategory = await computeExpenseByCategory(
-      supabase,
-      user.id,
-      monthParam,
-    );
+  // (b) Spending breakdown by category.
+  const { data: categoryData, incomplete: categoryIncomplete } =
+    sections.categories;
 
-    // Resolve names for the real category ids in one scoped lookup (own +
-    // system categories), mirroring dashboard/budget. The uncategorized bucket
-    // gets an honest label instead of being dropped.
-    const realIds = Array.from(byCategory.keys()).filter(
-      (id) => id !== UNCATEGORIZED_KEY,
-    );
-    const nameById = new Map<string, string>();
-    if (realIds.length > 0) {
-      const { data: cats } = await supabase
-        .from("categories")
-        .select("id, name")
-        .in("id", realIds)
-        .or(`user_id.eq.${user.id},user_id.is.null`);
-      for (const c of (cats ?? []) as Pick<CategoryRow, "id" | "name">[]) {
-        nameById.set(c.id, c.name);
-      }
-    }
-
-    const totalExpense = Array.from(byCategory.values()).reduce(
-      (sum, v) => sum + v,
-      0,
-    );
-
-    // Largest first so the most significant spend reads at the top.
-    const sorted = Array.from(byCategory.entries()).sort((a, b) => b[1] - a[1]);
-    categoryData = sorted.map(([key, amount], index) => ({
-      name:
-        key === UNCATEGORIZED_KEY
-          ? "Tanpa kategori"
-          : nameById.get(key) ?? "Kategori lain",
-      amount,
-      percent: totalExpense > 0 ? (amount / totalExpense) * 100 : 0,
-      colorIndex: index,
-    }));
-  } catch {
-    categoryIncomplete = true;
-  }
-
-  // --- (c) Monthly trend (income vs expense, last N months). ---
-  let trend: MonthlyTrendPoint[] = [];
-  let trendIncomplete = false;
-  try {
-    trend = await computeMonthlyTrend(supabase, user.id, monthParam, TREND_MONTHS);
-  } catch {
-    trendIncomplete = true;
-  }
+  // (c) Monthly trend.
+  const { points: trend, incomplete: trendIncomplete } = sections.trend;
   const trendHasData = trend.some((p) => p.income > 0 || p.expense > 0);
 
-  // --- (d) Budget vs actual for the selected month (if a budget exists). ---
-  let budgetRows: BudgetVsActualRow[] = [];
-  let budgetExists = false;
-  let budgetIncomplete = false;
-  try {
-    const budget = await fetchBudgetForMonth(
-      supabase,
-      user.id,
-      toMonthStorage(monthParam),
-    );
-    if (budget) {
-      budgetExists = true;
-      const items = await fetchBudgetItems(supabase, user.id, budget.id);
-
-      // De-duplicate by category_id (first wins), same as the budget page.
-      const seen = new Set<string>();
-      const uniqueItems = items.filter((item) => {
-        if (seen.has(item.category_id)) return false;
-        seen.add(item.category_id);
-        return true;
-      });
-
-      const categoryIds = uniqueItems.map((item) => item.category_id);
-      const nameById = new Map<string, string>();
-      if (categoryIds.length > 0) {
-        const { data: cats } = await supabase
-          .from("categories")
-          .select("id, name")
-          .in("id", categoryIds);
-        for (const c of (cats ?? []) as Pick<CategoryRow, "id" | "name">[]) {
-          nameById.set(c.id, c.name);
-        }
-      }
-
-      const spending = await computeCategorySpending(
-        supabase,
-        user.id,
-        monthParam,
-        categoryIds,
-      );
-
-      const views: BudgetItemView[] = uniqueItems.map((item) => {
-        const planned = Number(item.planned_amount);
-        const spent = spending.get(item.category_id) ?? 0;
-        return {
-          ...item,
-          categoryName: nameById.get(item.category_id) ?? null,
-          usage: computeItemUsage(planned, spent),
-        };
-      });
-
-      budgetRows = views.map((view) => ({
-        categoryName: view.categoryName ?? "Kategori",
-        planned: view.usage.planned,
-        spent: view.usage.spent,
-        remaining: view.usage.remaining,
-        isOverBudget: view.usage.isOverBudget,
-        barPercent: view.usage.barPercent,
-      }));
-    }
-  } catch {
-    budgetIncomplete = true;
-  }
+  // (d) Budget vs actual.
+  const {
+    rows: budgetRows,
+    exists: budgetExists,
+    incomplete: budgetIncomplete,
+  } = sections.budget;
 
   return (
     <div className="flex flex-col gap-6">
@@ -311,6 +201,220 @@ async function ReportsContent({
       </ReportSection>
     </div>
   );
+}
+
+type ReportsSupabase = Awaited<ReturnType<typeof createClient>>;
+
+interface SummarySection {
+  income: number;
+  expense: number;
+  incomplete: boolean;
+}
+
+interface CategorySection {
+  data: CategoryBreakdownDatum[];
+  incomplete: boolean;
+}
+
+interface TrendSection {
+  points: MonthlyTrendPoint[];
+  incomplete: boolean;
+}
+
+interface BudgetSection {
+  rows: BudgetVsActualRow[];
+  exists: boolean;
+  incomplete: boolean;
+}
+
+interface ReportSections {
+  summary: SummarySection;
+  categories: CategorySection;
+  trend: TrendSection;
+  budget: BudgetSection;
+}
+
+// The four sections need only the user id and the month, and none reads
+// another's result, so they load at the same time. Each loader catches its
+// own errors and returns its own incomplete flag, so Promise.all never
+// rejects and one failing section never hides the others.
+async function loadReportSections(
+  supabase: ReportsSupabase,
+  userId: string,
+  monthParam: string,
+): Promise<ReportSections> {
+  const [summary, categories, trend, budget] = await Promise.all([
+    loadSummarySection(supabase, userId, monthParam),
+    loadCategorySection(supabase, userId, monthParam),
+    loadTrendSection(supabase, userId, monthParam),
+    loadBudgetSection(supabase, userId, monthParam),
+  ]);
+  return { summary, categories, trend, budget };
+}
+
+// (a) Top-line summary (income / expense) for the month.
+async function loadSummarySection(
+  supabase: ReportsSupabase,
+  userId: string,
+  monthParam: string,
+): Promise<SummarySection> {
+  let income = 0;
+  let expense = 0;
+  let incomplete = false;
+  try {
+    const summary = await computeMonthIncomeExpense(supabase, userId, monthParam);
+    income = summary.income;
+    expense = summary.expense;
+  } catch {
+    incomplete = true;
+  }
+  return { income, expense, incomplete };
+}
+
+// (b) Spending breakdown by category (expense only).
+async function loadCategorySection(
+  supabase: ReportsSupabase,
+  userId: string,
+  monthParam: string,
+): Promise<CategorySection> {
+  let data: CategoryBreakdownDatum[] = [];
+  let incomplete = false;
+  try {
+    const byCategory = await computeExpenseByCategory(
+      supabase,
+      userId,
+      monthParam,
+    );
+
+    // Resolve names for the real category ids in one scoped lookup (own +
+    // system categories), mirroring dashboard/budget. The uncategorized bucket
+    // gets an honest label instead of being dropped.
+    const realIds = Array.from(byCategory.keys()).filter(
+      (id) => id !== UNCATEGORIZED_KEY,
+    );
+    const nameById = new Map<string, string>();
+    if (realIds.length > 0) {
+      const { data: cats } = await supabase
+        .from("categories")
+        .select("id, name")
+        .in("id", realIds)
+        .or(`user_id.eq.${userId},user_id.is.null`);
+      for (const c of (cats ?? []) as Pick<CategoryRow, "id" | "name">[]) {
+        nameById.set(c.id, c.name);
+      }
+    }
+
+    const totalExpense = Array.from(byCategory.values()).reduce(
+      (sum, v) => sum + v,
+      0,
+    );
+
+    // Largest first so the most significant spend reads at the top.
+    const sorted = Array.from(byCategory.entries()).sort((a, b) => b[1] - a[1]);
+    data = sorted.map(([key, amount], index) => ({
+      name:
+        key === UNCATEGORIZED_KEY
+          ? "Tanpa kategori"
+          : nameById.get(key) ?? "Kategori lain",
+      amount,
+      percent: totalExpense > 0 ? (amount / totalExpense) * 100 : 0,
+      colorIndex: index,
+    }));
+  } catch {
+    incomplete = true;
+  }
+  return { data, incomplete };
+}
+
+// (c) Monthly trend (income vs expense, last N months).
+async function loadTrendSection(
+  supabase: ReportsSupabase,
+  userId: string,
+  monthParam: string,
+): Promise<TrendSection> {
+  let points: MonthlyTrendPoint[] = [];
+  let incomplete = false;
+  try {
+    points = await computeMonthlyTrend(supabase, userId, monthParam, TREND_MONTHS);
+  } catch {
+    incomplete = true;
+  }
+  return { points, incomplete };
+}
+
+// (d) Budget vs actual for the selected month (if a budget exists).
+async function loadBudgetSection(
+  supabase: ReportsSupabase,
+  userId: string,
+  monthParam: string,
+): Promise<BudgetSection> {
+  let rows: BudgetVsActualRow[] = [];
+  let exists = false;
+  let incomplete = false;
+  try {
+    const budget = await fetchBudgetForMonth(
+      supabase,
+      userId,
+      toMonthStorage(monthParam),
+    );
+    if (budget) {
+      exists = true;
+      const items = await fetchBudgetItems(supabase, userId, budget.id);
+
+      // De-duplicate by category_id (first wins), same as the budget page.
+      const seen = new Set<string>();
+      const uniqueItems = items.filter((item) => {
+        if (seen.has(item.category_id)) return false;
+        seen.add(item.category_id);
+        return true;
+      });
+
+      const categoryIds = uniqueItems.map((item) => item.category_id);
+      const loadCategoryNames = async () => {
+        const nameById = new Map<string, string>();
+        if (categoryIds.length > 0) {
+          const { data: cats } = await supabase
+            .from("categories")
+            .select("id, name")
+            .in("id", categoryIds);
+          for (const c of (cats ?? []) as Pick<CategoryRow, "id" | "name">[]) {
+            nameById.set(c.id, c.name);
+          }
+        }
+        return nameById;
+      };
+
+      // Names and spending both need only the item category ids. An error
+      // thrown by either still reaches the catch below, so a failed spending
+      // query marks the whole section incomplete, as before.
+      const [nameById, spending] = await Promise.all([
+        loadCategoryNames(),
+        computeCategorySpending(supabase, userId, monthParam, categoryIds),
+      ]);
+
+      const views: BudgetItemView[] = uniqueItems.map((item) => {
+        const planned = Number(item.planned_amount);
+        const spent = spending.get(item.category_id) ?? 0;
+        return {
+          ...item,
+          categoryName: nameById.get(item.category_id) ?? null,
+          usage: computeItemUsage(planned, spent),
+        };
+      });
+
+      rows = views.map((view) => ({
+        categoryName: view.categoryName ?? "Kategori",
+        planned: view.usage.planned,
+        spent: view.usage.spent,
+        remaining: view.usage.remaining,
+        isOverBudget: view.usage.isOverBudget,
+        barPercent: view.usage.barPercent,
+      }));
+    }
+  } catch {
+    incomplete = true;
+  }
+  return { rows, exists, incomplete };
 }
 
 // Section title + caption above a white Calm Ledger card. `bare` skips the
