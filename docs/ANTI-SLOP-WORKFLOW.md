@@ -5,10 +5,10 @@ Instalasi manual lokal proyek, tanpa npm dependency, tanpa plugin global, tanpa 
 
 AGENTS.md mengarahkan agent ke filter dan skill concern. DESIGN.md mengadaptasi brief pengguna yang tersedia dan menyatakan interpretasi implementasinya. `.kiro/steering/budgetku-antislop.md` memuat arah dan routing bersama. `docs/CHATGPT-PROJECT-INSTRUCTIONS.md` adalah teks yang dapat ditempel ke instruksi proyek ChatGPT.
 
-Ini memasang panduan agent, bukan lint otomatis atau perbaikan visual. ESLint tidak dapat memastikan komposisi terasa spesifik atau bahwa suatu klaim benar. Karena source aplikasi tidak diubah, lint/build UI tidak dijalankan untuk pemasangan ini. UI yang ada belum diaudit; misalnya AmountText masih memakai USD/en-US dan root HTML masih en. IDR/Indonesia di DESIGN.md adalah target pekerjaan UI berikutnya, bukan klaim telah diterapkan.
+Panduan ini menjelaskan pemasangan aturan agent, bukan sertifikasi UI. Catatan awal pemasangan tidak lagi mewakili seluruh implementasi: `components/finance/amount-text.tsx` kini memakai IDR/id-ID dan `app/layout.tsx` menetapkan `lang="id"`. Arah aktif adalah Calm Ledger dalam `DESIGN.md`. ESLint tidak dapat memastikan kualitas komposisi atau kebenaran klaim; kelulusan UI harus dibuktikan pada layar dan keadaan yang benar-benar diperiksa. Hasil lama tetap menjadi bukti historis pada lingkup pengujiannya.
 
 ## Kiro
-Buka D:\Projects\budgetku sebagai workspace. Mulai chat baru dan pastikan budgetku-antislop muncul di Steering dengan inclusion always. Referensi file harus ter-resolve. Contoh prompt:
+Buka root checkout Budgetku sebagai workspace (jalur lokal dapat berbeda). Mulai chat baru dan pastikan budgetku-antislop muncul di Steering dengan inclusion always. Referensi file harus ter-resolve. Contoh prompt:
 
 Gunakan antislop during. Baca AGENTS.md, DESIGN.md, antislop.md dan skill UI/copy/mobile/accessibility yang relevan. Rapikan visual dashboard sesuai brief Budgetku. Pertahankan logic auth/data/perhitungan dan jangan tambah fitur. Nyatakan Design Read lalu verifikasi perubahan dan laporkan empat blok Delivery Gate dengan bukti.
 
