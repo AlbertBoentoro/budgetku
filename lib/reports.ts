@@ -1,3 +1,4 @@
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import type { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { monthRange, shiftMonthParam } from "@/lib/budgets";
@@ -75,17 +76,15 @@ export async function computeExpenseByCategory(
 ): Promise<Map<string, number>> {
   const { startISO, endISO } = monthRange(monthParam);
 
-  const { data, error } = await supabase
+  const data = await fetchAllPages((from, to) => supabase
     .from("transactions")
     .select("category_id, amount")
     .eq("user_id", userId)
     .eq("transaction_type", "expense")
     .gte("transaction_at", startISO)
-    .lt("transaction_at", endISO);
-
-  if (error) {
-    throw new Error(`Gagal menghitung pengeluaran per kategori: ${error.message}`);
-  }
+    .lt("transaction_at", endISO)
+    .order("id")
+    .range(from, to));
 
   const byCategory = new Map<string, number>();
   for (const row of (data ?? []) as ExpenseCategoryRow[]) {
@@ -137,16 +136,14 @@ export async function computeMonthlyTrend(
     points.push({ month: m, label: shortMonthLabel(m), income: 0, expense: 0 });
   }
 
-  const { data, error } = await supabase
+  const data = await fetchAllPages((from, to) => supabase
     .from("transactions")
     .select("transaction_at, transaction_type, amount")
     .eq("user_id", userId)
     .gte("transaction_at", startISO)
-    .lt("transaction_at", endISO);
-
-  if (error) {
-    throw new Error(`Gagal menghitung tren bulanan: ${error.message}`);
-  }
+    .lt("transaction_at", endISO)
+    .order("id")
+    .range(from, to));
 
   for (const row of (data ?? []) as TrendRow[]) {
     const amt = Number(row.amount);
