@@ -119,7 +119,13 @@ disimpan di `user_settings.first_day_of_week`. Laporan Budgetku yang tersedia
 saat ini masih berbasis bulanan, jadi pilihan ini belum mengubah rentang
 laporan lain.
 
-## Status verifikasi implementasi
+## Catatan verifikasi historis implementasi
+
+Daftar di bawah merekam pengujian saat integrasi dikerjakan, bukan pemeriksaan
+ulang environment atau deployment terkini. Pernyataan tentang domain, grant,
+variabel, dan status akun hanya berlaku pada sesi tersebut. Gunakan
+[laporan cleanup](./repository-cleanup-audit.md) untuk hasil pemeriksaan
+repositori pada basis `bc92dd0`; hasil itu tidak memvalidasi layanan production.
 
 - `npm run lint`: lulus.
 - `npm run build`: lulus setelah penambahan preferensi awal minggu. Next.js

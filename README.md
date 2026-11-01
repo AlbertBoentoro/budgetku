@@ -1,129 +1,118 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# Budgetku
 
-<p align="center">
- The fastest way to build apps with Next.js and Supabase
-</p>
+Budgetku adalah aplikasi pencatatan keuangan pribadi berbahasa Indonesia dengan tampilan nominal Rupiah (IDR). Aplikasi menggunakan Next.js dan Supabase untuk autentikasi, penyimpanan data, dan pengelolaan data keuangan per pengguna.
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
-</p>
-<br/>
+## Fitur
 
-## Features
+Fitur berikut tersedia pada kode aplikasi. Integrasi eksternal membutuhkan konfigurasi dan pengujian tersendiri.
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Proxy
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+- Beranda dengan saldo rekening, ringkasan anggaran, dan transaksi terbaru.
+- Pengelolaan rekening, saldo awal, dan arsip rekening.
+- Pencatatan pemasukan, pengeluaran, dan transfer; penyaringan transaksi menurut bulan, jenis, rekening, kategori, dan pencarian teks.
+- Anggaran bulanan dengan pos anggaran dan perbandingan pengeluaran aktual.
+- Target tabungan dengan kontribusi dan riwayat progres.
+- Template transaksi rutin, status aktif/nonaktif, dan pembuatan transaksi melalui tindakan pengguna. Keberadaan template tidak berarti transaksi dibuat otomatis oleh Cron.
+- Laporan bulanan dengan ringkasan, rincian kategori pengeluaran, dan tren bulanan.
+- Impor Gmail melalui OAuth, sinkronisasi manual, parser BCA/Shopee/GoPay, dan peninjauan draft sebelum menjadi transaksi. Parser bersifat best-effort; format email dapat berubah.
+- Ekspor transaksi CSV dan data JSON; cadangan cloud manual dan terjadwal, serta unduhan cadangan terbaru. Pemulihan otomatis dari JSON belum tersedia.
+- Preferensi tampilan, pilihan tema, dan pengingat Web Push yang memerlukan dukungan browser serta izin pengguna.
+- Manifest PWA dan ikon layar utama. Service worker menangani notifikasi; aplikasi belum menyediakan cache offline untuk data keuangan.
 
-## Demo
+Login yang tersedia menggunakan Google melalui Supabase Auth. Jangan menganggap formulir registrasi atau login kata sandi tersedia hanya karena proyek memakai Supabase.
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+## Teknologi
 
-## Deploy to Vercel
+- Next.js 16.4.3, App Router, React 19, TypeScript, dan Webpack melalui skrip proyek.
+- Supabase Auth, PostgreSQL, Storage, `@supabase/ssr`, dan `@supabase/supabase-js`.
+- Tailwind CSS 3, komponen Radix UI/shadcn, `next-themes`, Material Symbols, dan Lucide.
+- Recharts untuk grafik; Google APIs untuk Gmail; `web-push` untuk notifikasi.
+- ESLint 9 dengan aturan lokal `connection-before-supabase`.
+- Vercel Analytics dan Speed Insights; konfigurasi deployment dan Cron di `vercel.json`.
 
-Vercel deployment will guide you through creating a Supabase account and project.
+Versi terperinci dan resolusi dependensi ada di `package.json` dan `package-lock.json`. Pertahankan lockfile saat memasang dependensi.
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+## Struktur proyek
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+```text
+app/
+  (app)/              Halaman keuangan dan shell dengan pemeriksaan autentikasi
+  auth/               Login Google, callback, dan penanganan kegagalan login
+  api/                Ekspor, Gmail, cadangan, Web Push, dan Cron
+  manifest.ts         Manifest PWA
+components/           Komponen fitur, tata letak, grafik, dan UI
+lib/                  Akses data, kalkulasi, parser Gmail, dan utilitas
+  supabase/           Klien browser/server/admin dan tipe database
+public/               Ikon dan service worker notifikasi
+docs/                 Panduan integrasi, SQL tambahan, dan laporan audit
+eslint-rules/         Aturan lint khusus proyek
+.agents/skills/       Panduan agent lokal
+.kiro/steering/       Aturan scope dan alur kerja proyek
+```
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+## Menjalankan secara lokal
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
-
-## Clone and run locally
-
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
-
-2. Create a Next.js app using the Supabase Starter template npx command
-
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
+1. Gunakan Node.js yang memenuhi persyaratan paket terkunci. Lingkungan audit memakai Node.js 24.19.0 dan npm 11.9.0; repositori belum memiliki pin versi Node tersendiri.
+2. Clone repositori ini atau gunakan checkout yang sudah tersedia, lalu jalankan dari root proyek:
 
    ```bash
-   yarn create next-app --example with-supabase with-supabase-app
+   npm ci
    ```
 
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
+3. Buat `.env.local` dengan dua variabel Supabase wajib pada tabel berikut. Gunakan proyek pengembangan yang sesuai. Jangan menimpa `.env.local` yang sudah ada atau menyalin semua placeholder integrasi opsional sebagai nilai aktif.
+4. Pastikan skema database yang dibutuhkan aplikasi sudah tersedia. `lib/supabase/database.types.ts` mendeskripsikan tabel/tipe yang dipakai. Berkas `docs/sql/` berisi perubahan tambahan, bukan bootstrap lengkap database baru. Tinjau skema, grant, dan RLS bersama pengelola database; jangan menjalankan semua SQL secara buta pada production.
+5. Aktifkan provider Google di Supabase Auth. Simpan OAuth client ID dan client secret untuk login pada pengaturan provider Supabase. Daftarkan callback provider `https://<project-ref>.supabase.co/auth/v1/callback` di Google Cloud, dan izinkan callback aplikasi `http://localhost:3000/auth/callback` pada Redirect URLs Supabase. Sesuaikan origin dan port yang benar.
+6. Jalankan `npm run dev`, lalu buka aplikasi melalui port lokal 3000. Root mengarahkan pengguna ke halaman login atau beranda berdasarkan sesi.
 
-3. Use `cd` to change into the app's directory
+Gunakan proxy dan CA tepercaya yang disediakan lingkungan. Build mengunduh Inter dari `fonts.googleapis.com`/`fonts.gstatic.com`; Material Symbols juga membutuhkan kedua domain tersebut saat aplikasi dibuka. Integrasi membutuhkan akses ke hostname Supabase yang dipilih dan layanan eksternalnya. Jangan menonaktifkan verifikasi TLS untuk mengatasi kegagalan jaringan.
 
-   ```bash
-   cd with-supabase-app
-   ```
+## Variabel lingkungan
 
-4. Rename `.env.example` to `.env.local` and update the following:
+Nama variabel juga dicatat dalam [`.env.example`](.env.example). Isi nilai melalui `.env.local` yang diabaikan Git atau pengaturan environment deployment. Jangan menyimpan nilai rahasia dalam Git, log, atau percakapan.
 
-  ```env
-  NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
-  ```
-  > [!NOTE]
-  > This example uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which refers to Supabase's new **publishable** key format.
-  > Both legacy **anon** keys and new **publishable** keys can be used with this variable name during the transition period. Supabase's dashboard may show `NEXT_PUBLIC_SUPABASE_ANON_KEY`; its value can be used in this example.
-  > See the [full announcement](https://github.com/orgs/supabase/discussions/29260) for more information.
+| Nama | Kebutuhan | Kegunaan |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Wajib | URL proyek Supabase yang dipakai aplikasi. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Wajib | Publishable key atau anon key publik untuk proyek yang sama. Akses data tetap memerlukan RLS yang benar. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Cadangan/pengingat terjadwal | Kredensial admin khusus server; jangan gunakan awalan `NEXT_PUBLIC_`. |
+| `CRON_SECRET` | Cron | Otorisasi request pekerjaan terjadwal. |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push | Kunci publik pendaftaran notifikasi. |
+| `VAPID_PRIVATE_KEY` | Web Push | Kunci privat pengiriman notifikasi, khusus server. |
+| `VAPID_SUBJECT` | Web Push | Kontak VAPID. |
+| `GOOGLE_CLIENT_ID` | Impor Gmail | OAuth client ID untuk integrasi Gmail, terpisah dari konfigurasi provider login Supabase. |
+| `GOOGLE_CLIENT_SECRET` | Impor Gmail | OAuth client secret khusus server. |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Impor Gmail | Callback integrasi; lokal: `http://localhost:3000/api/gmail/callback`. |
+| `GMAIL_TOKEN_ENCRYPTION_KEY` | Impor Gmail | Kunci 32 byte dalam base64 untuk enkripsi token Gmail di server. |
+| `VERCEL_URL` | Disediakan platform bila tersedia | Dasar URL metadata; fallback kode adalah origin lokal port 3000. |
 
-  Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
+Nilai `NEXT_PUBLIC_*` dibundel ke browser. Service role, client secret, kunci enkripsi, dan private key tidak boleh ditempatkan di variabel publik. Konfigurasi rinci cadangan, Web Push, dan SQL tambahan tersedia di [panduan integrasi](docs/settings-integrations.md).
 
-5. You can now run the Next.js local development server:
+## Perintah pengembangan
 
-   ```bash
-   npm run dev
-   ```
+| Perintah | Fungsi |
+| --- | --- |
+| `npm ci` | Memasang dependensi sesuai lockfile. |
+| `npm run dev` | Menjalankan server pengembangan dengan Webpack. |
+| `npm run lint` | Memeriksa source dengan ESLint tanpa mengubah file. |
+| `./node_modules/.bin/tsc --noEmit` | Memeriksa tipe; jalankan setelah Next.js menghasilkan tipe route bila checkout masih baru. |
+| `npm run build` | Membuat build production dan menjalankan pemeriksaan Next.js. |
+| `npm start` | Menjalankan hasil build production. |
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+## Pengujian
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+Pada basis `main` yang diaudit (`bc92dd0`), tidak ada skrip `test`, konfigurasi test runner, atau berkas suite pengujian yang dilacak. `npm test` belum dapat dipakai; lint dan build bukan pengganti pengujian perilaku aplikasi. Tes pada branch fitur lain tidak termasuk pernyataan ini.
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+Sebelum merilis perubahan, jalankan lint, pemeriksaan TypeScript, dan build. Pada environment pengujian dengan akun dan skema yang sesuai, periksa login/callback/logout, isolasi data antarpengguna, transaksi dan transfer, perhitungan saldo/anggaran, serta fitur yang berubah. Uji Gmail, cadangan, Cron, dan Web Push hanya dengan akses yang diizinkan; tindakan tersebut dapat membaca layanan eksternal atau menulis data.
 
-## Google Sign-In
+Untuk perubahan UI, ikuti `AGENTS.md` dan `DESIGN.md`, termasuk pemeriksaan tema, keyboard, nominal IDR panjang, serta keadaan kosong/loading/error. Hasil pemeriksaan cleanup ini ada dalam [laporan audit repositori](docs/repository-cleanup-audit.md).
 
-Google Sign-In uses Supabase Auth. Configure the provider before using the
-Google button on `/auth/login`:
+## Deployment
 
-1. Create a Web application OAuth client in Google Cloud Console. Add the app
-   origin, such as `http://localhost:3000`, to Authorized JavaScript origins.
-2. In Supabase Dashboard, open **Authentication → Sign In / Providers → Google**
-   and enable Google with the OAuth client ID and client secret.
-3. Add the Supabase callback URL shown in the Google provider settings to
-   Authorized redirect URIs in Google Cloud Console. It usually has the form
-   `https://<project-ref>.supabase.co/auth/v1/callback`.
-4. In Supabase URL Configuration, add the app callback URL to Redirect URLs:
-   `http://localhost:3000/auth/callback` for local development and
-   `https://<your-app-domain>/auth/callback` for production. If the local
-   server uses another port, allow that exact callback URL too.
+Proyek memiliki konfigurasi Vercel dengan region `syd1`. Cron memanggil `/api/cron/settings` setiap hari pukul 13.00 UTC (20.00 WIB). Endpoint memerlukan `CRON_SECRET`; cadangan dan pengingat membutuhkan variabel serta grant yang sesuai. Jadwal dan batas layanan bergantung pada paket Vercel.
 
-Keep the Google client secret in Supabase provider settings. Do not put it in
-the app source or a `NEXT_PUBLIC_` environment variable.
+Sebelum deployment yang disetujui, cocokkan environment target, skema/grant/RLS, provider Google, Redirect URLs Supabase, dan callback OAuth Gmail dengan domain deployment. Perubahan variabel publik membutuhkan build ulang. Untuk host lain, gunakan `npm run build` dan `npm start` serta siapkan penjadwal Cron sendiri bila diperlukan.
 
-## Feedback and issues
+Berkas gambar sosial dan favicon saat ini masih menyimpan branding starter; laporan audit merinci usulan penggantiannya. Manifest dan ikon PWA sudah memakai Budgetku. Jangan menghapus aset metadata hanya karena tidak ditemukan impor: Next.js memuatnya melalui konvensi nama file.
 
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
+## Panduan kontribusi
 
-## More Supabase examples
-
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+Baca [AGENTS.md](AGENTS.md), [aturan workflow](.kiro/steering/budgetku-workflow.md), dan [arah desain](DESIGN.md) sebelum mengubah proyek. Pisahkan perubahan dokumentasi dari perubahan autentikasi, database, kalkulasi, atau performa. Pertahankan pekerjaan lokal, hindari mengunggah data pribadi, dan minta persetujuan pemilik sebelum commit, push, merge, atau deployment.
