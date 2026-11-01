@@ -97,12 +97,13 @@ export async function computeAccountBalances(
 }
 
 export function sumRunningAccountBalances(
-  accounts: readonly Pick<AccountRow, "id" | "initial_balance">[],
+  accounts: readonly Pick<AccountRow, "id" | "initial_balance" | "include_in_total">[],
   balances: ReadonlyMap<string, number>,
 ): number {
-  // All accounts contribute; this intentionally ignores the legacy toggle.
+  // Respect the include-in-total setting. Archived accounts can still count.
   let total = 0;
   for (const account of accounts) {
+    if (!account.include_in_total) continue;
     const balance = balances.get(account.id) ?? account.initial_balance;
     if (Number.isFinite(balance)) total += balance;
   }
