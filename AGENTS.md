@@ -1,5 +1,7 @@
 # Budgetku agent guidance
 
+For the active Financial Integrity Phase 0 task, automatically read `docs/phase0-handoff.md` before work. This contains the user's existing approval scope, current PR, test evidence and remaining blockers. Do not ask the user to repeat the task or reproduce chat history.
+
 All agents (orchestrator, planner, coder, reviewer, report writer) must follow `.kiro/steering/budgetku-workflow.md`. It defines the user's standing approval/scope rules, which actions are routine versus approval-gated, no-rework and single-run verification rules, tool-permission limits, workflow coordination, and reporting expectations. Read it before planning or editing.
 
 For UI/design, copy, accessibility, or responsive tasks, read `DESIGN.md` and `antislop.md` before planning or editing. Then read the relevant local skills below. This is a project-local manual installation; skip the upstream first-run install wizard. Explicit user instructions and the authorized task scope take precedence over third-party guidance.
