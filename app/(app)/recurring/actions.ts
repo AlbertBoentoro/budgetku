@@ -408,139 +408,33 @@ export async function deleteRecurring(id: string): Promise<ActionResult> {
 // and write is user-scoped with ownership checks.
 export async function generateNow(id: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Sesi berakhir. Silakan masuk kembali." };
 
-  if (!user) {
-    return { ok: false, message: "Sesi berakhir. Silakan masuk kembali." };
-  }
-
-  const template = await fetchOwnedTemplate(supabase, user.id, id);
-  if (!template) {
-    return { ok: false, message: "Transaksi berulang tidak ditemukan." };
-  }
-
-  if (!template.is_active) {
-    return {
-      ok: false,
-      message: "Transaksi berulang sedang dijeda. Lanjutkan dulu untuk mencatat.",
-    };
-  }
-
-  // If the schedule has ended, do not generate. Mark it paused so the UI stops
-  // offering a due date that is past the end.
-  if (template.end_date && template.next_due_date > template.end_date) {
-    await supabase
-      .from("recurring_transactions")
-      .update({ is_active: false })
-      .eq("id", id)
-      .eq("user_id", user.id);
-    revalidatePath("/recurring");
-    return {
-      ok: false,
-      message: "Jadwal sudah melewati tanggal berakhir, tidak ada yang dicatat.",
-    };
-  }
-
-  const isTransfer = template.transaction_type === "transfer";
-
-  // Re-validate ownership of the referenced accounts/category at generate time
-  // (they may have been archived since the template was created).
-  if (!(await ownsActiveAccount(supabase, user.id, template.account_id))) {
-    return {
-      ok: false,
-      message: "Rekening sumber tidak tersedia. Perbarui transaksi berulang.",
-    };
-  }
-
-  if (isTransfer) {
-    const destination = template.destination_account_id ?? "";
-    if (!(await ownsActiveAccount(supabase, user.id, destination))) {
-      return {
-        ok: false,
-        message: "Rekening tujuan tidak tersedia. Perbarui transaksi berulang.",
-      };
-    }
-  } else if (
-    template.transaction_type === "income" ||
-    template.transaction_type === "expense"
-  ) {
-    const categoryId = template.category_id ?? "";
-    if (
-      !(await canUseCategory(
-        supabase,
-        user.id,
-        categoryId,
-        template.transaction_type,
-      ))
-    ) {
-      return {
-        ok: false,
-        message: "Kategori tidak tersedia. Perbarui transaksi berulang.",
-      };
-    }
-  }
-
-  // Insert the generated occurrence as normal app data (anon key, RLS backstop).
-  const { error: insertError } = await supabase.from("transactions").insert({
-    user_id: user.id,
-    account_id: template.account_id,
-    destination_account_id: isTransfer
-      ? template.destination_account_id
-      : null,
-    category_id: isTransfer ? null : template.category_id,
-    transaction_type: template.transaction_type,
-    amount: template.amount,
-    currency: "IDR",
-    transaction_at: template.next_due_date,
-    description: template.description,
-    merchant: template.merchant,
-    source: "recurring",
-    source_reference: template.id,
+  // The database function holds a row lock and writes the occurrence plus
+  // next due date in one transaction. Never split these two writes in JS.
+  const { error } = await supabase.rpc("generate_recurring_now", {
+    p_template_id: id,
   });
 
-  if (insertError) {
-    return {
-      ok: false,
-      message: "Gagal mencatat transaksi. Silakan coba lagi.",
+  if (error) {
+    const messages: Record<string, string> = {
+      "P0002": "Transaksi berulang tidak ditemukan.",
+      "23505": "Transaksi untuk tanggal ini sudah tercatat.",
+      "28000": "Sesi berakhir. Silakan masuk kembali.",
     };
-  }
-
-  // Advance the schedule from the occurrence we just recorded.
-  const advanced = computeNextDueDate(
-    template.frequency,
-    template.interval_count,
-    template.next_due_date,
-  );
-
-  // If the next occurrence falls past end_date, pause the template so it stops
-  // appearing as due.
-  const shouldPause = Boolean(template.end_date && advanced > template.end_date);
-
-  const { error: advanceError } = await supabase
-    .from("recurring_transactions")
-    .update({
-      next_due_date: advanced,
-      last_generated_at: new Date().toISOString(),
-      ...(shouldPause ? { is_active: false } : {}),
-    })
-    .eq("id", id)
-    .eq("user_id", user.id);
-
-  if (advanceError) {
-    // The transaction was recorded; only the schedule advance failed. Report it
-    // so the user knows the next due date may be stale.
-    revalidatePath("/recurring");
-    revalidatePath("/transactions");
     return {
       ok: false,
-      message:
-        "Transaksi tercatat, tetapi jatuh tempo berikutnya gagal diperbarui.",
+      message: messages[error.code ?? ""] ??
+        "Gagal mencatat transaksi berulang. Periksa jadwal dan rekening, lalu coba lagi.",
     };
   }
 
   revalidatePath("/recurring");
   revalidatePath("/transactions");
+  revalidatePath("/dashboard");
+  revalidatePath("/accounts");
+  revalidatePath("/reports");
+  revalidatePath("/budget");
   return { ok: true };
 }
