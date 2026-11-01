@@ -1,3 +1,4 @@
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import type { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { parseIdrInput } from "@/lib/accounts";
@@ -208,23 +209,17 @@ export async function computeCategorySpending(
 
   const { startISO, endISO } = monthRange(monthParam);
 
-  let query = supabase
-    .from("transactions")
-    .select("category_id, amount")
-    .eq("user_id", userId)
-    .eq("transaction_type", "expense")
-    .gte("transaction_at", startISO)
-    .lt("transaction_at", endISO);
-
-  if (categoryIds && categoryIds.length > 0) {
-    query = query.in("category_id", categoryIds);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(`Gagal menghitung pemakaian anggaran: ${error.message}`);
-  }
+  const data = await fetchAllPages((from, to) => {
+    let query = supabase
+      .from("transactions")
+      .select("category_id, amount")
+      .eq("user_id", userId)
+      .eq("transaction_type", "expense")
+      .gte("transaction_at", startISO)
+      .lt("transaction_at", endISO);
+    if (categoryIds && categoryIds.length > 0) query = query.in("category_id", categoryIds);
+    return query.order("id").range(from, to);
+  });
 
   const spending = new Map<string, number>();
   for (const row of (data ?? []) as TransactionSpendRow[]) {
