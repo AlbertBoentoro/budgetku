@@ -1,7 +1,11 @@
 import { cn } from "@/lib/utils";
 
 interface IconProps {
-  /** Material Symbols Outlined glyph name, e.g. "account_balance_wallet". */
+  /**
+   * Material Symbols Outlined glyph name, e.g. "account_balance_wallet". The
+   * font only holds the names listed in components/ui/material-symbols.ts;
+   * any other name shows as its letters instead of an icon.
+   */
   name: string;
   /** Rendered glyph size in px (maps to font-size and the opsz axis). */
   size?: number;

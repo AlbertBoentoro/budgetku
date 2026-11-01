@@ -4,6 +4,7 @@ import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { MATERIAL_SYMBOLS_STYLESHEET } from "@/components/ui/material-symbols";
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -58,15 +59,11 @@ export default function RootLayout({
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
-        {/* Material Symbols icon font. The root-layout <link> is the correct
-            App Router placement (the pages/_document rule is an App Router
-            false positive) and a default font-display is intentional so glyph
-            names are not flashed as text. */}
-        {/* eslint-disable-next-line @next/next/google-font-display, @next/next/no-page-custom-font */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-        />
+        {/* Material Symbols icon font, subset to the icons the app renders.
+            The URL and the icon list are in components/ui/material-symbols.ts.
+            The root-layout <link> is the App Router placement for a
+            stylesheet that every page shares. */}
+        <link rel="stylesheet" href={MATERIAL_SYMBOLS_STYLESHEET} />
       </head>
       <body className="font-sans antialiased">
         <ThemeProvider
