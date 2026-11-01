@@ -20,7 +20,7 @@ export async function fetchAllPages<T>(
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await page(from, from + pageSize - 1);
     if (error) throw new Error(`Pagination query failed: ${error.message}`);
-    if (!data) throw new Error("Pagination query returned no data.");
+    if (data === null) throw new Error("Pagination query returned no data.");
     rows.push(...data);
     if (data.length < pageSize) return rows;
   }
