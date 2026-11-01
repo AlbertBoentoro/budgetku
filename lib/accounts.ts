@@ -1,3 +1,4 @@
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import {
   Banknote,
   CreditCard,
@@ -58,14 +59,12 @@ export async function computeAccountBalances(
   supabase: ServerSupabaseClient,
   userId: string,
 ): Promise<Map<string, number>> {
-  const { data, error } = await supabase
+  const data = await fetchAllPages((from, to) => supabase
     .from("transactions")
     .select("account_id, destination_account_id, amount, transaction_type")
-    .eq("user_id", userId);
-
-  if (error) {
-    throw new Error(`Gagal menghitung saldo rekening: ${error.message}`);
-  }
+    .eq("user_id", userId)
+    .order("id")
+    .range(from, to));
 
   const net = new Map<string, number>();
   const add = (accountId: string | null, delta: number) => {
