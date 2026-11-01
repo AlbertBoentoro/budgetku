@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import {
   isFrequency,
   isTransactionType,
-  type RecurringRow,
 } from "@/lib/recurring";
 
 export interface RecurringFormInput {
@@ -162,24 +161,6 @@ async function canUseCategory(
 
   if (error) return false;
   return Boolean(data);
-}
-
-// Loads a template the user owns. Returns null on any failure so callers fail
-// closed (used by edit/toggle/delete/generate).
-async function fetchOwnedTemplate(
-  supabase: ServerSupabaseClient,
-  userId: string,
-  id: string,
-): Promise<RecurringRow | null> {
-  const { data, error } = await supabase
-    .from("recurring_transactions")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  return data as RecurringRow;
 }
 
 // Runs validation plus the DB-backed ownership checks shared by create/update.
