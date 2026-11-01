@@ -1,0 +1,44 @@
+name: Phase 0 financial integrity
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - fix/financial-integrity-p0-*
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: financial-integrity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Only PUBLIC placeholder values for build; do not use production secrets.
+      # Unit tests must not touch live Supabase or send real user transactions.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_dummy
+    steps:
+      - name: Checkout proposed changes
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run isolated regression tests
+        run: npm test
+      - name: Lint all source
+        run: npm run lint
+      - name: Production compilation (no deployment)
+        run: npm run build
+      - name: Verify TypeScript
+        run: ./node_modules/.bin/tsc --noEmit
