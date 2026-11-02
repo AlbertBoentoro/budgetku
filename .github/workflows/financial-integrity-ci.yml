@@ -19,7 +19,25 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
     env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
       # Only PUBLIC placeholder values for build; do not use production secrets.
       # Unit tests must not touch live Supabase or send real user transactions.
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
@@ -34,6 +52,11 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Verify recurring migration in disposable PostgreSQL
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/sql/recurring-fixture.sql
+          psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-atomic-recurring.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/recurring-integration.sql
       - name: Run isolated regression tests
         run: npm test
       - name: Lint all source
