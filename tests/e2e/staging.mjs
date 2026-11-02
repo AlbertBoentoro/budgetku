@@ -305,7 +305,12 @@ try {
   const restoreRow = page.locator("tbody tr").filter({
     has: page.getByText("Transaksi", { exact: true }),
   });
-  await restoreRow.waitFor({ state: "visible", timeout: 25000 });
+  try {
+    await restoreRow.waitFor({ state: "visible", timeout: 10000 });
+  } catch {
+    const state = await page.locator('section[aria-labelledby="restore-title"]').innerText();
+    throw new Error("Staging restore preview table did not render: " + state.slice(0, 1200));
+  }
   assert.equal((await restoreRow.locator("td").last().textContent())?.trim(), "2");
   const restoreButton = page.getByRole("button", { name: "Pulihkan data staging" });
   assert.equal(await restoreButton.isDisabled(), true, "restoration disabled before typed confirmation");
