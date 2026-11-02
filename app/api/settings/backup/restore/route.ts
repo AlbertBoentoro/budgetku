@@ -92,7 +92,7 @@ export async function POST(request: Request) {
   // Postgres RPC runs in a single DB transaction; an error rolls back all
   // inserts/deletes/updates. The SQL function uses caller RLS (not service role).
   // Generated DB types intentionally do not yet include this staging-only RPC.
-  const rpc = supabase.rpc as unknown as (
+  const rpc = supabase.rpc.bind(supabase) as unknown as (
     name: "restore_budgetku_backup_v1",
     args: { p_backup: unknown },
   ) => Promise<{ data: RestoreRpcResult | null; error: { message: string } | null }>;
