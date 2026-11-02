@@ -22,7 +22,7 @@ jobs:
     # the test without merging the workflow to production main.
     if: ${{ vars.STAGING_PROJECT_REF != '' && vars.STAGING_SUPABASE_URL != '' }}
     name: Synthetic staging account + Playwright finance flows
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: budgetku-staging
     env:
