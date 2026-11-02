@@ -47,6 +47,10 @@ DECLARE
   v_user uuid := auth.uid();
   v_reference text;
   v_existing public.transactions%ROWTYPE;
+  v_existing_schedule public.recurring_transactions%ROWTYPE;
+  -- Namespace the stable schedule identifier by user, so two different
+  -- users with the same client token cannot collide on the global UUID PK.
+  v_template_id uuid;
   v_new_id uuid;
   v_next_date date;
 BEGIN
@@ -103,6 +107,7 @@ BEGIN
   END CASE;
 
   v_reference := 'initial-recurring:' || p_client_key::text;
+  v_template_id := md5(v_user::text || ':' || p_client_key::text)::uuid;
 
   INSERT INTO public.transactions (
     user_id, account_id, destination_account_id, category_id, transaction_type,
@@ -137,16 +142,39 @@ BEGIN
       RAISE EXCEPTION 'Request key was already used for another transaction'
         USING ERRCODE = 'P0001';
     END IF;
+
+    -- The same transaction details with a DIFFERENT recurrence definition
+    -- must not be reported as saved. Recurrence ID is derived from the
+    -- authenticated user and original request token, never from user input.
+    SELECT * INTO v_existing_schedule FROM public.recurring_transactions
+    WHERE id=v_template_id AND user_id=v_user;
+    IF NOT FOUND
+      OR v_existing_schedule.name IS DISTINCT FROM p_recurring_name
+      OR v_existing_schedule.account_id IS DISTINCT FROM p_account_id
+      OR v_existing_schedule.destination_account_id IS DISTINCT FROM p_destination_account_id
+      OR v_existing_schedule.category_id IS DISTINCT FROM p_category_id
+      OR v_existing_schedule.transaction_type IS DISTINCT FROM p_transaction_type
+      OR v_existing_schedule.amount IS DISTINCT FROM p_amount
+      OR v_existing_schedule.frequency IS DISTINCT FROM p_frequency
+      OR v_existing_schedule.interval_count IS DISTINCT FROM 1
+      OR v_existing_schedule.start_date IS DISTINCT FROM p_transaction_date
+      OR v_existing_schedule.end_date IS DISTINCT FROM p_end_date
+      OR v_existing_schedule.description IS DISTINCT FROM p_description
+      OR v_existing_schedule.merchant IS DISTINCT FROM p_merchant
+    THEN
+      RAISE EXCEPTION 'Request key was already used for another schedule'
+        USING ERRCODE = 'P0001';
+    END IF;
     RETURN v_existing.id;
   END IF;
 
   INSERT INTO public.recurring_transactions (
-    user_id, name, account_id, destination_account_id, category_id,
+    id, user_id, name, account_id, destination_account_id, category_id,
     transaction_type, amount, frequency, interval_count, start_date,
     end_date, next_due_date, last_generated_at, auto_create, is_active,
     description, merchant
   ) VALUES (
-    v_user, p_recurring_name, p_account_id, p_destination_account_id,
+    v_template_id, v_user, p_recurring_name, p_account_id, p_destination_account_id,
     p_category_id, p_transaction_type, p_amount, p_frequency, 1,
     p_transaction_date, p_end_date, v_next_date, now(), false,
     p_end_date IS NULL OR v_next_date <= p_end_date,
