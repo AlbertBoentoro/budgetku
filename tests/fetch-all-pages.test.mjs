@@ -34,3 +34,34 @@ test("rejects an error on a later page instead of displaying incomplete totals",
     /network failure/,
   );
 });
+
+for (const count of [0, 1, 499, 500, 501, 999, 1000, 1001, 2026]) {
+  test(`pagination returns exactly ${count} rows, without truncation or duplication`, async () => {
+    const source = Array.from({ length: count }, (_, index) => ({
+      id: index + 1,
+      amount: index % 2 === 0 ? 100 : -50,
+    }));
+    const requests = [];
+    const result = await fetchAllPages(async (from, to) => {
+      requests.push([from, to]);
+      return { data: source.slice(from, to + 1), error: null };
+    });
+    assert.deepEqual(result, source);
+    assert.equal(result.reduce((sum, row) => sum + row.amount, 0),
+      source.reduce((sum, row) => sum + row.amount, 0));
+    assert.ok(requests.every(([from, to]) => to - from + 1 === 500));
+    assert.equal(requests.length, Math.floor(count / 500) + 1);
+  });
+}
+
+test("rejects a null page rather than returning a fabricated zero balance", async () => {
+  await assert.rejects(fetchAllPages(async () => ({
+    data: null,
+    error: null,
+  })), /returned no data/);
+});
+
+test("returns an empty ledger only when an empty page is actually returned", async () => {
+  const rows = await fetchAllPages(async () => ({ data: [], error: null }));
+  assert.deepEqual(rows, []);
+});
