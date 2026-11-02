@@ -5,7 +5,7 @@ SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 -- A contribution owned by user B cannot reference a goal owned by user A,
 -- even if the attacker submits the goal UUID directly to the data API.
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
-DO $
+DO $$
 BEGIN
  BEGIN
   INSERT INTO public.goal_contributions (id,user_id,goal_id,amount)
@@ -15,7 +15,7 @@ BEGIN
   RAISE EXCEPTION 'Cross-owner contribution allowed' USING ERRCODE='XX000';
  EXCEPTION WHEN SQLSTATE '23503' THEN NULL;
  END;
-END $;
+END $$;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 
 UPDATE public.financial_goals SET status='achieved'
