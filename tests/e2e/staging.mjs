@@ -168,6 +168,86 @@ try {
     .eq("user_id", userId).single(), "verify preview did not modify ledger");
   assert.equal(Number(latest.amount), 27000);
   console.log("PASS: preview blocks Gmail-linked changes without modifying live staging data");
+
+  // Staging-only proof of atomic restore and database rollback.
+  // The real Google OAuth integration, customer data, and production RPC
+  // are never used. A caller-authenticated client exercises PostgreSQL RLS.
+  const userClient = createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  must(await userClient.auth.signInWithPassword({ email, password }),
+    "authenticate staging caller for protected restore RPC");
+  const originalSnapshotDownload = must(
+    await admin.storage.from("budgetku-backups").download(userId + "/latest.json"),
+    "load verified staging-only original snapshot");
+  const originalSnapshot = JSON.parse(await originalSnapshotDownload.text());
+  const expectedTables = {
+    accounts: "accounts",
+    categories: "categories",
+    budgets: "budgets",
+    budgetItems: "budget_items",
+    transactions: "transactions",
+    recurringTransactions: "recurring_transactions",
+    financialGoals: "financial_goals",
+    goalContributions: "goal_contributions",
+    merchantRules: "merchant_rules",
+  };
+  async function stagingBaseline() {
+    const data = {};
+    for (const [key, table] of Object.entries(expectedTables)) {
+      data[key] = must(await admin.from(table).select("*")
+        .eq("user_id", userId).order("id"), "read baseline " + table);
+    }
+    return data;
+  }
+  const refused = await userClient.rpc("budgetku_restore_atomic_v1_test", {
+    p_backup_data: originalSnapshot.data,
+    p_expected_current_data: await stagingBaseline(),
+    p_force_rollback: false,
+  });
+  assert.ok(refused.error && refused.error.message.includes("Gmail-linked transaction conflict"),
+    "atomic restore must reject modified Gmail-linked expense");
+  assert.equal(Number(must(await admin.from("transactions").select("amount")
+    .eq("id", row.id).single(), "verify Gmail conflict left ledger intact").amount), 27000);
+  console.log("PASS: database denies destructive Gmail-linked transaction restore");
+
+  must(await admin.from("transactions").update({amount: 25000}).eq("id", row.id),
+    "return linked staging record to its snapshot value");
+  const disposable = must(await admin.from("transactions").insert({
+    user_id: userId, account_id: account.id, category_id: category.id,
+    transaction_type: "expense", amount: 9000, source: "manual",
+  }).select("id").single(), "add unlinked synthetic expense for rollback test");
+  const baseline = await stagingBaseline();
+  const rollback = await userClient.rpc("budgetku_restore_atomic_v1_test", {
+    p_backup_data: originalSnapshot.data,
+    p_expected_current_data: baseline,
+    p_force_rollback: true,
+  });
+  assert.ok(rollback.error?.message.includes("Injected failure"),
+    "mid-restore injected failure must reject entire atomic RPC");
+  const stillExists = must(await admin.from("transactions").select("id")
+    .eq("id", disposable.id).single(), "verify rollback preserved extra expense");
+  assert.equal(stillExists.id, disposable.id);
+  assert.equal(must(await admin.from("email_imports").select("transaction_id")
+    .eq("user_id", userId).single(), "verify rollback preserved Gmail link").transaction_id, row.id);
+  console.log("PASS: atomic mid-restore failure rolls back ledger and Gmail link");
+
+  const applied = must(await userClient.rpc("budgetku_restore_atomic_v1_test", {
+    p_backup_data: originalSnapshot.data,
+    p_expected_current_data: await stagingBaseline(),
+    p_force_rollback: false,
+  }), "apply staging-only atomic restore");
+  assert.equal(applied.restored, true);
+  assert.equal(applied.transactions, 1);
+  const finalRows = must(await admin.from("transactions").select("id,amount")
+    .eq("user_id", userId), "verify successful staging-only atomic restore");
+  assert.equal(finalRows.length, 1);
+  assert.equal(finalRows[0].id, row.id);
+  assert.equal(Number(finalRows[0].amount), 25000);
+  assert.equal(must(await admin.from("email_imports").select("transaction_id")
+    .eq("user_id", userId).single(), "verify Gmail link retained").transaction_id, row.id);
+  console.log("PASS: caller-RLS atomic restore recovered one expense without breaking Gmail link");
+
   await context.close();
 } finally {
   if (browser) await browser.close();
