@@ -66,3 +66,7 @@ Everything the test creates must use its own Supabase staging project.
 This is branch-only infrastructure. Do not merge the workflow or configure
 production secret stores without a separate review. The user explicitly asked
 for synthetic testing, not new production features or data changes.
+
+## E2E run activation
+
+Activated after GitHub staging environment variables and secrets were supplied by the repository owner. The test runs on the staging-only branch; it does not modify production code or call the production API.
