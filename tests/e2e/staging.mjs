@@ -132,6 +132,42 @@ try {
     encodeURIComponent(archives[0].name));
   assert.equal(download.status(), 200);
   console.log("PASS: versioned snapshot can be downloaded by synthetic staging user");
+
+  // A synthetic Gmail import links to this transaction. Restore preview must
+  // preserve it without changing, creating or deleting ANY ledger rows.
+  must(await admin.from("email_imports").insert({
+    user_id: userId,
+    transaction_id: (must(await admin.from("transactions").select("id")
+      .eq("user_id", userId).single(), "get staging transaction")).id,
+    gmail_message_id: "synthetic-e2e-only",
+  }), "seed synthetic Gmail transaction link");
+  const previewResponse = await context.request.post("/api/settings/restore/preview", {
+    data: {},
+  });
+  assert.equal(previewResponse.status(), 200, "read-only restore preview should succeed");
+  const preview = await previewResponse.json();
+  assert.equal(preview.previewOnly, true);
+  assert.equal(preview.eligibleForAtomicRestore, true);
+  assert.equal(preview.externalGmailLinks, 1);
+  assert.equal(preview.tables.transactions.current, 1);
+  assert.equal(preview.tables.transactions.wouldRemove, 0);
+  console.log("PASS: read-only preview preserves a synthetic Gmail-linked transaction");
+
+  const row = must(await admin.from("transactions").select("id").eq("user_id", userId)
+    .single(), "get protected synthetic transaction");
+  must(await admin.from("transactions").update({ amount: 27000 }).eq("id", row.id)
+    .eq("user_id", userId), "change synthetic ledger after backup");
+  const conflictResponse = await context.request.post("/api/settings/restore/preview", {
+    data: {},
+  });
+  assert.equal(conflictResponse.status(), 200);
+  const conflict = await conflictResponse.json();
+  assert.equal(conflict.eligibleForAtomicRestore, false);
+  assert.ok(conflict.blockers.some((text) => text.includes("Gmail-linked")));
+  const latest = must(await admin.from("transactions").select("amount")
+    .eq("user_id", userId).single(), "verify preview did not modify ledger");
+  assert.equal(Number(latest.amount), 27000);
+  console.log("PASS: preview blocks Gmail-linked changes without modifying live staging data");
   await context.close();
 } finally {
   if (browser) await browser.close();
@@ -145,7 +181,7 @@ try {
         "cleanup synthetic backup snapshots");
     }
     await storage.remove([userId + "/latest.json"]);
-    for (const table of ["goal_contributions", "transactions", "recurring_transactions",
+    for (const table of ["email_imports", "goal_contributions", "transactions", "recurring_transactions",
       "budget_items", "budgets", "financial_goals", "merchant_rules", "accounts", "categories"]) {
       const result = await admin.from(table).delete().eq("user_id", userId);
       if (result.error) console.error("Cleanup needs review for " + table);
