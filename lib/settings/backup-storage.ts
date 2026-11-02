@@ -9,9 +9,9 @@ const BUCKET = "budgetku-backups";
 export const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 type BackupClient = SupabaseClient<Database>;
 
-export function buildSnapshotFilename(now: Date, id: string): string {
+export function buildSnapshotFilename(now: Date, id: string, hash: string): string {
   const timestamp = now.toISOString().replaceAll(":", "-").replace(".", "-");
-  const filename = `${timestamp}-${id}.json`;
+  const filename = `${timestamp}-${id}-${hash.slice(0, 32)}.json`;
   if (!isBackupSnapshotFilename(filename)) throw new Error("Invalid snapshot name.");
   return filename;
 }
@@ -31,7 +31,7 @@ export async function storeVerifiedBackup(
   if (size > MAX_BACKUP_BYTES) throw new Error("Backup exceeds the 10 MB limit.");
   inspectBackupJson(text, userId);
 
-  const snapshot = buildSnapshotFilename(new Date(), randomUUID());
+  const snapshot = buildSnapshotFilename(new Date(), randomUUID(), sha256(text));
   const filePath = `${userId}/snapshots/${snapshot}`;
   const storage = client.storage.from(BUCKET);
 
@@ -61,6 +61,12 @@ export async function fetchVerifiedBackup(
   const content = await data.text();
   if (Buffer.byteLength(content, "utf8") > MAX_BACKUP_BYTES) {
     throw new Error("Backup size exceeds the configured limit.");
+  }
+  if (snapshot) {
+    const expectedHash = snapshot.match(/-([a-f0-9]{32})\\.json$/i)?.[1];
+    if (!expectedHash || sha256(content).slice(0, 32) !== expectedHash.toLowerCase()) {
+      throw new Error("Snapshot checksum mismatch.");
+    }
   }
   const inspection = inspectBackupJson(content, userId);
   return { text: content, inspection, sha256: sha256(content) };
