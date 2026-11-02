@@ -1,4 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { commitVerifiedSnapshot, sha256 } from "./backup-storage-core.mjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "../supabase/database.types";
@@ -7,10 +8,6 @@ import { inspectBackupJson, isBackupSnapshotFilename } from "./backup-safety";
 const BUCKET = "budgetku-backups";
 export const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 type BackupClient = SupabaseClient<Database>;
-
-function digest(value: string): string {
-  return createHash("sha256").update(value, "utf8").digest("hex");
-}
 
 export function buildSnapshotFilename(now: Date, id: string): string {
   const timestamp = now.toISOString().replaceAll(":", "-").replace(".", "-");
@@ -38,33 +35,14 @@ export async function storeVerifiedBackup(
   const filePath = `${userId}/snapshots/${snapshot}`;
   const storage = client.storage.from(BUCKET);
 
-  const { error: uploadError } = await storage.upload(filePath, text, {
-    contentType: "application/json",
-    upsert: false,
-  });
-  if (uploadError) throw new Error(`Snapshot upload failed: ${uploadError.message}`);
-
-  // A storage ACK alone is not sufficient evidence of a usable backup.
-  const { data: saved, error: downloadError } = await storage.download(filePath);
-  if (downloadError || !saved) {
-    throw new Error("Snapshot cannot be read back; latest backup was preserved.");
-  }
-  const reread = await saved.text();
-  if (digest(reread) !== digest(text)) {
-    throw new Error("Snapshot content mismatch; latest backup was preserved.");
-  }
-  inspectBackupJson(reread, userId);
-
-  // Only after integrity checks pass do we update the familiar download path.
-  const { error: latestError } = await storage.upload(`${userId}/latest.json`, text, {
-    contentType: "application/json",
-    upsert: true,
-  });
-  if (latestError) {
-    // The verified immutable snapshot remains available via the history API.
-    throw new Error("Snapshot verified but latest pointer could not be updated.");
-  }
-  return { snapshot, sha256: digest(text) };
+  const verified = await commitVerifiedSnapshot(
+    storage,
+    filePath,
+    `${userId}/latest.json`,
+    text,
+    (value: string) => inspectBackupJson(value, userId),
+  );
+  return { snapshot, sha256: verified.sha256 };
 }
 
 export async function fetchVerifiedBackup(
@@ -85,5 +63,5 @@ export async function fetchVerifiedBackup(
     throw new Error("Backup size exceeds the configured limit.");
   }
   const inspection = inspectBackupJson(content, userId);
-  return { text: content, inspection, sha256: digest(content) };
+  return { text: content, inspection, sha256: sha256(content) };
 }
