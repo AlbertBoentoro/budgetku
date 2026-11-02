@@ -64,8 +64,9 @@ export function BackupControls({
         <p className="mt-1 text-body-sm text-on-surface-variant">
           Transaksi tetap tersimpan di Supabase. Cadangan tambahan mencakup
           transaksi, rekening, anggaran, dan preferensi. Budgetku memperbarui
-          salinan sekitar pukul 20.00 WIB setiap hari, lalu mengganti salinan
-          sebelumnya. Pemulihan otomatis belum tersedia.
+          salinan sekitar pukul 20.00 WIB setiap hari. Cadangan baru diperiksa
+          dan versi sebelumnya tetap disimpan sebagai riwayat. Pemulihan
+          otomatis belum tersedia.
         </p>
         {!configured ? (
           <p role="status" className="mt-1 text-body-sm text-expense">
