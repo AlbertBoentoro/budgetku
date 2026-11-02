@@ -1,28 +1,9 @@
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/lib/supabase/database.types";
 
 type BackupClient = SupabaseClient<Database>;
-type PageResult<T> = {
-  data: T[] | null;
-  error: { message: string } | null;
-};
-
-async function fetchAllPages<T>(
-  page: (from: number, to: number) => PromiseLike<PageResult<T>>,
-): Promise<T[]> {
-  const rows: T[] = [];
-  const pageSize = 1000;
-
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await page(from, from + pageSize - 1);
-    if (error) throw new Error(`Backup query failed: ${error.message}`);
-    const batch = data ?? [];
-    rows.push(...batch);
-    if (batch.length < pageSize) return rows;
-  }
-}
-
 export async function buildUserBackup(
   supabase: BackupClient,
   userId: string,

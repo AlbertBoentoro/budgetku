@@ -276,41 +276,27 @@ export async function setGoalStatus(
   return { ok: true };
 }
 
-// Hard delete (Decision 4). The FK goal_contributions.goal_id has no
-// ON DELETE CASCADE, so child contributions are deleted first (scoped
-// user_id + goal_id), then the goal (scoped user_id). Every delete is
-// user-scoped; a failure is surfaced gracefully.
+// The database goal_contributions.goal_id FK uses ON DELETE CASCADE.
+// Delete the parent exactly once: PostgreSQL deletes its children atomically.
+// Never delete the contributions first in a separate HTTP request.
 export async function deleteGoal(id: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "Sesi berakhir. Silakan masuk kembali." };
 
-  if (!user) {
-    return { ok: false, message: "Sesi berakhir. Silakan masuk kembali." };
-  }
-
-  const { error: contribError } = await supabase
-    .from("goal_contributions")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("goal_id", id);
-
-  if (contribError) {
-    return {
-      ok: false,
-      message: "Kontribusi target gagal dihapus. Silakan coba lagi.",
-    };
-  }
-
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("financial_goals")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return { ok: false, message: "Target gagal dihapus. Silakan coba lagi." };
+  }
+  if (!data) {
+    return { ok: false, message: "Target tidak ditemukan atau sudah dihapus." };
   }
 
   revalidatePath("/goals");

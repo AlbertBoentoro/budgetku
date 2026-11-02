@@ -1,3 +1,6 @@
+import { computeTransactionEffects } from "@/lib/account-balance-math";
+export { sumRunningAccountBalances } from "@/lib/account-balance-math";
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import {
   Banknote,
   CreditCard,
@@ -58,56 +61,14 @@ export async function computeAccountBalances(
   supabase: ServerSupabaseClient,
   userId: string,
 ): Promise<Map<string, number>> {
-  const { data, error } = await supabase
+  const data = await fetchAllPages((from, to) => supabase
     .from("transactions")
     .select("account_id, destination_account_id, amount, transaction_type")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .order("id")
+    .range(from, to));
 
-  if (error) {
-    throw new Error(`Gagal menghitung saldo rekening: ${error.message}`);
-  }
-
-  const net = new Map<string, number>();
-  const add = (accountId: string | null, delta: number) => {
-    if (!accountId) return;
-    net.set(accountId, (net.get(accountId) ?? 0) + delta);
-  };
-
-  for (const row of (data ?? []) as TransactionBalanceRow[]) {
-    const amt = Number(row.amount);
-    if (!Number.isFinite(amt)) continue;
-
-    switch (row.transaction_type) {
-      case "income":
-        add(row.account_id, amt);
-        break;
-      case "expense":
-        add(row.account_id, -amt);
-        break;
-      case "transfer":
-        add(row.account_id, -amt);
-        add(row.destination_account_id, amt);
-        break;
-      // Unknown/legacy types contribute nothing rather than guessing a sign.
-      default:
-        break;
-    }
-  }
-
-  return net;
-}
-
-export function sumRunningAccountBalances(
-  accounts: readonly Pick<AccountRow, "id" | "initial_balance">[],
-  balances: ReadonlyMap<string, number>,
-): number {
-  // All accounts contribute; this intentionally ignores the legacy toggle.
-  let total = 0;
-  for (const account of accounts) {
-    const balance = balances.get(account.id) ?? account.initial_balance;
-    if (Number.isFinite(balance)) total += balance;
-  }
-  return total;
+  return computeTransactionEffects(data as TransactionBalanceRow[]);
 }
 
 // Muted account accent tokens that already exist in tailwind.config.ts

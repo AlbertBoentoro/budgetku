@@ -740,7 +740,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_recurring_now: {
+        Args: { p_template_id: string; p_expected_due_date: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
