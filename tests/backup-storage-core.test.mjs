@@ -1,68 +1,179 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { commitVerifiedSnapshot, sha256 } from "../lib/settings/backup-storage-core.mjs";
+import {
+  commitVerifiedSnapshot,
+  preservedLatestPath,
+  sha256,
+} from "../lib/settings/backup-storage-core.mjs";
+import { isBackupSnapshotFilename } from "../lib/settings/backup-safety.ts";
+
+const owner = "11111111-1111-4111-8111-111111111111";
+const latest = "user/latest.json";
+const newPath = "user/snapshots/2026-11-02T11-00-00-000Z-id.json";
+const older = JSON.stringify({
+  format: "budgetku-backup", version: 1, generatedAt: "2026-11-01T13:12:31.124Z",
+  data: { accounts: [{ id: "one", user_id: owner }] },
+});
+const newer = JSON.stringify({
+  format: "budgetku-backup", version: 1, generatedAt: "2026-11-02T11:00:00.000Z",
+  data: { accounts: [{ id: "two", user_id: owner }] },
+});
+const competing = JSON.stringify({
+  format: "budgetku-backup", version: 1, generatedAt: "2026-11-02T12:00:00.000Z",
+  data: { accounts: [{ id: "three", user_id: owner }] },
+});
+const validate = (text) => {
+  const obj = JSON.parse(text);
+  assert.equal(obj.format, "budgetku-backup");
+  assert.equal(obj.version, 1);
+  assert.ok(Number.isFinite(Date.parse(obj.generatedAt)));
+  for (const item of obj.data.accounts) assert.equal(item.user_id, owner);
+};
 
 function fakeStorage({
-  corruptDownload = false,
+  original = older,
   failRead = false,
-  failLatest = false,
+  failLegacyUpload = false,
+  failLatestUpload = false,
+  corruptSnapshot = false,
+  changeLatestMidway = false,
+  missingError = { status: 404, message: "Not found" },
 } = {}) {
-  const files = new Map([["user/latest.json", "PREVIOUS RECOVERABLE BACKUP"]]);
+  const files = new Map(original === null ? [] : [[latest, original]]);
+  const uploads = [];
+  let didRace = false;
   const storage = {
     async upload(path, text, options) {
-      if (failLatest && path === "user/latest.json") {
-        return { error: { message: "simulated storage failure" } };
+      uploads.push(path);
+      if (failLegacyUpload && path === preservedLatestPath(latest, older)) {
+        return { error: { status: 503, message: "archive unavailable" } };
+      }
+      if (failLatestUpload && path === latest) {
+        return { error: { status: 503, message: "latest write failure" } };
       }
       if (!options.upsert && files.has(path)) {
-        return { error: { message: "already exists" } };
+        return { error: { status: 409, message: "already exists" } };
       }
       files.set(path, text);
+      if (changeLatestMidway && path === newPath && !didRace) {
+        files.set(latest, competing);
+        didRace = true;
+      }
       return { error: null };
     },
     async download(path) {
-      if (failRead) return { data: null, error: { message: "unreadable" } };
+      if (failRead) return { data: null, error: { status: 503, message: "unreadable" } };
       const text = files.get(path);
-      if (!text) return { data: null, error: { message: "not found" } };
-      return { data: new Blob([corruptDownload ? text + "corruption" : text]), error: null };
+      if (text === undefined) return { data: null, error: missingError };
+      return {
+        data: new Blob([corruptSnapshot && path !== latest ? text + "tampered" : text]),
+        error: null,
+      };
     },
   };
-  return { files, storage };
+  return { files, uploads, storage };
 }
 
-const path = "user/snapshots/2026-11-02T11-00-00-000Z-id.json";
-const latest = "user/latest.json";
-const content = '{"format":"budgetku-backup","version":1}';
-const validate = (s) => { assert.equal(s, content); };
+test("legacy archive has stable name conforming to snapshot validator", () => {
+  const path = preservedLatestPath(latest, older);
+  assert.ok(path.startsWith("user/snapshots/"));
+  assert.ok(isBackupSnapshotFilename(path.split("/").at(-1)));
+  assert.equal(preservedLatestPath(latest, older), path);
+  assert.ok(path.endsWith(sha256(older).slice(0, 32) + ".json"));
+});
 
-test("publishes verified immutable backup and updates latest only after read-back", async () => {
-  const { files, storage } = fakeStorage();
-  const result = await commitVerifiedSnapshot(storage, path, latest, content, validate);
-  assert.equal(files.get(path), content);
-  assert.equal(files.get(latest), content);
-  assert.equal(result.sha256, sha256(content));
+test("archives existing latest BEFORE replacing it; retains two recoverable copies", async () => {
+  const { files, uploads, storage } = fakeStorage();
+  const result = await commitVerifiedSnapshot(storage, newPath, latest, newer, validate);
+  const archive = preservedLatestPath(latest, older);
+  assert.equal(uploads[0], archive);
+  assert.equal(files.get(archive), older);
+  assert.equal(files.get(newPath), newer);
+  assert.equal(files.get(latest), newer);
+  assert.equal(result.sha256, sha256(newer));
 });
-test("failure reading stored snapshot preserves the previous latest", async () => {
-  const { files, storage } = fakeStorage({ failRead: true });
-  await assert.rejects(commitVerifiedSnapshot(storage, path, latest, content, validate), /read back/);
-  assert.equal(files.get(latest), "PREVIOUS RECOVERABLE BACKUP");
-  assert.equal(files.get(path), content);
+
+test("fresh account without latest creates snapshot and latest normally", async () => {
+  const { files, uploads, storage } = fakeStorage({ original: null });
+  await commitVerifiedSnapshot(storage, newPath, latest, newer, validate);
+  assert.deepEqual(uploads, [newPath, latest]);
+  assert.equal(files.get(latest), newer);
 });
-test("corrupted snapshot cannot replace a previous valid latest", async () => {
-  const { files, storage } = fakeStorage({ corruptDownload: true });
-  await assert.rejects(commitVerifiedSnapshot(storage, path, latest, content, validate), /checksum/);
-  assert.equal(files.get(latest), "PREVIOUS RECOVERABLE BACKUP");
+
+test("migration preservation failure leaves old latest intact", async () => {
+  const { files, storage } = fakeStorage({ failLegacyUpload: true });
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate), /preservation failed/);
+  assert.equal(files.get(latest), older);
+  assert.equal(files.has(newPath), false);
 });
-test("failed latest pointer upload preserves the new verified snapshot", async () => {
-  const { files, storage } = fakeStorage({ failLatest: true });
-  await assert.rejects(commitVerifiedSnapshot(storage, path, latest, content, validate), /latest pointer/);
-  assert.equal(files.get(latest), "PREVIOUS RECOVERABLE BACKUP");
-  assert.equal(files.get(path), content);
+
+test("archive read-back corruption blocks overwrite of latest", async () => {
+  const { files, storage } = fakeStorage({ corruptSnapshot: true });
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate), /checksum/);
+  assert.equal(files.get(latest), older);
 });
-test("a failed content validator prevents publication to latest", async () => {
-  const { files, storage } = fakeStorage();
-  await assert.rejects(
-    commitVerifiedSnapshot(storage, path, latest, content, () => { throw new Error("invalid ownership"); }),
-    /invalid ownership/,
+
+test("retry after failed latest update verifies pre-existing legacy archive", async () => {
+  const { files, storage } = fakeStorage({ failLatestUpload: true });
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate), /latest pointer/);
+  assert.equal(files.get(latest), older);
+  const archive = preservedLatestPath(latest, older);
+  assert.equal(files.get(archive), older);
+  const alternateStorage = fakeStorage();
+  alternateStorage.files.clear();
+  for (const [k, v] of files) alternateStorage.files.set(k, v);
+  await commitVerifiedSnapshot(
+    alternateStorage.storage, "user/snapshots/a-second-immutable-file.json",
+    latest, newer, validate,
   );
-  assert.equal(files.get(latest), "PREVIOUS RECOVERABLE BACKUP");
+  assert.equal(alternateStorage.files.get(latest), newer);
+  assert.equal(alternateStorage.files.get(archive), older);
+});
+
+test("preexisting mismatched archive rejects instead of overwriting either version", async () => {
+  const { files, storage } = fakeStorage();
+  files.set(preservedLatestPath(latest, older), competing);
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate), /checksum/);
+  assert.equal(files.get(latest), older);
+  assert.equal(files.has(newPath), false);
+});
+
+test("invalid legacy backup aborts replacement to preserve legacy evidence", async () => {
+  const { files, storage } = fakeStorage({ original: "not-json" });
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate));
+  assert.equal(files.get(latest), "not-json");
+});
+
+test("unknown storage download error is NOT treated as a missing legacy backup", async () => {
+  const { files, storage } = fakeStorage({ original: null, missingError: { status: 403 } });
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate), /read failed/);
+  assert.equal(files.has(newPath), false);
+});
+
+test("a changed latest pointer during archiving cancels publication", async () => {
+  const { files, storage } = fakeStorage({ changeLatestMidway: true });
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate), /changed during publication/);
+  assert.equal(files.get(latest), competing);
+  assert.equal(files.get(preservedLatestPath(latest, older)), older);
+  assert.equal(files.get(newPath), newer);
+});
+
+test("failed new snapshot read-back retains original latest and its archive", async () => {
+  const { files, storage } = fakeStorage({ corruptSnapshot: true });
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate));
+  assert.equal(files.get(latest), older);
+});
+
+test("failure uploading latest retains previous latest and immutable archives", async () => {
+  const { files, storage } = fakeStorage({ failLatestUpload: true });
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate), /latest pointer/);
+  assert.equal(files.get(latest), older);
+  assert.equal(files.get(newPath), newer);
+});
+
+test("an invalid new snapshot cannot alter any existing backup", async () => {
+  const { files, storage } = fakeStorage();
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, "{", validate));
+  assert.equal(files.get(latest), older);
+  assert.equal(files.size, 1);
 });

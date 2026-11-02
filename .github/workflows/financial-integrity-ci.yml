@@ -7,6 +7,7 @@ on:
     branches:
       - fix/financial-integrity-p0-*
       - fix/p0-recovery-integrity-*
+      - fix/p0-preserve-legacy-backup-*
   workflow_dispatch:
 
 permissions:
