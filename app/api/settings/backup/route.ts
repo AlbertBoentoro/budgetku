@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildUserBackup } from "@/lib/settings/backup";
+import { fetchVerifiedBackup, storeVerifiedBackup } from "@/lib/settings/backup-storage";
 
-const BUCKET = "budgetku-backups";
 const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 
 function textResponse(message: string, status: number) {
@@ -38,17 +38,13 @@ export async function POST() {
     );
   }
 
-  const path = `${user.id}/latest.json`;
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, body, {
-      contentType: "application/json",
-      upsert: true,
-    });
-
-  if (uploadError) {
-    console.error("Manual backup upload failed:", uploadError.message);
-    return textResponse("Cadangan gagal disimpan. Coba lagi.", 500);
+  // Protect previous backups: save a new immutable file and read it back
+  // before updating latest.json or the displayed backup timestamp.
+  try {
+    await storeVerifiedBackup(supabase, user.id, backup);
+  } catch (error) {
+    console.error("Manual verified backup creation failed:", error);
+    return textResponse("Cadangan belum berhasil diverifikasi. Cadangan sebelumnya tetap disimpan.", 500);
   }
 
   const { error: settingsError } = await supabase
@@ -72,33 +68,32 @@ export async function POST() {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) return textResponse("Sesi berakhir. Masuk kembali.", 401);
 
-  const { data: file, error: downloadError } = await supabase.storage
-    .from(BUCKET)
-    .download(`${user.id}/latest.json`);
+  const url = new URL(request.url);
+  const snapshot = url.searchParams.get("snapshot") ?? undefined;
 
-  if (downloadError) {
-    if (downloadError.message.toLowerCase().includes("not found")) {
-      return textResponse("Belum ada cadangan cloud.", 404);
-    }
-    console.error("Backup download failed:", downloadError.message);
-    return textResponse("Cadangan cloud gagal diunduh.", 500);
+  try {
+    const result = await fetchVerifiedBackup(supabase, user.id, snapshot);
+    return new Response(result.text, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="budgetku-cadangan.json"`,
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    console.error("Backup validation or download failed:", error);
+    return textResponse(
+      "Cadangan tidak ditemukan atau gagal diverifikasi. Gunakan cadangan bertanggal lain.",
+      422,
+    );
   }
-
-  return new Response(file, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Content-Disposition": `attachment; filename="budgetku-cadangan.json"`,
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 }
