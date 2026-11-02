@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - test/staging-playwright-*
+      - fix/p0-atomic-restore-staging-*
   workflow_dispatch:
 
 permissions:
@@ -70,3 +71,11 @@ jobs:
           exit 1
       - name: Run isolated user, transaction and backup browser tests
         run: node tests/e2e/staging.mjs
+      - name: Inspect staging-only server failures
+        if: failure()
+        run: |
+          if test -f /tmp/budgetku-staging-next.log; then
+            grep -Ei 'restore|backup|error|exception|failed' /tmp/budgetku-staging-next.log \
+              | tail -n 35 \
+              | sed -E 's/eyJ[A-Za-z0-9_-]{25,}\.[A-Za-z0-9_-]{25,}\.[A-Za-z0-9_-]{20,}/[redacted-jwt]/g' || true
+          fi

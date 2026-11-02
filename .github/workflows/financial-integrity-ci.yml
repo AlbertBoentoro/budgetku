@@ -7,6 +7,7 @@ on:
     branches:
       - fix/financial-integrity-p0-*
       - fix/p0-recovery-integrity-*
+      - fix/p0-atomic-restore-staging-*
   workflow_dispatch:
 
 permissions:
@@ -69,6 +70,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE budgetku_stage_fixture_ci"
           PGDATABASE=budgetku_stage_fixture_ci psql -v ON_ERROR_STOP=1 -f tests/staging/ci-bootstrap.sql
           PGDATABASE=budgetku_stage_fixture_ci psql -v ON_ERROR_STOP=1 -f tests/staging/schema-fixture.sql
+          PGDATABASE=budgetku_stage_fixture_ci psql -v ON_ERROR_STOP=1 -f tests/staging/gmail-link-fixture.sql
+          PGDATABASE=budgetku_stage_fixture_ci psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-atomic-user-restore.sql
       - name: Syntax-check staging browser test runner
         run: node --check tests/e2e/staging.mjs
       - name: Run isolated regression tests
