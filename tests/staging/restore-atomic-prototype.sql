@@ -117,18 +117,54 @@ BEGIN
   IF p_force_rollback THEN
     RAISE EXCEPTION 'Injected failure after deleting child data (rollback expected)';
   END IF;
-  DELETE FROM public.budgets WHERE user_id=v_user;
-  DELETE FROM public.categories WHERE user_id=v_user;
-  DELETE FROM public.accounts WHERE user_id=v_user;
-
-  -- Shared global categories and rules are never deleted or inserted.
-  INSERT INTO public.accounts
+  -- Existing parent rows must survive until their linked financial
+  -- transactions have been validated, otherwise ON DELETE SET NULL would
+  -- silently mutate Gmail-linked category references.
+  INSERT INTO public.accounts AS dst
     SELECT (pg_catalog.jsonb_populate_record(NULL::public.accounts,e.value)).*
-      FROM pg_catalog.jsonb_array_elements(p_backup_data->'accounts') e(value);
-  INSERT INTO public.categories
-    SELECT (pg_catalog.jsonb_populate_record(NULL::public.categories,e.value)).*
+      FROM pg_catalog.jsonb_array_elements(p_backup_data->'accounts') e(value)
+  ON CONFLICT (id) DO UPDATE SET
+    name=EXCLUDED.name,account_type=EXCLUDED.account_type,
+    initial_balance=EXCLUDED.initial_balance,currency=EXCLUDED.currency,
+    icon=EXCLUDED.icon,color=EXCLUDED.color,
+    include_in_total=EXCLUDED.include_in_total,is_archived=EXCLUDED.is_archived,
+    created_at=EXCLUDED.created_at,updated_at=EXCLUDED.updated_at;
+
+  -- Insert/update owned categories without parent first so children may
+  -- reference parent rows regardless of their order in the snapshot.
+  INSERT INTO public.categories AS dst
+    SELECT (pg_catalog.jsonb_populate_record(NULL::public.categories,
+       pg_catalog.jsonb_set(e.value,'{parent_id}','null'::jsonb))).*
       FROM pg_catalog.jsonb_array_elements(p_backup_data->'categories') e(value)
-      WHERE e.value ->> 'user_id' = v_user::text;
+      WHERE e.value ->> 'user_id' = v_user::text
+  ON CONFLICT (id) DO UPDATE SET
+    name=EXCLUDED.name,category_type=EXCLUDED.category_type,
+    parent_id=NULL,icon=EXCLUDED.icon,color=EXCLUDED.color,
+    is_archived=EXCLUDED.is_archived,sort_order=EXCLUDED.sort_order,
+    created_at=EXCLUDED.created_at,updated_at=EXCLUDED.updated_at;
+  UPDATE public.categories AS c
+    SET parent_id = (e.value ->> 'parent_id')::uuid
+    FROM pg_catalog.jsonb_array_elements(p_backup_data->'categories') e(value)
+    WHERE c.id=(e.value->>'id')::uuid AND c.user_id=v_user;
+  -- Only after adding/updating intended parents may missing ones be removed.
+  -- Refuse to drop an existing parent still used by an imported transaction.
+  IF EXISTS (
+    SELECT 1 FROM public.email_imports ei
+    JOIN public.transactions t ON t.id=ei.transaction_id
+    WHERE ei.user_id=v_user AND (
+      NOT EXISTS (SELECT 1 FROM pg_catalog.jsonb_array_elements(p_backup_data->'accounts') e
+        WHERE e.value->>'id'=t.account_id::text)
+      OR (t.destination_account_id IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM pg_catalog.jsonb_array_elements(p_backup_data->'accounts') e
+        WHERE e.value->>'id'=t.destination_account_id::text))
+      OR (t.category_id IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM pg_catalog.jsonb_array_elements(p_backup_data->'categories') e
+        WHERE e.value->>'id'=t.category_id::text))
+    )
+  ) THEN
+    RAISE EXCEPTION 'Gmail-linked parent record omitted from backup';
+  END IF;
+  DELETE FROM public.budgets WHERE user_id=v_user;
   INSERT INTO public.budgets
     SELECT (pg_catalog.jsonb_populate_record(NULL::public.budgets,e.value)).*
       FROM pg_catalog.jsonb_array_elements(p_backup_data->'budgets') e(value);
@@ -152,6 +188,17 @@ BEGIN
   INSERT INTO public.merchant_rules
     SELECT (pg_catalog.jsonb_populate_record(NULL::public.merchant_rules,e.value)).*
       FROM pg_catalog.jsonb_array_elements(p_backup_data->'merchantRules') e(value);
+
+  -- At this point child relationships are already restored. Delete only
+  -- owned records not in the verified snapshot; shared categories stay.
+  DELETE FROM public.categories c
+    WHERE c.user_id=v_user AND NOT EXISTS(
+      SELECT 1 FROM pg_catalog.jsonb_array_elements(p_backup_data->'categories') e
+      WHERE e.value->>'id'=c.id::text);
+  DELETE FROM public.accounts a
+    WHERE a.user_id=v_user AND NOT EXISTS(
+      SELECT 1 FROM pg_catalog.jsonb_array_elements(p_backup_data->'accounts') e
+      WHERE e.value->>'id'=a.id::text);
 
   IF p_backup_data->'preferences' IS NOT NULL
      AND p_backup_data->'preferences' <> 'null'::jsonb THEN
