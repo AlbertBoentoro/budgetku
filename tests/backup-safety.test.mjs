@@ -51,7 +51,7 @@ test("rejects a snapshot without a valid timestamp", () => {
   assert.throws(() => inspectBackupJson(JSON.stringify(obj), owner), /Tanggal/);
 });
 test("rejects modified, cross-user or path-traversal snapshot identifiers", () => {
-  assert.ok(isBackupSnapshotFilename("2026-11-02T05-12-17-341Z-4eaccf54-f752-4f1b-a00a-bf9a54bd5e7b.json"));
+  assert.ok(isBackupSnapshotFilename("2026-11-02T05-12-17-341Z-4eaccf54-f752-4f1b-a00a-bf9a54bd5e7b-54fba202098f61d6ddc8e90258c55f92.json"));
   assert.equal(isBackupSnapshotFilename("../latest.json"), false);
   assert.equal(isBackupSnapshotFilename("latest.json"), false);
   assert.equal(isBackupSnapshotFilename("../../other/snapshots/foo.json"), false);
