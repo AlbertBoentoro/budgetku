@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - fix/financial-integrity-p0-*
+      - fix/p0-recovery-integrity-*
   workflow_dispatch:
 
 permissions:
