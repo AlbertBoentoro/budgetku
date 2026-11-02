@@ -11,9 +11,20 @@ import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
  * transaction IDs must be inspected from the live database before planning.
  */
 export async function POST(request: Request) {
-  const origin = request.headers.get("origin");
-  if (origin && new URL(origin).host !== new URL(request.url).host) {
-    return Response.json({ error: "Permintaan berasal dari situs berbeda." }, { status: 403 });
+  try {
+    const origin = request.headers.get("origin");
+    const site = request.headers.get("sec-fetch-site");
+    const expected = new URL(request.url);
+    const host = request.headers.get("host");
+    // Next's local server may normalize 127.0.0.1 to localhost in
+    // request.url even though the original browser Host stays unchanged.
+    if ((site && site !== "same-origin" && site !== "none") ||
+        (origin && (new URL(origin).protocol !== expected.protocol ||
+          (new URL(origin).host !== expected.host && new URL(origin).host !== host)))) {
+      return Response.json({ error: "Permintaan berasal dari situs berbeda." }, { status: 403 });
+    }
+  } catch {
+    return Response.json({ error: "Asal permintaan tidak valid." }, { status: 403 });
   }
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
