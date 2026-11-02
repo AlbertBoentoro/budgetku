@@ -172,12 +172,12 @@ BEGIN
  LOOP
   EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
   IF t='categories' OR t='merchant_rules' THEN
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (user_id=(select auth.uid()) OR (is_system AND user_id IS NULL))', 'stage_'+t+'_select', t);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (user_id=(select auth.uid()) AND NOT is_system)', 'stage_'+t+'_insert', t);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (user_id=(select auth.uid()) AND NOT is_system) WITH CHECK (user_id=(select auth.uid()) AND NOT is_system)', 'stage_'+t+'_update', t);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (user_id=(select auth.uid()) AND NOT is_system)', 'stage_'+t+'_delete', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (user_id=(select auth.uid()) OR (is_system AND user_id IS NULL))', 'stage_'||t||'_select', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (user_id=(select auth.uid()) AND NOT is_system)', 'stage_'||t||'_insert', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (user_id=(select auth.uid()) AND NOT is_system) WITH CHECK (user_id=(select auth.uid()) AND NOT is_system)', 'stage_'||t||'_update', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (user_id=(select auth.uid()) AND NOT is_system)', 'stage_'||t||'_delete', t);
   ELSE
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (user_id=(select auth.uid())) WITH CHECK (user_id=(select auth.uid()))','stage_'+t+'_owner',t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING (user_id=(select auth.uid())) WITH CHECK (user_id=(select auth.uid()))','stage_'||t||'_owner',t);
   END IF;
   EXECUTE format('GRANT SELECT,INSERT,UPDATE,DELETE ON public.%I TO authenticated',t);
  END LOOP;
