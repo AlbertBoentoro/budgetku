@@ -1,0 +1,22 @@
+name: Read-only production HTTP smoke test
+
+on:
+  push:
+    branches:
+      - test/p0-http-smoke-*
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  http-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Test production reachability and anonymous access controls
+        run: node tests/http-smoke.mjs
