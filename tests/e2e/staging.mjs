@@ -132,6 +132,79 @@ try {
     encodeURIComponent(archives[0].name));
   assert.equal(download.status(), 200);
   console.log("PASS: versioned snapshot can be downloaded by synthetic staging user");
+  // Restore tests are performed exclusively against the guarded staging URL.
+  const originalSnapshot = archives[0].name;
+  const originalSha = (await (await context.request.get(
+    "/api/settings/backup/inspect?snapshot=" + encodeURIComponent(originalSnapshot),
+  )).json()).sha256;
+  assert.match(originalSha, /^[0-9a-f]{64}$/);
+
+  // Add a second fake transaction through the UI. The snapshot to restore
+  // still contains only the first transaction.
+  await page.goto("/transactions/new", { waitUntil: "domcontentloaded" });
+  const amountTwo = page.getByLabel("Nominal Pengeluaran");
+  await amountTwo.waitFor({ state: "visible", timeout: 25000 });
+  await amountTwo.fill("7000");
+  await page.getByLabel("Kategori").selectOption(category.id);
+  await page.getByRole("button", { name: "Submit", exact: true }).click();
+  await page.waitForURL((next) => next.pathname === "/transactions", { timeout: 25000 });
+  const beforeRestore = must(await admin.from("transactions")
+    .select("id,amount").eq("user_id",userId), "read before staged restore");
+  assert.equal(beforeRestore.length, 2);
+
+  const preview = await context.request.post("/api/settings/backup/restore", {
+    data: { mode: "preview", snapshot: originalSnapshot },
+  });
+  assert.equal(preview.status(), 200, await preview.text());
+  const previewResult = await preview.json();
+  assert.equal(previewResult.ok, true);
+  assert.equal(previewResult.counts.transactions, 1);
+  assert.equal(previewResult.sha256, originalSha);
+  console.log("PASS: restore preview verifies archived snapshot without modifying data");
+
+  const badRequest = await context.request.post("/api/settings/backup/restore", {
+    data: { mode: "apply", snapshot: originalSnapshot, sha256: "wrong", confirmation: "PULIHKAN" },
+  });
+  assert.equal(badRequest.status(), 409);
+  assert.equal(must(await admin.from("transactions").select("id").eq("user_id",userId),
+    "check wrong-hash rejection").length,2);
+  console.log("PASS: wrong checksum is rejected without changing the staging ledger");
+
+  // A forged account reference produces a foreign-key exception after the
+  // atomic function begins. PostgreSQL must roll back every DB change.
+  const signedIn = createClient(url, key);
+  must(await signedIn.auth.signInWithPassword({email,password}), "test RPC login");
+  const snapshotBody = await download.json();
+  snapshotBody.data.transactions[0].account_id = randomBytes(16).toString("hex")
+    .replace(/^(........)(....)(....)(....)(............)$/, "$1-$2-$3-$4-$5");
+  const attacked = await signedIn.rpc("restore_budgetku_backup_v1", {
+    p_backup: snapshotBody,
+  });
+  assert.ok(attacked.error, "Invalid FK must fail restore");
+  assert.equal(must(await admin.from("transactions").select("id").eq("user_id",userId),
+    "verify rollback").length,2);
+  console.log("PASS: invalid foreign key rolls back atomic restore and preserves ledger");
+
+  const applied = await context.request.post("/api/settings/backup/restore", {
+    data: {
+      mode: "apply", snapshot: originalSnapshot, sha256: originalSha,
+      confirmation: "PULIHKAN",
+    },
+  });
+  assert.equal(applied.status(), 200, await applied.text());
+  const appliedData = await applied.json();
+  assert.equal(appliedData.ok,true);
+  assert.equal(appliedData.restored.transactions,1);
+  const afterRestore = must(await admin.from("transactions")
+    .select("id,amount").eq("user_id",userId), "verify restored ledger");
+  assert.equal(afterRestore.length,1);
+  assert.equal(Number(afterRestore[0].amount),25000);
+  const safetyHistory = await context.request.get("/api/settings/backup/history");
+  assert.equal(safetyHistory.status(),200);
+  const safetySnapshots = (await safetyHistory.json()).snapshots;
+  assert.ok(safetySnapshots.length>=2, "A safety backup must be created before restoring");
+  console.log("PASS: exact snapshot restored atomically, prior state archived as safety snapshot");
+
   await context.close();
 } finally {
   if (browser) await browser.close();
