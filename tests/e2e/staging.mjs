@@ -206,7 +206,8 @@ try {
     p_force_rollback: false,
   });
   assert.ok(refused.error && refused.error.message.includes("Gmail-linked transaction conflict"),
-    "atomic restore must reject modified Gmail-linked expense");
+    "atomic restore must reject modified Gmail-linked expense; instead got: " +
+      (refused.error?.code ?? "no error") + " " + (refused.error?.message ?? "success"));
   assert.equal(Number(must(await admin.from("transactions").select("amount")
     .eq("id", row.id).single(), "verify Gmail conflict left ledger intact").amount), 27000);
   console.log("PASS: database denies destructive Gmail-linked transaction restore");
