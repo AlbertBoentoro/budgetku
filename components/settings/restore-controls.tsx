@@ -15,6 +15,7 @@ type Preview = {
   blockers: string[];
   backupGeneratedAt: string;
   backupSha256: string;
+  currentSha256: string;
   externalGmailLinks: number;
   tables: Record<string, Counts>;
 };
@@ -100,6 +101,7 @@ export function RestoreControls() {
         body: JSON.stringify({
           snapshot,
           expectedBackupSha256: preview.backupSha256,
+          expectedCurrentSha256: preview.currentSha256,
           confirmation,
         }),
       });
