@@ -63,7 +63,7 @@ export async function fetchVerifiedBackup(
     throw new Error("Backup size exceeds the configured limit.");
   }
   if (snapshot) {
-    const expectedHash = snapshot.match(/-([a-f0-9]{32})\\.json$/i)?.[1];
+    const expectedHash = snapshot.match(/-([a-f0-9]{32})\.json$/i)?.[1];
     if (!expectedHash || sha256(content).slice(0, 32) !== expectedHash.toLowerCase()) {
       throw new Error("Snapshot checksum mismatch.");
     }
