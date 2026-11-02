@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildUserBackup } from "@/lib/settings/backup";
 import { fetchVerifiedBackup, storeVerifiedBackup } from "@/lib/settings/backup-storage";
+import { sha256 } from "@/lib/settings/backup-storage-core.mjs";
 import { isBackupSnapshotFilename } from "@/lib/settings/backup-safety";
 import { createRestorePreview } from "@/lib/settings/restore-plan-core.mjs";
 import { isStagingRestoreAllowed } from "@/lib/settings/staging-restore-guard";
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
   let input: {
     snapshot?: unknown;
     expectedBackupSha256?: unknown;
+    expectedCurrentSha256?: unknown;
     confirmation?: unknown;
   };
   try {
@@ -67,7 +69,9 @@ export async function POST(request: Request) {
     return fail("Pilih cadangan bertanggal yang terverifikasi.", 400);
   }
   if (typeof input.expectedBackupSha256 !== "string" ||
-    !/^[a-f0-9]{64}$/i.test(input.expectedBackupSha256)) {
+    !/^[a-f0-9]{64}$/i.test(input.expectedBackupSha256) ||
+    typeof input.expectedCurrentSha256 !== "string" ||
+    !/^[a-f0-9]{64}$/i.test(input.expectedCurrentSha256)) {
     return fail("Pratinjau tidak valid. Periksa ulang cadangan.", 400);
   }
   try {
@@ -82,6 +86,13 @@ export async function POST(request: Request) {
     ]);
     if (input.expectedBackupSha256.toLowerCase() !== saved.sha256) {
       return fail("Cadangan berubah. Periksa ulang sebelum pemulihan.", 409);
+    }
+
+    // The user's preview becomes invalid if even one row changes, including
+    // a new transaction not displayed in the impact table. Never silently
+    // apply a wider deletion than the user explicitly reviewed.
+    if (input.expectedCurrentSha256.toLowerCase() !== sha256(JSON.stringify(current.data))) {
+      return fail("Data berubah sejak pratinjau. Periksa ulang dampak Restore.", 409);
     }
 
     const backup = JSON.parse(saved.text);
