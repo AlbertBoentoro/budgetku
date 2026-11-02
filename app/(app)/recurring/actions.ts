@@ -386,7 +386,7 @@ export async function deleteRecurring(id: string): Promise<ActionResult> {
 // transactions row mirroring the template, then advances next_due_date and sets
 // last_generated_at. If end_date has passed, nothing is generated. Every read
 // and write is user-scoped with ownership checks.
-export async function generateNow(id: string): Promise<ActionResult> {
+export async function generateNow(id: string, expectedDueDate: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, message: "Sesi berakhir. Silakan masuk kembali." };
@@ -395,6 +395,7 @@ export async function generateNow(id: string): Promise<ActionResult> {
   // next due date in one transaction. Never split these two writes in JS.
   const { error } = await supabase.rpc("generate_recurring_now", {
     p_template_id: id,
+    p_expected_due_date: expectedDueDate,
   });
 
   if (error) {
