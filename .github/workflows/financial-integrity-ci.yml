@@ -57,6 +57,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/sql/recurring-fixture.sql
           psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-atomic-recurring.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/recurring-integration.sql
+          bash tests/sql/recurring-concurrent.sh
       - name: Run isolated regression tests
         run: npm test
       - name: Lint all source
