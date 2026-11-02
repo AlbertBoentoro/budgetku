@@ -76,7 +76,7 @@ export function RecurringListRow({ template, onError }: RecurringListRowProps) {
   }
 
   function handleGenerate() {
-    run(() => generateNow(template.id));
+    run(() => generateNow(template.id, template.next_due_date));
   }
 
   function handleDelete() {
