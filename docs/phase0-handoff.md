@@ -1,3 +1,30 @@
+> **ACTIVE P0 UPDATE — 2 Nov 2026 (supersedes all older status below):**
+> - PR #4 and #7 are already merged; production Vercel serves Git SHA
+>   `4ce5bf8c89d90e1d873409a65c6b7995c5670d6a`.
+> - Atomic recurring RPC and goal-status migrations are already present in
+>   production, verified via read-only inspection. No change to live data
+>   or schema was performed during this follow-up.
+> - Current work: protect the existing backup files, in
+>   **fix/p0-preserve-legacy-backup-20261102**, draft PR
+>   **https://github.com/AlbertBoentoro/budgetku/pull/13** (issue #8).
+> - Read-only production Storage inventory: 2 existing `latest.json`
+>   objects, **0 immutable snapshots**. Protecting these prior to first new
+>   backup rotation is a release-blocking risk.
+> - Branch PR #13 archives a validated existing latest file to a deterministic
+>   immutable snapshot, verifies its checksum, then writes a new snapshot
+>   before updating latest; rejects errors and changed latest baseline.
+> - Full unit/SQL/lint/build CI: see PR #13 check summary for latest
+>   SHA. Until green, do not call this production-ready.
+> - Other in-progress *draft* PRs #9 (anonymous HTTP smoke), #10 (isolated
+>   staging browser tests), #11 (staging-only atomic restore), and #12
+>   (read-only/staging restore preview) are independent. Do NOT merge
+>   any of them implicitly, or overwrite their branches.
+> - **Standing approval gate:** user authorized independent branch-only
+>   coding/tests. No production Storage change, Supabase migration, merge,
+>   or production deployment without a fresh explicit user YES.
+> - Codex: read root AGENTS.md, this note, PR #13 and the tests; continue
+>   without asking the user to type context again.
+
 > **LATEST STATUS (2026-11-02, supersedes historical notes below):** PR #4 was
 > MERGED into main as `ac87534133c9cbffab23b2186388b505405a3756`.
 > Three approved production Supabase migrations (recurring atomic RPC, goal
