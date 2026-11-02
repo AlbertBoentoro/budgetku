@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - fix/financial-integrity-p0-*
+      - fix/p0-recovery-integrity-*
   workflow_dispatch:
 
 permissions:
@@ -62,6 +63,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-goal-status.sql
           psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-goal-contribution-ownership.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/goals-integration.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/gmail-recovery.sql
       - name: Run isolated regression tests
         run: npm test
       - name: Lint all source

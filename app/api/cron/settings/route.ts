@@ -4,11 +4,10 @@ import type { PushSubscription } from "web-push";
 
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { buildUserBackup } from "@/lib/settings/backup";
+import { storeVerifiedBackup } from "@/lib/settings/backup-storage";
 import { isAllowedPushEndpoint } from "@/lib/settings/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const BUCKET = "budgetku-backups";
-const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 type ScheduledSetting = Pick<
   Database["public"]["Tables"]["user_settings"]["Row"],
   "user_id" | "daily_reminder_enabled" | "last_reminder_sent_on"
@@ -122,19 +121,7 @@ export async function GET(request: Request) {
   for (const userId of backupUserIds) {
     try {
       const backup = await buildUserBackup(supabase, userId);
-      const body = JSON.stringify(backup);
-      if (new TextEncoder().encode(body).byteLength > MAX_BACKUP_BYTES) {
-        throw new Error("Backup exceeds the configured storage limit.");
-      }
-
-      const path = `${userId}/latest.json`;
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, body, {
-          contentType: "application/json",
-          upsert: true,
-        });
-      if (uploadError) throw new Error(uploadError.message);
+      await storeVerifiedBackup(supabase, userId, backup);
 
       const { error: updateError } = await supabase
         .from("user_settings")

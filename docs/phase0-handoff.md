@@ -1,3 +1,29 @@
+> **LATEST STATUS (2026-11-02, supersedes historical notes below):** PR #4 was
+> MERGED into main as `ac87534133c9cbffab23b2186388b505405a3756`.
+> Three approved production Supabase migrations (recurring atomic RPC, goal
+> status, goal contribution ownership) were applied successfully and verified.
+> Vercel production at `budgetku-weld.vercel.app` was READY on that commit.
+> Any earlier text below saying "not deployed" or "PR #4 draft" documents
+> the older state, NOT the current live release.
+>
+> **ACTIVE WORK NOW:** branch `fix/p0-recovery-integrity-20261102`, draft
+> [PR #7](https://github.com/AlbertBoentoro/budgetku/pull/7), starting from
+> the deployed main commit. No new production change has been approved.
+> - Store timestamped immutable backups; read back and verify SHA256/format/
+>   ownership before updating `latest.json`.
+> - Authenticated read-only backup history and inspection APIs; existing
+>   latest download is validated.
+> - Repair partial Gmail imports by linking an existing unique-source
+>   transaction rather than trying to insert a duplicate.
+> - All data is synthetic in branch tests, no live financial row changes.
+> - **Full transactional restore is NOT implemented or tested yet.** Don't
+>   claim the application is disaster-recovery-complete.
+> - Deferred transaction form UI issue #5 and custom categories issue #6
+>   remain postponed as requested.
+>
+> Production gate: user approval required again before merging this new PR,
+> deploying, or modifying live schema. Run CI first and report actual results.
+
 # Budgetku Phase 0 — handoff for ChatGPT / Codex / reviewers
 
 Updated: 2026-11-02. This file is intentionally durable context so the user

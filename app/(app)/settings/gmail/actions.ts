@@ -126,6 +126,44 @@ async function canUseCategory(
 }
 
 /**
+ * Recover a failed second step of Gmail import without inserting again.
+ * The unique ledger reference is the authoritative idempotency key.
+ * All reads and updates are scoped to the authenticated user.
+ */
+async function reconcileExistingEmailTransaction(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  importId: string,
+  gmailMessageId: string,
+): Promise<"recovered" | "missing" | "failed"> {
+  const { data: transaction, error: lookupError } = await supabase
+    .from("transactions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("source", "email")
+    .eq("source_reference", gmailMessageId)
+    .maybeSingle();
+
+  if (lookupError) return "failed";
+  if (!transaction) return "missing";
+
+  const { data: linked, error: linkError } = await supabase
+    .from("email_imports")
+    .update({
+      transaction_id: transaction.id,
+      status: "imported",
+      processed_at: new Date().toISOString(),
+    })
+    .eq("id", importId)
+    .eq("user_id", userId)
+    .select("id")
+    .maybeSingle();
+
+  if (linkError || !linked) return "failed";
+  return "recovered";
+}
+
+/**
  * syncGmail — manual "Sync sekarang" trigger (§4.3). Loads the connected
  * connection, runs the sync engine, and returns an honest ActionResult with NO
  * fabricated counts in copy.
@@ -228,6 +266,20 @@ export async function importDraft(
     };
   }
 
+  // If a previous attempt created the ledger row but failed to mark the
+  // email imported, repair the pointer instead of trying a second insert.
+  const preexisting = await reconcileExistingEmailTransaction(
+    supabase, user.id, importRow.id, importRow.gmail_message_id,
+  );
+  if (preexisting === "recovered") {
+    revalidatePath("/settings/gmail");
+    revalidatePath("/transactions");
+    return { ok: true };
+  }
+  if (preexisting === "failed") {
+    return { ok: false, message: "Status transaksi email belum bisa diverifikasi. Coba lagi." };
+  }
+
   // Ownership checks exactly as guardTransaction, fail-closed.
   if (!(await ownsActiveAccount(supabase, user.id, input.account_id))) {
     return {
@@ -278,10 +330,17 @@ export async function importDraft(
   // concurrent import already created this email's transaction. Nothing was
   // inserted; reuse the idempotency guard's copy above.
   if (txError?.code === "23505") {
-    return {
-      ok: false,
-      message: "Email ini sudah diimpor sebelumnya.",
-    };
+    // Another request may have inserted the same message while we were
+    // processing; repair the import pointer and report an idempotent success.
+    const recovered = await reconcileExistingEmailTransaction(
+      supabase, user.id, importRow.id, importRow.gmail_message_id,
+    );
+    if (recovered === "recovered") {
+      revalidatePath("/settings/gmail");
+      revalidatePath("/transactions");
+      return { ok: true };
+    }
+    return { ok: false, message: "Transaksi email sudah ada, tetapi statusnya belum tersinkron. Coba lagi." };
   }
 
   if (txError || !created) {
@@ -303,14 +362,16 @@ export async function importDraft(
     .eq("user_id", user.id);
 
   if (linkError) {
-    // Honest partial-failure message, matching createTransaction's recurring
-    // partial-failure pattern. The transaction was saved.
+    // A transient link failure can be repaired without duplicating money.
+    const recovered = await reconcileExistingEmailTransaction(
+      supabase, user.id, importRow.id, importRow.gmail_message_id,
+    );
     revalidatePath("/settings/gmail");
     revalidatePath("/transactions");
+    if (recovered === "recovered") return { ok: true };
     return {
       ok: false,
-      message:
-        "Transaksi tersimpan, tetapi status email gagal diperbarui. Coba sinkronkan lagi.",
+      message: "Transaksi sudah tersimpan, tetapi status email belum berhasil diperbarui. Coba impor ulang untuk memperbaiki status tanpa mencatat uang dua kali.",
     };
   }
 
