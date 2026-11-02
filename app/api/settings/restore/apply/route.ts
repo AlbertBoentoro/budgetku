@@ -21,7 +21,14 @@ function fail(message: string, status: number) {
 function sameOrigin(request: Request) {
   try {
     const origin = request.headers.get("origin");
-    if (origin && new URL(origin).origin !== new URL(request.url).origin) return false;
+    const site = request.headers.get("sec-fetch-site");
+    const expected = new URL(request.url);
+    const host = request.headers.get("host");
+    if (site && site !== "same-origin" && site !== "none") return false;
+    if (origin && (new URL(origin).protocol !== expected.protocol ||
+        (new URL(origin).host !== expected.host && new URL(origin).host !== host))) {
+      return false;
+    }
     return request.headers.get("x-budgetku-restore-intent") === PROOF &&
       request.headers.get("content-type")?.split(";")[0].toLowerCase() === "application/json";
   } catch {
