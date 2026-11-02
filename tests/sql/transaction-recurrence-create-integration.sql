@@ -128,8 +128,44 @@ BEGIN
  END IF;
 END $$;
 
+-- Force failure during the SECOND insert (template creation). Its previous
+-- ledger INSERT must roll back in the same database transaction.
 RESET ROLE;
-DO $$
+CREATE OR REPLACE FUNCTION public.reject_test_template()
+RETURNS trigger LANGUAGE plpgsql AS $
+BEGIN
+ IF NEW.name='fail-template' THEN
+   RAISE EXCEPTION 'Synthetic template insert failure' USING ERRCODE='23514';
+ END IF;
+ RETURN NEW;
+END $;
+CREATE TRIGGER reject_test_template
+BEFORE INSERT ON public.recurring_transactions
+FOR EACH ROW EXECUTE FUNCTION public.reject_test_template();
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+DO $
+BEGIN
+ PERFORM public.create_transaction_with_recurring(
+ 'cccccccc-cccc-4ccc-8ccc-ccccccccccc7','expense',51515,
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',null,
+ 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1','2026-01-31',
+ 'Template fails',null,'fail-template','monthly',null);
+ RAISE EXCEPTION 'Template failure did not abort' USING ERRCODE='XX000';
+EXCEPTION WHEN SQLSTATE '23514' THEN NULL;
+END $;
+DO $
+BEGIN
+ IF EXISTS (
+ SELECT 1 FROM public.transactions
+ WHERE source_reference='initial-recurring:cccccccc-cccc-4ccc-8ccc-ccccccccccc7'
+ ) THEN
+ RAISE EXCEPTION 'Ledger row survived failed template insert';
+ END IF;
+END $;
+
+RESET ROLE;
+DO $
 BEGIN
  IF has_function_privilege('anon',
  'public.create_transaction_with_recurring(uuid,text,numeric,uuid,uuid,uuid,date,text,text,text,text,date)', 'EXECUTE') THEN
