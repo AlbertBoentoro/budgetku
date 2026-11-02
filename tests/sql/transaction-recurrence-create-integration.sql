@@ -132,19 +132,19 @@ END $$;
 -- ledger INSERT must roll back in the same database transaction.
 RESET ROLE;
 CREATE OR REPLACE FUNCTION public.reject_test_template()
-RETURNS trigger LANGUAGE plpgsql AS $
+RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
  IF NEW.name='fail-template' THEN
    RAISE EXCEPTION 'Synthetic template insert failure' USING ERRCODE='23514';
  END IF;
  RETURN NEW;
-END $;
+END $$;
 CREATE TRIGGER reject_test_template
 BEFORE INSERT ON public.recurring_transactions
 FOR EACH ROW EXECUTE FUNCTION public.reject_test_template();
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
-DO $
+DO $$
 BEGIN
  PERFORM public.create_transaction_with_recurring(
  'cccccccc-cccc-4ccc-8ccc-ccccccccccc7','expense',51515,
@@ -153,8 +153,8 @@ BEGIN
  'Template fails',null,'fail-template','monthly',null);
  RAISE EXCEPTION 'Template failure did not abort' USING ERRCODE='XX000';
 EXCEPTION WHEN SQLSTATE '23514' THEN NULL;
-END $;
-DO $
+END $$;
+DO $$
 BEGIN
  IF EXISTS (
  SELECT 1 FROM public.transactions
@@ -162,10 +162,10 @@ BEGIN
  ) THEN
  RAISE EXCEPTION 'Ledger row survived failed template insert';
  END IF;
-END $;
+END $$;
 
 RESET ROLE;
-DO $
+DO $$
 BEGIN
  IF has_function_privilege('anon',
  'public.create_transaction_with_recurring(uuid,text,numeric,uuid,uuid,uuid,date,text,text,text,text,date)', 'EXECUTE') THEN
