@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildUserBackup } from "@/lib/settings/backup";
 import { fetchVerifiedBackup } from "@/lib/settings/backup-storage";
+import { sha256 } from "@/lib/settings/backup-storage-core.mjs";
 import { createRestorePreview } from "@/lib/settings/restore-plan-core.mjs";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
       ...plan,
       backupGeneratedAt: saved.inspection.generatedAt,
       backupSha256: saved.sha256,
+      currentSha256: sha256(JSON.stringify(current.data)),
       message: "Ini hanya pratinjau. Data keuangan belum diubah.",
     }, { headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
   } catch (error) {
