@@ -64,6 +64,11 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-goal-contribution-ownership.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/goals-integration.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/gmail-recovery.sql
+      - name: Validate synthetic staging schema in disposable PostgreSQL
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE budgetku_stage_fixture_ci"
+          PGDATABASE=budgetku_stage_fixture_ci psql -v ON_ERROR_STOP=1 -f tests/staging/ci-bootstrap.sql
+          PGDATABASE=budgetku_stage_fixture_ci psql -v ON_ERROR_STOP=1 -f tests/staging/schema-fixture.sql
       - name: Run isolated regression tests
         run: npm test
       - name: Lint all source
