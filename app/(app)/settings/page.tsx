@@ -12,6 +12,7 @@ import { LogoutConfirm } from "@/components/settings/logout-confirm";
 import { ThemeSettingRow } from "@/components/settings/theme-setting-row";
 import { PreferencesForm } from "@/components/settings/preferences-form";
 import { BackupControls } from "@/components/settings/backup-controls";
+import { StagingRestoreControls } from "@/components/settings/staging-restore-controls";
 import { PushSetup } from "@/components/settings/push-setup";
 import { SettingsLoading } from "@/app/(app)/settings/loading";
 
@@ -212,6 +213,11 @@ async function SettingsContent() {
             )}
           />
         )}
+        {process.env.BUDGETKU_STAGING_E2E === "true" &&
+          process.env.NEXT_PUBLIC_SUPABASE_URL ===
+            "https://omnzuolrlwczvnxrvenw.supabase.co" ? (
+            <StagingRestoreControls />
+          ) : null}
         <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           <DownloadLinkRow
             href="/api/export/data"
