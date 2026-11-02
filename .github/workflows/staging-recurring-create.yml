@@ -1,0 +1,72 @@
+name: Budgetku P0 recurring form staging browser E2E
+
+# Intentional manual gate: requires a separate Supabase staging project.
+# Never enable this workflow against the production Supabase project.
+on:
+  push:
+    branches:
+      - fix/p0-atomic-transaction-recurrence-*
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: budgetku-staging-e2e
+  cancel-in-progress: false
+
+jobs:
+  staging-e2e:
+    # Repository-level public variable is the activation gate.
+    # A fresh staging branch push after configuring variables/secrets runs
+    # the test without merging the workflow to production main.
+    if: ${{ vars.STAGING_PROJECT_REF != '' && vars.STAGING_SUPABASE_URL != '' }}
+    name: Synthetic staging transaction and recurring form
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: budgetku-staging
+    env:
+      BUDGETKU_STAGING_E2E: "true"
+      TEST_BASE_URL: http://127.0.0.1:3000
+      STAGING_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
+      STAGING_SUPABASE_URL: ${{ vars.STAGING_SUPABASE_URL }}
+      STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.STAGING_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Reject incomplete or production configuration
+        run: |
+          test -n "$STAGING_PROJECT_REF"
+          test -n "$STAGING_SUPABASE_URL"
+          test -n "$STAGING_SUPABASE_PUBLISHABLE_KEY"
+          test -n "$STAGING_SUPABASE_SERVICE_ROLE_KEY"
+          test "$STAGING_PROJECT_REF" != "zvmqrrttdrqkyrdzyxlf"
+          case "$STAGING_SUPABASE_URL" in
+            https://"$STAGING_PROJECT_REF".supabase.co) ;;
+            *) exit 1 ;;
+          esac
+      - name: Install app dependencies
+        run: npm ci
+      - name: Install pinned Playwright runtime (not a production dependency)
+        run: npm install --no-save --package-lock=false playwright@1.56.1
+      - name: Install headless Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build app against staging variables only
+        run: npm run build
+      - name: Start local staging app
+        run: |
+          npm run start -- -p 3000 >/tmp/budgetku-staging-next.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/auth/login >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          echo "The staging-only local application did not start."
+          exit 1
+      - name: Run recurring transaction form browser test
+        run: node tests/e2e/recurring-create.mjs
