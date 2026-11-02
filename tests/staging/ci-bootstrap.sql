@@ -1,11 +1,11 @@
 -- Disposable PostgreSQL 17 container only. Minimal Supabase platform stubs
 -- to syntax-check tests/staging/schema-fixture.sql without a cloud project.
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN
     CREATE ROLE authenticated NOLOGIN;
   END IF;
-END $;
+END $$;
 CREATE SCHEMA auth;
 CREATE TABLE auth.users (id uuid PRIMARY KEY);
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
