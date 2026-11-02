@@ -47,6 +47,52 @@ BEGIN
  END IF;
 END $$;
 
+-- A retry with the same ledger details but CHANGED recurrence cannot
+-- silently return success. This was previously missed by idempotency tests.
+DO $
+BEGIN
+ PERFORM public.create_transaction_with_recurring(
+ 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1','expense',50000,
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',null,
+ 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1','2026-01-31',
+ 'Monthly expense','shop','Monthly expense','weekly',null);
+ RAISE EXCEPTION 'Changed-frequency retry succeeded' USING ERRCODE='XX000';
+EXCEPTION WHEN SQLSTATE 'P0001' THEN NULL;
+END $;
+
+DO $
+BEGIN
+ PERFORM public.create_transaction_with_recurring(
+ 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1','expense',50000,
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',null,
+ 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1','2026-01-31',
+ 'Monthly expense','shop','Monthly expense','monthly','2026-06-30');
+ RAISE EXCEPTION 'Changed-end-date retry succeeded' USING ERRCODE='XX000';
+EXCEPTION WHEN SQLSTATE 'P0001' THEN NULL;
+END $;
+
+DO $
+BEGIN
+ PERFORM public.create_transaction_with_recurring(
+ 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1','expense',50000,
+ 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',null,
+ 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1','2026-01-31',
+ 'Monthly expense','shop','Changed name','monthly',null);
+ RAISE EXCEPTION 'Changed-name retry succeeded' USING ERRCODE='XX000';
+EXCEPTION WHEN SQLSTATE 'P0001' THEN NULL;
+END $;
+
+DO $
+BEGIN
+ IF (SELECT count(*) FROM public.transactions
+     WHERE source_reference='initial-recurring:cccccccc-cccc-4ccc-8ccc-ccccccccccc1') <> 1
+    OR (SELECT count(*) FROM public.recurring_transactions
+        WHERE name='Monthly expense' AND frequency='monthly' AND end_date IS NULL) <> 1
+ THEN
+   RAISE EXCEPTION 'Conflicting schedule retries modified persisted data';
+ END IF;
+END $;
+
 -- Same request key, different amount must never be silently accepted.
 DO $$
 BEGIN
