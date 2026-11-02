@@ -24,19 +24,24 @@ Everything the test creates must use its own Supabase staging project.
    NOT a backup or full clone of the production schema.
    If testing recurring generation, apply the existing recurring RPC
    migration AFTER the base fixture (the current browser tests do not call it).
-3. In GitHub repository > Settings > Environments, create environment
-   `budgetku-staging`. Configure these **environment variables**:
-   - `STAGING_PROJECT_REF`: staging's project reference only
-   - `STAGING_SUPABASE_URL`: `https://<STAGING_PROJECT_REF>.supabase.co`
-   Configure these **environment secrets** (never commit/paste them in chat):
-   - `STAGING_SUPABASE_PUBLISHABLE_KEY`: staging publishable/anon key
-   - `STAGING_SUPABASE_SERVICE_ROLE_KEY`: staging server-side key;
-     only the GitHub Actions runner may use it
-4. Trigger workflow `Budgetku isolated staging browser E2E` manually.
-   It rejects the production ref, unknown URLs, missing secrets and nonlocal
-   app URLs before creating data. It installs Chromium, builds the real app,
+3. In GitHub repository > **Settings > Secrets and variables >
+   Actions > Variables**, configure these PUBLIC **repository variables**
+   (the test job does not start before both are present):
+   - `STAGING_PROJECT_REF`: `omnzuolrlwczvnxrvenw`
+   - `STAGING_SUPABASE_URL`: `https://omnzuolrlwczvnxrvenw.supabase.co`
+   In **Settings > Environments**, create `budgetku-staging` and configure
+   these **environment secrets** (never commit/paste them in chat):
+   - `STAGING_SUPABASE_PUBLISHABLE_KEY`: *staging* publishable key
+   - `STAGING_SUPABASE_SERVICE_ROLE_KEY`: *staging* server-side service-role
+     key; only the GitHub Actions runner may use it. NEVER use a production key.
+4. Push an approved change on `test/staging-playwright-20261102` after
+   configuring those settings; GitHub Actions runs the staging E2E job
+   automatically on the test branch, without merging to production. It
+   rejects the production ref, unknown URLs, missing secrets and nonlocal app
+   URLs before creating data. It installs Chromium, builds the real app,
    creates a temporary staging user, tests a transaction and backup, and
-   cleans up.
+   cleans up. A workflow_dispatch control is also available once workflow
+   configuration exists on the repository default branch.
 
 ## Safety and expected output
 
