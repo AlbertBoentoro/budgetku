@@ -103,7 +103,7 @@ try {
   ), (rows) => rows.length === 1, "new test transaction");
 
   const transactions = must(await admin.from("transactions")
-    .select("amount,transaction_type,account_id,category_id")
+    .select("id,amount,transaction_type,account_id,category_id")
     .eq("user_id", userId), "verify synthetic ledger");
   assert.equal(transactions.length, 1);
   assert.equal(Number(transactions[0].amount), 25000);
@@ -133,6 +133,14 @@ try {
   assert.equal(download.status(), 200);
   console.log("PASS: versioned snapshot can be downloaded by synthetic staging user");
   // Restore tests are performed exclusively against the guarded staging URL.
+  // A Gmail import points to the first transaction. Its FK must survive
+  // an atomic restore when the snapshot retains the same transaction ID.
+  const linkedFirst = must(await admin.from("email_imports").insert({
+    user_id: userId, transaction_id: transactions[0].id,
+    gmail_message_id: "synthetic-first-gmail",
+  }).select("id").single(), "seed synthetic Gmail link");
+  assert.ok(linkedFirst.id);
+
   const originalSnapshot = archives[0].name;
   const originalSha = (await (await context.request.get(
     "/api/settings/backup/inspect?snapshot=" + encodeURIComponent(originalSnapshot),
@@ -151,6 +159,14 @@ try {
   const beforeRestore = must(await admin.from("transactions")
     .select("id,amount").eq("user_id",userId), "read before staged restore");
   assert.equal(beforeRestore.length, 2);
+  const laterTransaction = beforeRestore.find((item) => Number(item.amount)===7000);
+  assert.ok(laterTransaction?.id);
+  const linkedSecond = must(await admin.from("email_imports").insert({
+    user_id: userId, transaction_id: laterTransaction.id,
+    gmail_message_id: "synthetic-new-gmail",
+  }).select("id").single(), "seed second Gmail-linked transaction");
+  assert.ok(linkedSecond.id);
+
 
   const preview = await context.request.post("/api/settings/backup/restore", {
     data: { mode: "preview", snapshot: originalSnapshot },
@@ -185,6 +201,20 @@ try {
     "verify rollback").length,2);
   console.log("PASS: invalid foreign key rolls back atomic restore and preserves ledger");
 
+  const blocked = await context.request.post("/api/settings/backup/restore", {
+    data: {
+      mode: "apply", snapshot: originalSnapshot, sha256: originalSha,
+      confirmation: "PULIHKAN",
+    },
+  });
+  assert.equal(blocked.status(),409, "Gmail-linked transaction missing from snapshot should block restore");
+  assert.equal(must(await admin.from("transactions").select("id").eq("user_id",userId),
+    "verify Gmail block").length,2);
+  console.log("PASS: Gmail-linked transaction missing from backup blocks destructive restore");
+  must(await admin.from("email_imports").delete().eq("id",linkedSecond.id)
+    .eq("user_id",userId), "remove synthetic second Gmail link");
+  // The surviving first Gmail import must remain linked after restore.
+
   const applied = await context.request.post("/api/settings/backup/restore", {
     data: {
       mode: "apply", snapshot: originalSnapshot, sha256: originalSha,
@@ -199,6 +229,12 @@ try {
     .select("id,amount").eq("user_id",userId), "verify restored ledger");
   assert.equal(afterRestore.length,1);
   assert.equal(Number(afterRestore[0].amount),25000);
+  const survivingLink = must(await admin.from("email_imports")
+    .select("transaction_id").eq("id",linkedFirst.id).single(),
+    "inspect first Gmail link after restore");
+  assert.equal(survivingLink.transaction_id,transactions[0].id);
+  console.log("PASS: retained Gmail import stays linked to restored transaction ID");
+
   const safetyHistory = await context.request.get("/api/settings/backup/history");
   assert.equal(safetyHistory.status(),200);
   const safetySnapshots = (await safetyHistory.json()).snapshots;
@@ -218,7 +254,7 @@ try {
         "cleanup synthetic backup snapshots");
     }
     await storage.remove([userId + "/latest.json"]);
-    for (const table of ["goal_contributions", "transactions", "recurring_transactions",
+    for (const table of ["email_imports", "goal_contributions", "transactions", "recurring_transactions",
       "budget_items", "budgets", "financial_goals", "merchant_rules", "accounts", "categories"]) {
       const result = await admin.from(table).delete().eq("user_id", userId);
       if (result.error) console.error("Cleanup needs review for " + table);
