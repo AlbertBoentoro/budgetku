@@ -41,7 +41,7 @@ $$;
 -- Authenticated invoker only: RLS and GRANTs still apply.
 -- FOR UPDATE serializes concurrent clicks on the same schedule.
 -- INSERT and next_due_date UPDATE are one PostgreSQL transaction.
-CREATE OR REPLACE FUNCTION public.generate_recurring_now(p_template_id uuid)
+CREATE OR REPLACE FUNCTION public.generate_recurring_now(p_template_id uuid, p_expected_due_date date)
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -70,6 +70,12 @@ BEGIN
 
   IF NOT v_template.is_active THEN
     RAISE EXCEPTION 'Recurring template paused' USING ERRCODE='P0001';
+  END IF;
+
+  -- The screen sends the occurrence it intends to record. A second request
+  -- for the same old occurrence must NOT create next month's charge.
+  IF p_expected_due_date IS NULL OR v_template.next_due_date IS DISTINCT FROM p_expected_due_date THEN
+    RAISE EXCEPTION 'Stale recurrence; reload before recording' USING ERRCODE='P0001';
   END IF;
 
   v_due := v_template.next_due_date;
@@ -147,8 +153,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.generate_recurring_now(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.generate_recurring_now(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.generate_recurring_now(uuid, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.generate_recurring_now(uuid, date) TO authenticated;
 COMMIT;
 
 -- Post-deploy: test with synthetic authenticated accounts IN STAGING first:
