@@ -3,6 +3,9 @@ name: Budgetku isolated staging browser E2E
 # Intentional manual gate: requires a separate Supabase staging project.
 # Never enable this workflow against the production Supabase project.
 on:
+  push:
+    branches:
+      - test/staging-playwright-*
   workflow_dispatch:
 
 permissions:
@@ -14,6 +17,10 @@ concurrency:
 
 jobs:
   staging-e2e:
+    # Repository-level public variable is the activation gate.
+    # A fresh staging branch push after configuring variables/secrets runs
+    # the test without merging the workflow to production main.
+    if: ${{ vars.STAGING_PROJECT_REF != '' && vars.STAGING_SUPABASE_URL != '' }}
     name: Synthetic staging account + Playwright finance flows
     runs-on: ubuntu-latest
     timeout-minutes: 20
