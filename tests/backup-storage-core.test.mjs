@@ -38,6 +38,7 @@ function fakeStorage({
   corruptSnapshot = false,
   changeLatestMidway = false,
   missingError = { status: 404, message: "Not found" },
+  conflictError = { status: 409, message: "already exists" },
 } = {}) {
   const files = new Map(original === null ? [] : [[latest, original]]);
   const uploads = [];
@@ -52,7 +53,7 @@ function fakeStorage({
         return { error: { status: 503, message: "latest write failure" } };
       }
       if (!options.upsert && files.has(path)) {
-        return { error: { status: 409, message: "already exists" } };
+        return { error: conflictError };
       }
       files.set(path, text);
       if (changeLatestMidway && path === newPath && !didRace) {
@@ -176,4 +177,33 @@ test("an invalid new snapshot cannot alter any existing backup", async () => {
   await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, "{", validate));
   assert.equal(files.get(latest), older);
   assert.equal(files.size, 1);
+});
+
+test("Supabase missing latest error NoSuchKey with HTTP 400 is not a failure", async () => {
+  const { files, storage } = fakeStorage({
+    original: null,
+    missingError: { status: 400, code: "NoSuchKey", error: "not_found" },
+  });
+  await commitVerifiedSnapshot(storage, newPath, latest, newer, validate);
+  assert.equal(files.get(latest), newer);
+  assert.equal(files.get(newPath), newer);
+});
+
+test("Supabase KeyAlreadyExists code with status 400 permits identical retry", async () => {
+  const { files, storage } = fakeStorage({
+    conflictError: { status: 400, code: "KeyAlreadyExists" },
+  });
+  files.set(preservedLatestPath(latest, older), older);
+  await commitVerifiedSnapshot(storage, newPath, latest, newer, validate);
+  assert.equal(files.get(latest), newer);
+  assert.equal(files.get(preservedLatestPath(latest, older)), older);
+});
+
+test("access denied is never misread as a missing backup", async () => {
+  const { files, storage } = fakeStorage({
+    original: null,
+    missingError: { status: 403, code: "AccessDenied", error: "unauthorized" },
+  });
+  await assert.rejects(commitVerifiedSnapshot(storage, newPath, latest, newer, validate), /storage read failed/);
+  assert.equal(files.size, 0);
 });
