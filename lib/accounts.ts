@@ -1,3 +1,5 @@
+import { computeTransactionEffects } from "@/lib/account-balance-math";
+export { sumRunningAccountBalances } from "@/lib/account-balance-math";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import {
   Banknote,
@@ -66,48 +68,7 @@ export async function computeAccountBalances(
     .order("id")
     .range(from, to));
 
-  const net = new Map<string, number>();
-  const add = (accountId: string | null, delta: number) => {
-    if (!accountId) return;
-    net.set(accountId, (net.get(accountId) ?? 0) + delta);
-  };
-
-  for (const row of (data ?? []) as TransactionBalanceRow[]) {
-    const amt = Number(row.amount);
-    if (!Number.isFinite(amt)) continue;
-
-    switch (row.transaction_type) {
-      case "income":
-        add(row.account_id, amt);
-        break;
-      case "expense":
-        add(row.account_id, -amt);
-        break;
-      case "transfer":
-        add(row.account_id, -amt);
-        add(row.destination_account_id, amt);
-        break;
-      // Unknown/legacy types contribute nothing rather than guessing a sign.
-      default:
-        break;
-    }
-  }
-
-  return net;
-}
-
-export function sumRunningAccountBalances(
-  accounts: readonly Pick<AccountRow, "id" | "initial_balance" | "include_in_total">[],
-  balances: ReadonlyMap<string, number>,
-): number {
-  // Respect the include-in-total setting. Archived accounts can still count.
-  let total = 0;
-  for (const account of accounts) {
-    if (!account.include_in_total) continue;
-    const balance = balances.get(account.id) ?? account.initial_balance;
-    if (Number.isFinite(balance)) total += balance;
-  }
-  return total;
+  return computeTransactionEffects(data as TransactionBalanceRow[]);
 }
 
 // Muted account accent tokens that already exist in tailwind.config.ts
