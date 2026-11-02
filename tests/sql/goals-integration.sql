@@ -2,6 +2,22 @@
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 -- App writes archived/achieved; both must be accepted after staged migration.
+-- A contribution owned by user B cannot reference a goal owned by user A,
+-- even if the attacker submits the goal UUID directly to the data API.
+SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+DO $
+BEGIN
+ BEGIN
+  INSERT INTO public.goal_contributions (id,user_id,goal_id,amount)
+  VALUES ('dddddddd-dddd-4ddd-8ddd-ddddddddddd5',
+  '22222222-2222-4222-8222-222222222222',
+  'cccccccc-cccc-4ccc-8ccc-ccccccccccc1',888);
+  RAISE EXCEPTION 'Cross-owner contribution allowed' USING ERRCODE='XX000';
+ EXCEPTION WHEN SQLSTATE '23503' THEN NULL;
+ END;
+END $;
+SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+
 UPDATE public.financial_goals SET status='achieved'
 WHERE id='cccccccc-cccc-4ccc-8ccc-ccccccccccc1';
 UPDATE public.financial_goals SET status='archived'
