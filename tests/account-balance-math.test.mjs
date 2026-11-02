@@ -14,10 +14,16 @@ test("income, expense, and transfer produce correct ledger deltas", () => {
   ]);
   assert.equal(effects.get("A"), 0);
   assert.equal(effects.get("B"), 250);
+  // The pages pass RUNNING balances (opening + transaction delta), not
+  // the transaction delta map directly.
+  const balances = new Map([
+    ["A", 1000 + (effects.get("A") ?? 0)],
+    ["B", 50 + (effects.get("B") ?? 0)],
+  ]);
   assert.equal(sumRunningAccountBalances([
     { id: "A", initial_balance: 1000, include_in_total: true },
     { id: "B", initial_balance: 50, include_in_total: true },
-  ], effects), 1300);
+  ], balances), 1300);
 });
 
 test("excluded account does not enter the dashboard total", () => {
@@ -39,7 +45,10 @@ test("a transfer between included accounts does not alter combined wealth", () =
   ]);
   assert.equal(effects.get("A"), -650);
   assert.equal(effects.get("B"), 650);
-  assert.equal(sumRunningAccountBalances(initial, effects), 1100);
+  const balances = new Map(initial.map((account) => [
+    account.id, account.initial_balance + (effects.get(account.id) ?? 0),
+  ]));
+  assert.equal(sumRunningAccountBalances(initial, balances), 1100);
 });
 
 test("unexpected transaction types and invalid amounts do not poison sums", () => {
