@@ -741,7 +741,7 @@ export type Database = {
     }
     Functions: {
       generate_recurring_now: {
-        Args: { p_template_id: string }
+        Args: { p_template_id: string; p_expected_due_date: string }
         Returns: string
       }
     }
