@@ -7,6 +7,7 @@ on:
     branches:
       - fix/financial-integrity-p0-*
       - fix/p0-recovery-integrity-*
+      - fix/p0-atomic-transaction-*
       - fix/p0-preserve-legacy-backup-*
   workflow_dispatch:
 
@@ -60,6 +61,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-atomic-recurring.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/recurring-integration.sql
           bash tests/sql/recurring-concurrent.sh
+          psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-create-transaction-recurring-atomic.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/transaction-recurrence-create-integration.sql
+          bash tests/sql/transaction-recurrence-create-concurrent.sh
           psql -v ON_ERROR_STOP=1 -f tests/sql/goals-fixture.sql
           psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-goal-status.sql
           psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-goal-contribution-ownership.sql
