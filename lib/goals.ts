@@ -1,3 +1,4 @@
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import {
   PiggyBank,
   Target,
@@ -196,15 +197,13 @@ export async function computeContributionTotals(
     return new Map<string, number>();
   }
 
-  const { data, error } = await supabase
+  const data = await fetchAllPages((from, to) => supabase
     .from("goal_contributions")
     .select("goal_id, amount")
     .eq("user_id", userId)
-    .in("goal_id", goalIds);
-
-  if (error) {
-    throw new Error(`Gagal menghitung kontribusi target: ${error.message}`);
-  }
+    .in("goal_id", goalIds)
+    .order("id")
+    .range(from, to));
 
   const totals = new Map<string, number>();
   for (const row of (data ?? []) as ContributionSumRow[]) {
