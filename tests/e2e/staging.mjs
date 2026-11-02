@@ -249,6 +249,93 @@ try {
     .eq("user_id", userId).single(), "verify Gmail link retained").transaction_id, row.id);
   console.log("PASS: caller-RLS atomic restore recovered one expense without breaking Gmail link");
 
+  // Application-level protected restore: immutable snapshot selection,
+  // preview hash, explicit confirmation and mandatory pre-restore backup.
+  const originalArchive = archives[0].name;
+  must(await admin.from("transactions").insert({
+    user_id: userId, account_id: account.id, category_id: category.id,
+    transaction_type: "expense", amount: 12000, source: "manual",
+  }), "create extra unlinked transaction for preview");
+
+  const approvedResponse = await context.request.post("/api/settings/restore/preview", {
+    data: { snapshot: originalArchive },
+  });
+  assert.equal(approvedResponse.status(), 200);
+  const approved = await approvedResponse.json();
+  assert.equal(approved.eligibleForAtomicRestore, true);
+  assert.equal(approved.tables.transactions.wouldRemove, 1);
+  assert.match(approved.currentSha256, /^[a-f0-9]{64}$/);
+  const applyUrl = "/api/settings/restore/apply";
+  const headers = { "X-Budgetku-Restore-Intent": "staging-v1-confirmed" };
+  const payload = {
+    snapshot: originalArchive,
+    expectedBackupSha256: approved.backupSha256,
+    expectedCurrentSha256: approved.currentSha256,
+    confirmation: "PULIHKAN DATA",
+  };
+  const noProof = await context.request.post(applyUrl, { data: payload });
+  assert.equal(noProof.status(), 403, "apply endpoint must require explicit intent header");
+  const noConfirm = await context.request.post(applyUrl, {
+    headers, data: { ...payload, confirmation: "wrong" },
+  });
+  assert.equal(noConfirm.status(), 400, "apply endpoint must require typed phrase");
+  const wrongHash = await context.request.post(applyUrl, {
+    headers, data: { ...payload, expectedBackupSha256: "0".repeat(64) },
+  });
+  assert.equal(wrongHash.status(), 409, "backup fingerprint mismatch must block restore");
+
+  // Simulate data arriving after user approved the preview.
+  must(await admin.from("transactions").insert({
+    user_id: userId, account_id: account.id, category_id: category.id,
+    transaction_type: "expense", amount: 7000, source: "manual",
+  }), "create a transaction after preview was approved");
+  const stale = await context.request.post(applyUrl, { headers, data: payload });
+  assert.equal(stale.status(), 409, "stale impact preview must refuse restoration");
+  const staleData = must(await admin.from("transactions").select("id")
+    .eq("user_id", userId), "verify stale preview did not delete newer data");
+  assert.equal(staleData.length, 3);
+  console.log("PASS: staging endpoint blocks missing intent, missing confirmation, wrong checksum, and stale impact preview");
+
+  // UI shows BOTH rows that would be removed, and requires typed confirmation.
+  await page.goto("/settings", { waitUntil: "domcontentloaded" });
+  const chosen = page.locator("#restore-snapshot");
+  await chosen.waitFor({ state: "visible", timeout: 25000 });
+  await chosen.selectOption(originalArchive);
+  await page.getByRole("button", { name: "Periksa dampak Restore" }).click();
+  const restoreRow = page.locator("tbody tr").filter({
+    has: page.getByText("Transaksi", { exact: true }),
+  });
+  await restoreRow.waitFor({ state: "visible", timeout: 25000 });
+  assert.equal((await restoreRow.locator("td").last().textContent())?.trim(), "2");
+  const restoreButton = page.getByRole("button", { name: "Pulihkan data staging" });
+  assert.equal(await restoreButton.isDisabled(), true, "restoration disabled before typed confirmation");
+  await page.locator("#restore-confirm").fill("PULIHKAN DATA");
+  assert.equal(await restoreButton.isEnabled(), true);
+  await restoreButton.click();
+  await page.getByText(/Restore staging berhasil/).waitFor({ state: "visible", timeout: 30000 });
+
+  const afterApply = must(await admin.from("transactions").select("id,amount")
+    .eq("user_id", userId), "verify protected UI restoration");
+  assert.equal(afterApply.length, 1, "approved snapshot must restore exactly one ledger row");
+  assert.equal(afterApply[0].id, row.id, "restore must preserve linked transaction identity");
+  assert.equal(Number(afterApply[0].amount), 25000);
+  const linkedAfter = must(await admin.from("email_imports")
+    .select("transaction_id").eq("user_id", userId).single(), "verify imported link after UI restore");
+  assert.equal(linkedAfter.transaction_id, row.id);
+
+  const safetyHistory = await context.request.get("/api/settings/backup/history");
+  assert.equal(safetyHistory.status(), 200);
+  const safetyArchives = (await safetyHistory.json()).snapshots;
+  const createdSafety = safetyArchives.filter((entry) => entry.name !== originalArchive);
+  assert.equal(createdSafety.length, 1, "a new immutable pre-restore safety snapshot should exist");
+  const safetyDownload = await context.request.get(
+    "/api/settings/backup?snapshot=" + encodeURIComponent(createdSafety[0].name));
+  assert.equal(safetyDownload.status(), 200);
+  const safetyData = await safetyDownload.json();
+  assert.equal(safetyData.data.transactions.length, 3,
+    "safety snapshot must preserve all three pre-restore ledger rows");
+  console.log("PASS: user-confirmed staging Restore preserved Gmail link and verified pre-restore backup holds deleted rows");
+
   await context.close();
 } finally {
   if (browser) await browser.close();
