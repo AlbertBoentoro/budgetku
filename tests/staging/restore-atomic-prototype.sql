@@ -73,13 +73,13 @@ BEGIN
       END IF;
     END LOOP;
     EXECUTE pg_catalog.format(
-      'SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(r) ORDER BY r.id), ''[]''::jsonb) FROM public.%I r WHERE %s',
+      'SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(r) ORDER BY r.id), ''[]''::jsonb) FROM public.%I r WHERE %s',
       v_table,
       CASE WHEN v_key='categories' THEN '(r.user_id = $1 OR r.user_id IS NULL)' ELSE 'r.user_id = $1' END
     ) INTO v_actual USING v_user;
 
     -- Normalize input array order; backup query sorts rows by ID.
-    SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(e.value ORDER BY e.value ->> 'id'),'[]'::jsonb)
+    SELECT coalesce(pg_catalog.jsonb_agg(e.value ORDER BY e.value ->> 'id'),'[]'::jsonb)
       INTO v_current
       FROM pg_catalog.jsonb_array_elements(v_current) AS e(value);
     IF v_actual IS DISTINCT FROM v_current THEN
