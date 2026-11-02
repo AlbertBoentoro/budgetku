@@ -12,6 +12,8 @@ import { LogoutConfirm } from "@/components/settings/logout-confirm";
 import { ThemeSettingRow } from "@/components/settings/theme-setting-row";
 import { PreferencesForm } from "@/components/settings/preferences-form";
 import { BackupControls } from "@/components/settings/backup-controls";
+import { RestoreControls } from "@/components/settings/restore-controls";
+import { isStagingRestoreAllowed } from "@/lib/settings/staging-restore-guard";
 import { PushSetup } from "@/components/settings/push-setup";
 import { SettingsLoading } from "@/app/(app)/settings/loading";
 
@@ -212,6 +214,7 @@ async function SettingsContent() {
             )}
           />
         )}
+        {isStagingRestoreAllowed() ? <RestoreControls /> : null}
         <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           <DownloadLinkRow
             href="/api/export/data"
