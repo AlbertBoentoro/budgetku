@@ -70,3 +70,9 @@ jobs:
           exit 1
       - name: Run recurring transaction form browser test
         run: node tests/e2e/recurring-create.mjs
+      - name: Report sanitized staging backup failure cause
+        if: failure()
+        run: |
+          if test -f /tmp/budgetku-staging-next.log; then
+            grep -E 'Manual verified backup creation failed|Backup storage read failed|Previous backup preservation failed|Immutable backup|checksum mismatch' /tmp/budgetku-staging-next.log | tail -n 12 || true
+          fi
