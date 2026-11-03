@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     if (!newest || !isBackupSnapshotFilename(newest)) {
       if (offset > 0) return fail("Riwayat cadangan berubah, ulangi pencarian.", 409);
       return Response.json({
-        matches: [], scanned: 0, skipped: 0, currentSha256: sha256(JSON.stringify(current.data)),
+        matches: [], candidates: [], scanned: 0, skipped: 0, currentSha256: sha256(JSON.stringify(current.data)),
         anchor: null, nextOffset: null, truncated: false,
       }, { headers: HEADERS });
     }
@@ -98,6 +98,15 @@ export async function POST(request: Request) {
     const results: Array<{
       snapshot: string; createdAt: string; missingCount: number;
       eligibleCount: number; blockedCount: number;
+    }> = [];
+    const candidates: Array<{
+      id: string; snapshot: string; backupSha256: string; fingerprint: string;
+      createdAt: string | null; transactionAt: string;
+      amount: number; transactionType: string;
+      merchant: string | null; description: string | null;
+      accountId: string; accountName: string;
+      destinationAccountId: string | null; destinationAccountName: string | null;
+      categoryName: string | null; eligible: boolean; reason: string | null;
     }> = [];
     // Small batches to bound memory and response latency; no Storage writes.
     for (let i = 0; i < entries.length; i += 3) {
@@ -122,13 +131,16 @@ export async function POST(request: Request) {
       }));
       for (const value of batch) {
         if (value === null) skipped++;
-        else if (value !== undefined) results.push(value);
+        else if (value !== undefined) {
+          results.push(value.summary);
+          candidates.push(...value.found);
+        }
       }
     }
     const hasMore = (page.data?.length ?? 0) > PAGE_SIZE;
     const nextOffset = hasMore && offset < MAX_OFFSET ? offset + PAGE_SIZE : null;
     return Response.json({
-      matches: results, scanned: entries.length - skipped, skipped,
+      matches: results, candidates, scanned: entries.length - skipped, skipped,
       currentSha256: sha256(JSON.stringify(current.data)),
       anchor: newest, nextOffset,
       truncated: hasMore && nextOffset === null,
