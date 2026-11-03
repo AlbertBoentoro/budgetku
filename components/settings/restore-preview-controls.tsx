@@ -215,7 +215,7 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
               </tbody>
             </table>
           </div> : null}
-          {preview.smartRestoreEnabled && preview.smartRestore ? (
+          {smartRestoreMode && preview.smartRestoreEnabled && preview.smartRestore ? (
             <SmartRestoreSelector key={snapshot + preview.backupSha256} snapshot={snapshot}
               backupSha256={preview.backupSha256} currentSha256={preview.currentSha256}
               plan={preview.smartRestore} />
