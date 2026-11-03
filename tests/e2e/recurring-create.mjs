@@ -212,6 +212,45 @@ try {
     encodeURIComponent(archives[0].name));
   assert.equal(download.status(), 200);
   console.log("PASS: versioned snapshot can be downloaded by synthetic staging user");
+  // Read-only preview from a verified immutable snapshot. Never call an
+  // apply/restore endpoint or modify any existing financial record.
+  const previewResponse = await context.request.post("/api/settings/restore/preview", {
+    data: { snapshot: archives[0].name },
+  });
+  assert.equal(previewResponse.status(),200,"read-only backup preview should succeed");
+  const preview = await previewResponse.json();
+  assert.equal(preview.previewOnly,true);
+  assert.equal(preview.restoreExecutionEnabled,false);
+  assert.equal(preview.eligibleForAtomicRestore,true);
+  assert.equal(preview.tables.transactions.current,1);
+  assert.equal(preview.tables.transactions.wouldRemove,0);
+  assert.equal(preview.tables.recurringTransactions.current,1);
+  assert.equal(preview.tables.recurringTransactions.wouldRemove,0);
+  assert.match(preview.backupSha256,/^[a-f0-9]{64}$/);
+
+  const unsafeSnapshot = await context.request.post("/api/settings/restore/preview", {
+    data: { snapshot: "../latest.json" },
+  });
+  assert.equal(unsafeSnapshot.status(),400,"path traversal must be denied");
+  const offsitePreview = await context.request.post("/api/settings/restore/preview", {
+    headers: { Origin: "https://untrusted.example" },
+    data: { snapshot: archives[0].name },
+  });
+  assert.equal(offsitePreview.status(),403,"cross-origin request must be denied");
+  const anonymous = await browser.newContext();
+  const unauthenticatedPreview = await anonymous.request.post(target + "/api/settings/restore/preview", {
+    data: { snapshot: archives[0].name },
+  });
+  assert.equal(unauthenticatedPreview.status(),401,"anonymous caller cannot inspect snapshots");
+  await anonymous.close();
+
+  const ledgerAfterPreview = must(await admin.from("transactions")
+    .select("id,amount").eq("user_id",userId),"verify read-only preview left ledger unchanged");
+  assert.equal(ledgerAfterPreview.length,1);
+  assert.equal(ledgerAfterPreview[0].id,initialTransactions[0].id);
+  assert.equal(Number(ledgerAfterPreview[0].amount),25000);
+  console.log("PASS: authenticated immutable-snapshot restore preview is read-only; invalid path, cross-origin, and anonymous calls rejected");
+
   await context.close();
 } finally {
   if (browser) await browser.close();
