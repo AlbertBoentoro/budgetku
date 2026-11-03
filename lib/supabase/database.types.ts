@@ -740,6 +740,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_transaction_with_recurring: {
+        Args: {
+          p_client_key: string
+          p_transaction_type: string
+          p_amount: number
+          p_account_id: string
+          p_destination_account_id: string | null
+          p_category_id: string | null
+          p_transaction_date: string
+          p_description: string | null
+          p_merchant: string | null
+          p_recurring_name: string
+          p_frequency: string
+          p_end_date: string | null
+        }
+        Returns: string
+      }
       generate_recurring_now: {
         Args: { p_template_id: string; p_expected_due_date: string }
         Returns: string

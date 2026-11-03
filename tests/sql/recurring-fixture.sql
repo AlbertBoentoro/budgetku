@@ -19,7 +19,7 @@ CREATE TABLE public.categories (
   is_archived boolean NOT NULL DEFAULT false
 );
 CREATE TABLE public.recurring_transactions (
-  id uuid PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   account_id uuid NOT NULL,
   destination_account_id uuid,

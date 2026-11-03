@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -106,6 +106,9 @@ export function TransactionForm({
 }: TransactionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // Reuse across retries. A failed network response cannot cause a second
+  // recurring charge if the first request actually committed on the server.
+  const recurringRequestId = useRef<string | null>(null);
 
   const initialType: string =
     initialValues && isTransactionType(initialValues.transaction_type)
@@ -324,6 +327,7 @@ export function TransactionForm({
         description: trimmedDescription.length > 0 ? trimmedDescription : null,
         merchant: trimmedMerchant.length > 0 ? trimmedMerchant : null,
         recurring: useRecurring,
+        idempotency_key: useRecurring ? (recurringRequestId.current ??= crypto.randomUUID()) : undefined,
         frequency: useRecurring ? frequency : null,
         interval_count: useRecurring ? 1 : null,
         recurring_indefinite: useRecurring ? indefinite : undefined,

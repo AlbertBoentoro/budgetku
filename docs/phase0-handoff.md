@@ -1,3 +1,16 @@
+> **CURRENT PHASE 0 — 2026-11-02 — draft PR #14 (do not merge):**
+> - Production `main` at branch creation: `400a785f94a984b142ecce19b6659d18d01f6d39`. PR #13 is merged and production deployment verified. No ledger/schema/Storage writes authorized.
+> - Current isolated branch: `fix/p0-atomic-transaction-recurrence-20261102`.
+> - Draft PR: https://github.com/AlbertBoentoro/budgetku/pull/14.
+> - **Risk addressed:** createTransaction with the recurring checkbox used two separate INSERT requests (ledger then schedule). A second failure could leave a recorded expense without a schedule, and retry could duplicate expenses.
+> - Branch stages SQL RPC `public.create_transaction_with_recurring` (SECURITY INVOKER, auth.uid/RLS, one transaction) and stable client idempotency key; retry returns the same transaction, concurrent requests cannot create two schedules.
+> - SQL migration file `docs/sql/2026-11-p0-create-transaction-recurring-atomic.sql` is **NOT applied to production**.
+> - CI runs disposable PostgreSQL integration including simulated failure AFTER ledger insert, multi-user checks, retry, and concurrent double-submit. Test fixture updated to match live UUID default.
+> - **CI on latest branch commit must pass** before any release approval; re-check latest run on PR #14.
+> - Existing draft PRs #9–#12 cover production HTTP read-only smoke and staging restore. Do not merge, overwrite, or change their branches automatically.
+> - User authorized branch-only audits, edits, and tests; explicit new YES required for production Supabase migration, merge, or deployment.
+> - Continue in Indonesian, explain: masalah → perubahan → efek → tes → persetujuan. User should not have to retype context in Codex.
+>
 > **ACTIVE P0 UPDATE — 2 Nov 2026 (supersedes all older status below):**
 > - PR #4 and #7 are already merged; production Vercel serves Git SHA
 >   `4ce5bf8c89d90e1d873409a65c6b7995c5670d6a`.
