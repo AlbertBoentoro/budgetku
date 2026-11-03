@@ -70,16 +70,18 @@ export async function POST(request: Request) {
     const folder = user.id + "/snapshots";
     const [page, top, current] = await Promise.all([
       storage.list(folder, {
-        limit: PAGE_SIZE + 1, offset, sortBy: { column: "created_at", order: "desc" },
+        limit: PAGE_SIZE + 1, offset, sortBy: { column: "name", order: "desc" },
       }),
       offset === 0 ? Promise.resolve(null) : storage.list(folder, {
-        limit: 1, sortBy: { column: "created_at", order: "desc" },
+        limit: 1, sortBy: { column: "name", order: "desc" },
       }),
       buildUserBackup(supabase, user.id),
     ]);
     if (page.error || (top && top.error)) {
       return fail("Tidak bisa memuat riwayat cadangan.", 503);
     }
+    // Snapshot names start with ISO timestamps and a UUID. Sorting by
+    // unique name is stable even when multiple backup files share created_at.
     const newest = offset === 0 ? page.data?.[0]?.name : top?.data?.[0]?.name;
     if (!newest || !isBackupSnapshotFilename(newest)) {
       if (offset > 0) return fail("Riwayat cadangan berubah, ulangi pencarian.", 409);
