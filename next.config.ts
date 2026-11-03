@@ -7,7 +7,7 @@ import type { NextConfig } from "next";
  * CI's production-mode Next build still uses its explicitly guarded staging URL.
  */
 const LOCAL_STAGING_SUPABASE_URL = "https://omnzuolrlwczvnxrvenw.supabase.co";
-const localSupabaseURL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\\/+$/, "");
+const localSupabaseURL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/[/]+$/, "");
 if (process.env.NODE_ENV === "development" && localSupabaseURL &&
     localSupabaseURL !== LOCAL_STAGING_SUPABASE_URL) {
   throw new Error(
