@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - fix/p0-atomic-transaction-recurrence-*
+      - fix/p0-readonly-restore-preview-*
   workflow_dispatch:
 
 permissions:
