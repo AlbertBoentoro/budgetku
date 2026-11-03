@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { buildUserBackup } from "@/lib/settings/backup";
 import { fetchVerifiedBackup, storeVerifiedBackup } from "@/lib/settings/backup-storage";
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
       bySnapshot.set(item.snapshot, rows);
     }
 
-    const verifiedRows: Record<string, unknown>[] = [];
+    const verifiedRows: Json[] = [];
     for (const [snapshot, requests] of bySnapshot) {
       const saved = await fetchVerifiedBackup(supabase, user.id, snapshot);
       if (!requests.every(r => r.backupSha256.toLowerCase() === saved.sha256)) {

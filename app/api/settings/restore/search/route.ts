@@ -119,10 +119,31 @@ export async function POST(request: Request) {
             incoming: JSON.parse(verified.text), current, userId: user.id,
           });
           if (plan.candidates.length === 0) return undefined;
+          const backupRows = new Map<string, Record<string, unknown>>(
+            (JSON.parse(verified.text).data.transactions as Array<Record<string, unknown>>)
+              .map(row => [row.id as string, row]),
+          );
+          const found = plan.candidates.map((candidate: { id: string }) => {
+            const row = backupRows.get(candidate.id);
+            if (!row) throw new Error("Snapshot candidate row missing");
+            return {
+              ...candidate, snapshot: file.name, backupSha256: verified.sha256,
+              fingerprint: sha256(JSON.stringify([
+                row.user_id, row.account_id, row.destination_account_id,
+                row.category_id, row.transaction_type, row.amount,
+                row.transaction_at, row.created_at, row.updated_at,
+                row.currency, row.source, row.source_reference,
+                row.merchant, row.description,
+              ])),
+            };
+          });
           return {
-            snapshot: file.name, createdAt,
-            missingCount: plan.candidates.length,
-            eligibleCount: plan.eligibleCount, blockedCount: plan.blockedCount,
+            summary: {
+              snapshot: file.name, createdAt,
+              missingCount: plan.candidates.length,
+              eligibleCount: plan.eligibleCount, blockedCount: plan.blockedCount,
+            },
+            found,
           };
         } catch {
           // Corrupt/incompatible backups must not be silently reported as empty.

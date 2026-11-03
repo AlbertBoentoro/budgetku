@@ -173,7 +173,9 @@ export function MissingTransactionsRecovery() {
       row.createdAt ? moment(row.createdAt) : "", moment(row.transactionAt)].join(" ").toLowerCase();
     return text.includes(query.trim().toLowerCase());
   });
-  const impact = selectedRestoreImpact(picked, picked.map(r => r.id));
+  const impact = picked.length <= MAX_ROWS
+    ? selectedRestoreImpact(picked, picked.map(r => r.id))
+    : { count: picked.length, accountChanges: [] };
   const sources = new Set(picked.map(r => r.snapshot));
   const canRestore = !scanning && !pending && !completeRestore &&
     picked.length > 0 && picked.length <= MAX_ROWS && sources.size <= MAX_BACKUPS;

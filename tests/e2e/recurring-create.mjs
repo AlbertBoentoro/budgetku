@@ -564,11 +564,10 @@ try {
   assert.equal(typeof a.createdAt,"string");
   assert.equal(typeof b.createdAt,"string");
   assert.notEqual(firstSnapshot,secondSnapshot,"distinct immutable sources");
+  assert.notEqual(a.snapshot,b.snapshot,"two deleted transactions originate from distinct verified backups");
   const selections=[
-    {id:a.id,snapshot:firstSnapshot,backupSha256:scanData.candidates.find(row=>
-      row.id===a.id && row.snapshot===firstSnapshot).backupSha256},
-    {id:b.id,snapshot:secondSnapshot,backupSha256:scanData.candidates.find(row=>
-      row.id===b.id && row.snapshot===secondSnapshot).backupSha256},
+    {id:a.id,snapshot:a.snapshot,backupSha256:a.backupSha256},
+    {id:b.id,snapshot:b.snapshot,backupSha256:b.backupSha256},
   ];
   const multiRequest={
     selections,expectedCurrentSha256:scanData.currentSha256,
