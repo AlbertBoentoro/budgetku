@@ -100,7 +100,8 @@ export async function POST(request: Request) {
     // Small batches to bound memory and response latency; no Storage writes.
     for (let i = 0; i < entries.length; i += 3) {
       const batch = await Promise.all(entries.slice(i, i + 3).map(async (file) => {
-        if (!isBackupSnapshotFilename(file.name)) return null;
+        const createdAt = file.created_at;
+        if (!isBackupSnapshotFilename(file.name) || typeof createdAt !== "string") return null;
         try {
           const verified = await fetchVerifiedBackup(supabase, user.id, file.name);
           const plan = createSmartRestorePlan({
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
           });
           if (plan.candidates.length === 0) return undefined;
           return {
-            snapshot: file.name, createdAt: file.created_at,
+            snapshot: file.name, createdAt,
             missingCount: plan.candidates.length,
             eligibleCount: plan.eligibleCount, blockedCount: plan.blockedCount,
           };
