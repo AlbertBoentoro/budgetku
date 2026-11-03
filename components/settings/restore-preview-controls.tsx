@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { SmartRestoreSelector, type SmartRestorePreview } from "@/components/settings/smart-restore-selector";
 
 type Snapshot = { name: string; createdAt: string; size: number | null };
 type Counts = {
@@ -16,6 +17,10 @@ type ReadOnlyPreview = {
   blockers: string[];
   backupGeneratedAt: string;
   externalGmailLinks: number;
+  backupSha256: string;
+  currentSha256: string;
+  smartRestoreEnabled?: boolean;
+  smartRestore?: SmartRestorePreview | null;
   tables: Record<string, Counts>;
 };
 
@@ -193,6 +198,11 @@ export function RestorePreviewControls() {
               </tbody>
             </table>
           </div>
+          {preview.smartRestoreEnabled && preview.smartRestore ? (
+            <SmartRestoreSelector key={snapshot + preview.backupSha256} snapshot={snapshot}
+              backupSha256={preview.backupSha256} currentSha256={preview.currentSha256}
+              plan={preview.smartRestore} />
+          ) : null}
           {preview.blockers.length ? (
             <div role="alert" className="text-body-sm text-expense">
               <p className="font-medium">Masalah yang perlu dibereskan sebelum pemulihan:</p>
