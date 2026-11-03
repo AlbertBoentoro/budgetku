@@ -340,7 +340,7 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
       </select>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="button" variant="outline" className="min-h-11 sm:flex-1"
-          disabled={!snapshot || loading || checking} onClick={inspect}>
+          disabled={!snapshot || loading || checking || searchingAll} onClick={() => void inspect()}>
           {checking ? "Memeriksa cadangan..." : smartRestoreMode ? "Cari transaksi yang hilang" : "Periksa dampak cadangan"}
         </Button>
         <Button type="button" variant="ghost" className="min-h-11 sm:w-auto"

@@ -331,6 +331,64 @@ try {
   assert.equal(beforeSmart.length,2);
   assert.ok(beforeSmart.some(t=>t.id===latest.id),"newest transaction must exist");
 
+  // Regression: a recent backup made AFTER deletion has no missing row.
+  // The history scanner must identify the older version containing it.
+  const postDeleteBackup = await context.request.post("/api/settings/backup");
+  assert.equal(postDeleteBackup.status(),200,"save newer snapshot without deleted transaction");
+  const afterDeleteHistory = await context.request.get("/api/settings/backup/history");
+  assert.equal(afterDeleteHistory.status(),200);
+  const newestMissingBackup = (await afterDeleteHistory.json()).snapshots[0].name;
+  assert.notEqual(newestMissingBackup,selectedSnapshot);
+  const allBackupSearch = await context.request.post("/api/settings/restore/search",{
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(allBackupSearch.status(),200,"authenticated read-only backup history search");
+  const found = await allBackupSearch.json();
+  assert.ok(found.scanned>=2);
+  assert.ok(found.matches.some(s=>s.snapshot===selectedSnapshot&&s.eligibleCount===1),
+    "older backup must be found automatically");
+  assert.ok(!found.matches.some(s=>s.snapshot===newestMissingBackup),
+    "newest backup without missing transaction should not match");
+  const badSearchOrigin=await context.request.post("/api/settings/restore/search",{
+    headers:{Origin:"https://untrusted.example"},
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(badSearchOrigin.status(),403);
+  const badSearchOffset=await context.request.post("/api/settings/restore/search",{
+    data:{offset:10,anchor:null},
+  });
+  assert.equal(badSearchOffset.status(),400);
+  const badSearchAnchor=await context.request.post("/api/settings/restore/search",{
+    data:{offset:10,anchor:selectedSnapshot},
+  });
+  assert.equal(badSearchAnchor.status(),409,
+    "history anchor mismatch must fail closed");
+  const anonymousSearchContext = await browser.newContext();
+  const anonymousSearch=await anonymousSearchContext.request.post(
+    target+"/api/settings/restore/search",{
+      data:{offset:0,anchor:null},maxRedirects:0,
+    });
+  assert.ok([307,401].includes(anonymousSearch.status()));
+  await anonymousSearchContext.close();
+  const currentDuringSearch = must(await admin.from("transactions").select("id,amount")
+    .eq("user_id",userId), "verify scan did not alter ledger");
+  assert.deepEqual(
+    currentDuringSearch.map(x=>x.id).sort(),beforeSmart.map(x=>x.id).sort(),
+    "read-only history search must leave existing ledger untouched");
+  await page.goto("/settings",{waitUntil:"domcontentloaded"});
+  const searchButton = page.getByRole("button",{name:"Cari di semua cadangan"});
+  await searchButton.waitFor({state:"visible",timeout:25000});
+  await searchButton.click();
+  await page.getByText("versi cadangan memiliki transaksi yang tidak ada di data sekarang",{
+    exact:false,
+  }).waitFor({state:"visible",timeout:25000});
+  await page.getByRole("button",{name:"Periksa versi ini"}).first().click();
+  assert.equal(await page.getByLabel("Versi cadangan").inputValue(),selectedSnapshot,
+    "search result opens the correct older backup");
+  await page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/})
+    .waitFor({state:"visible",timeout:25000});
+  console.log("PASS: all-backup read-only scan found older missing transaction, skipped newer empty backup, and opened correct checkbox without writes");
+
   const previewSmartResponse = await context.request.post("/api/settings/restore/preview",{
     data:{snapshot:selectedSnapshot},
   });
