@@ -8,6 +8,7 @@ on:
       - fix/p0-atomic-transaction-recurrence-*
       - fix/p0-readonly-restore-preview-*
       - fix/p0-smart-restore-selective-*
+      - fix/p0-backup-history-auto-refresh-*
   workflow_dispatch:
 
 permissions:

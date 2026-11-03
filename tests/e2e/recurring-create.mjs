@@ -254,6 +254,27 @@ try {
   // is intentionally provided at this stage.
   await page.goto("/settings", { waitUntil: "domcontentloaded" });
   await page.getByLabel("Versi cadangan").waitFor({ state: "visible", timeout: 25000 });
+  // Regression: manual backup must update the independent history dropdown
+  // immediately and auto-select the newest verified snapshot, no navigation.
+  const picker = page.getByLabel("Versi cadangan");
+  const previouslySelected = await picker.inputValue();
+  assert.equal(previouslySelected, archives[0].name);
+  await page.getByRole("button", { name: "Cadangkan sekarang" }).click();
+  await page.getByText("Cadangan cloud berhasil dibuat.").waitFor({
+    state: "visible", timeout: 25000,
+  });
+  const refreshedSelection = await eventually(
+    () => picker.inputValue(),
+    value => value !== previouslySelected && value.endsWith(".json"),
+    "newly created backup becomes selected without page reload",
+  );
+  const refreshedHistory = await context.request.get("/api/settings/backup/history");
+  assert.equal(refreshedHistory.status(), 200);
+  const latestFilename = (await refreshedHistory.json()).snapshots[0].name;
+  assert.equal(refreshedSelection, latestFilename,
+    "Settings picker should select newly created snapshot, not stale previous backup");
+  assert.match(await picker.locator("option:checked").textContent(), /Terbaru/);
+  console.log("PASS: manual backup immediately updates Settings history and selects newest snapshot");
   await page.getByRole("button", { name: "Cari transaksi yang hilang" }).click();
   await page.getByRole("heading", { name: "Pulihkan transaksi tertentu" })
     .waitFor({ state: "visible", timeout: 25000 });
