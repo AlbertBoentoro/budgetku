@@ -9,6 +9,7 @@ on:
       - fix/p0-recovery-integrity-*
       - fix/p0-atomic-transaction-*
       - fix/p0-preserve-legacy-backup-*
+      - fix/p0-backup-storage-error-code-*
   workflow_dispatch:
 
 permissions:
