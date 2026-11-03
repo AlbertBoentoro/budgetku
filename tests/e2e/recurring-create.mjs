@@ -375,24 +375,17 @@ try {
   assert.deepEqual(
     currentDuringSearch.map(x=>x.id).sort(),beforeSmart.map(x=>x.id).sort(),
     "read-only history search must leave existing ledger untouched");
-  await page.goto("/settings",{waitUntil:"domcontentloaded"});
-  const searchButton = page.getByRole("button",{name:"Cari di semua cadangan"});
-  await searchButton.waitFor({state:"visible",timeout:25000});
-  await searchButton.click();
-  await page.getByText("versi cadangan memiliki transaksi yang tidak ada di data sekarang",{
-    exact:false,
-  }).waitFor({state:"visible",timeout:25000});
-  await page.getByRole("button",{name:"Periksa versi ini"}).first().click();
-  const pickedSnapshot = await eventually(
-    () => page.getByLabel("Versi cadangan").inputValue(),
-    version => found.matches.some(row => row.snapshot === version && row.eligibleCount > 0),
-    "search-selected snapshot must contain a verified missing transaction",
-  );
-  assert.ok(found.matches.some(row => row.snapshot === pickedSnapshot && row.eligibleCount > 0),
-    "selected backup must be one of the verified matching versions");
-  await page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/})
+  await page.goto("/transactions",{waitUntil:"domcontentloaded"});
+  const recoverLink=page.getByRole("link",{name:"Pulihkan transaksi"});
+  await recoverLink.waitFor({state:"visible",timeout:25000});
+  await recoverLink.click();
+  await page.getByRole("heading",{name:"Transaksi terdeteksi hilang"})
     .waitFor({state:"visible",timeout:25000});
-  console.log("PASS: all-backup read-only scan found older missing transaction, skipped newer empty backup, and opened correct checkbox without writes");
+  await page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/})
+    .waitFor({state:"visible",timeout:40000});
+  assert.ok(await page.getByText("Dibuat:",{exact:false}).count()>=1);
+  assert.ok(await page.getByText("Tanggal transaksi:",{exact:false}).count()>=1);
+  console.log("PASS: Transactions recovery inbox finds missing transaction across backups with original created_at");
 
   const previewSmartResponse = await context.request.post("/api/settings/restore/preview",{
     data:{snapshot:selectedSnapshot},
@@ -450,21 +443,16 @@ try {
   assert.ok(!afterBroken.some(t=>t.id===missing.id));
   console.log("PASS: invalid second transaction rolls back first insertion atomically");
 
-  await page.goto("/settings",{waitUntil:"domcontentloaded"});
-  await page.getByLabel("Versi cadangan").waitFor({state:"visible",timeout:25000});
-  await page.getByLabel("Versi cadangan").selectOption(selectedSnapshot);
-  await page.getByRole("button",{name:"Cari transaksi yang hilang"}).click();
-  await page.getByRole("heading",{name:"Pulihkan transaksi tertentu"})
-    .waitFor({state:"visible",timeout:25000});
   const chooseOld=page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/});
   assert.equal(await chooseOld.isChecked(),false,"checkbox must be empty by default");
-  await chooseOld.check();
-  await page.getByRole("button",{name:"Lihat dampak 1 transaksi terpilih"}).click();
-  await page.getByLabel("Ketik PULIHKAN TRANSAKSI untuk melanjutkan")
-    .fill("PULIHKAN TRANSAKSI");
-  await page.getByRole("button",{name:"Pulihkan 1 transaksi"}).click();
-  await page.getByText("1 transaksi berhasil dikembalikan. Data lainnya dipertahankan.")
-    .waitFor({state:"visible",timeout:25000});
+  // Keep the established single-snapshot API test, even after the primary
+  // recovery entry moves out of Settings.
+  const manualApply=await context.request.post("/api/settings/restore/smart/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:request,
+  });
+  assert.equal(manualApply.status(),200,"single-snapshot recovery remains compatible");
+  assert.equal((await manualApply.json()).restoredCount,1);
 
   const restored = must(await admin.from("transactions").select("id,amount,merchant")
     .eq("user_id",userId),"verify Smart Restore final ledger");
@@ -535,6 +523,115 @@ try {
   assert.ok(oldLedger.every(t=>newLedger.some(n=>n.id===t.id &&
     Number(n.amount)===Number(t.amount))));
   console.log("PASS: read-only global system category recovered; existing transactions unchanged");
+
+  // Multi-snapshot recovery regression: each disappeared transaction exists
+  // in a different immutable backup. The UI must show ONE deduplicated list
+  // with created-at timestamps and restore both in ONE atomic RPC.
+  const firstMissing = must(await admin.from("transactions").insert({
+    user_id:userId,account_id:account.id,category_id:category.id,
+    transaction_type:"expense",amount:18000,currency:"IDR",
+    source:"manual",source_reference:null,merchant:"Missing multi A",
+    transaction_at:"2026-11-02T14:00:00+07:00",
+  }).select("*").single(),"create first missing transaction");
+  assert.equal((await context.request.post("/api/settings/backup")).status(),200);
+  const firstHistory=await context.request.get("/api/settings/backup/history");
+  const firstSnapshot=(await firstHistory.json()).snapshots[0].name;
+  must(await admin.from("transactions").delete().eq("id",firstMissing.id).eq("user_id",userId),
+    "remove first missing transaction");
+
+  const secondMissing=must(await admin.from("transactions").insert({
+    user_id:userId,account_id:account.id,category_id:category.id,
+    transaction_type:"expense",amount:27000,currency:"IDR",
+    source:"manual",source_reference:null,merchant:"Missing multi B",
+    transaction_at:"2026-11-03T15:00:00+07:00",
+  }).select("*").single(),"create second missing transaction");
+  assert.equal((await context.request.post("/api/settings/backup")).status(),200);
+  const secondHistory=await context.request.get("/api/settings/backup/history");
+  const secondSnapshot=(await secondHistory.json()).snapshots[0].name;
+  must(await admin.from("transactions").delete().eq("id",secondMissing.id).eq("user_id",userId),
+    "remove second missing transaction");
+
+  const preMulti=must(await admin.from("transactions").select("id,amount").eq("user_id",userId),
+    "baseline before multi-source restore");
+  const scanBeforeMulti=await context.request.post("/api/settings/restore/search",{
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(scanBeforeMulti.status(),200);
+  const scanData=await scanBeforeMulti.json();
+  const a=scanData.candidates.find(row=>row.id===firstMissing.id);
+  const b=scanData.candidates.find(row=>row.id===secondMissing.id);
+  assert.ok(a?.eligible && b?.eligible);
+  assert.equal(typeof a.createdAt,"string");
+  assert.equal(typeof b.createdAt,"string");
+  assert.notEqual(firstSnapshot,secondSnapshot,"distinct immutable sources");
+  const selections=[
+    {id:a.id,snapshot:firstSnapshot,backupSha256:scanData.candidates.find(row=>
+      row.id===a.id && row.snapshot===firstSnapshot).backupSha256},
+    {id:b.id,snapshot:secondSnapshot,backupSha256:scanData.candidates.find(row=>
+      row.id===b.id && row.snapshot===secondSnapshot).backupSha256},
+  ];
+  const multiRequest={
+    selections,expectedCurrentSha256:scanData.currentSha256,
+    confirmation:"PULIHKAN TRANSAKSI",
+  };
+  const crossOriginMulti=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1",
+      Origin:"https://untrusted.example"},data:multiRequest,
+  });
+  assert.equal(crossOriginMulti.status(),403);
+  const staleMulti=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{...multiRequest,expectedCurrentSha256:"0".repeat(64)},
+  });
+  assert.equal(staleMulti.status(),409);
+  const wrongBackupHash=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{...multiRequest,selections:[
+      {...selections[0],backupSha256:"0".repeat(64)},selections[1]]},
+  });
+  assert.equal(wrongBackupHash.status(),409);
+  const anonymousMultiCtx=await browser.newContext();
+  const anonymousMulti=await anonymousMultiCtx.request.post(
+    target+"/api/transactions/recovery/apply",{
+      headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+      data:multiRequest,maxRedirects:0,
+    });
+  assert.ok([307,401].includes(anonymousMulti.status()));
+  await anonymousMultiCtx.close();
+
+  await page.goto("/transactions/recover",{waitUntil:"domcontentloaded"});
+  await page.getByRole("checkbox",{name:/Pulihkan Missing multi A/})
+    .waitFor({state:"visible",timeout:40000});
+  await page.getByRole("checkbox",{name:/Pulihkan Missing multi B/})
+    .waitFor({state:"visible",timeout:40000});
+  const bothA=page.getByRole("checkbox",{name:/Pulihkan Missing multi A/});
+  const bothB=page.getByRole("checkbox",{name:/Pulihkan Missing multi B/});
+  assert.equal(await bothA.isChecked(),false);
+  assert.equal(await bothB.isChecked(),false);
+  await bothA.check();
+  await bothB.check();
+  await page.getByRole("button",{name:"Lihat dampak 2 transaksi terpilih"}).click();
+  await page.getByLabel("Ketik PULIHKAN TRANSAKSI untuk mengonfirmasi")
+    .fill("PULIHKAN TRANSAKSI");
+  await page.getByRole("button",{name:"Pulihkan 2 transaksi"}).click();
+  await page.getByText("2 transaksi berhasil dipulihkan. Transaksi lainnya dipertahankan.")
+    .waitFor({state:"visible",timeout:30000});
+
+  const postMulti=must(await admin.from("transactions").select("id,amount").eq("user_id",userId),
+    "ledger after combined restore");
+  assert.equal(postMulti.length,preMulti.length+2);
+  assert.ok(postMulti.some(row=>row.id===firstMissing.id && Number(row.amount)===18000));
+  assert.ok(postMulti.some(row=>row.id===secondMissing.id && Number(row.amount)===27000));
+  assert.ok(preMulti.every(previous=>postMulti.some(row=>
+    row.id===previous.id && Number(row.amount)===Number(previous.amount))),
+    "pre-existing financial records must be unchanged");
+  const repeatedMulti=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:multiRequest,
+  });
+  assert.equal(repeatedMulti.status(),409,"stale repeated action must not duplicate");
+  console.log("PASS: Transactions inbox restored two missing records from different backups in one atomic request, preserving existing ledger");
+
 
 
 
