@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { BACKUP_CREATED_EVENT } from "@/components/settings/backup-events";
 import { SmartRestoreSelector, type SmartRestorePreview } from "@/components/settings/smart-restore-selector";
 
 type Snapshot = { name: string; createdAt: string; size: number | null };
@@ -40,19 +41,21 @@ function dateLabel(value: string): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "Tanggal tidak tersedia";
   return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta",
+    dateStyle: "medium", timeStyle: "medium", timeZone: "Asia/Jakarta",
   }).format(date) + " WIB";
 }
 
 export function RestorePreviewControls({ smartRestoreMode = false }: { smartRestoreMode?: boolean }) {
   const [history, setHistory] = useState<Snapshot[]>([]);
+  const historyRequestId = useRef(0);
   const [snapshot, setSnapshot] = useState("");
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [preview, setPreview] = useState<ReadOnlyPreview | null>(null);
   const [error, setError] = useState("");
 
-  async function loadHistory(signal?: AbortSignal) {
+  async function loadHistory(signal?: AbortSignal, preferLatest = false) {
+    const requestId = ++historyRequestId.current;
     setLoading(true);
     setError("");
     try {
@@ -68,23 +71,34 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
       const entries = (payload.snapshots as Snapshot[]).filter(
         (row) => typeof row.name === "string" && typeof row.createdAt === "string",
       );
-      if (signal?.aborted) return;
+      if (signal?.aborted || historyRequestId.current !== requestId) return;
       setHistory(entries);
-      setSnapshot((previous) => entries.some((row) => row.name === previous)
-        ? previous : (entries[0]?.name ?? ""));
+      setSnapshot((previous) => preferLatest ? (entries[0]?.name ?? "") :
+        entries.some((row) => row.name === previous)
+          ? previous : (entries[0]?.name ?? ""));
       setPreview(null);
     } catch (cause) {
-      if (signal?.aborted) return;
+      if (signal?.aborted || historyRequestId.current !== requestId) return;
       setError(cause instanceof Error ? cause.message : "Riwayat gagal dimuat.");
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal?.aborted && historyRequestId.current === requestId) setLoading(false);
     }
   }
 
   useEffect(() => {
     const controller = new AbortController();
     void loadHistory(controller.signal);
-    return () => controller.abort();
+    const onBackupCreated = () => {
+      // A new immutable snapshot is committed before POST returns 200.
+      // Select that newest version, rather than leaving a stale dropdown.
+      controller.abort();
+      void loadHistory(undefined, true);
+    };
+    window.addEventListener(BACKUP_CREATED_EVENT, onBackupCreated);
+    return () => {
+      controller.abort();
+      window.removeEventListener(BACKUP_CREATED_EVENT, onBackupCreated);
+    };
   }, []);
 
   async function inspect() {
@@ -147,9 +161,9 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
         disabled={loading || checking || history.length === 0}>
         {history.length === 0 ? (
           <option value="">{loading ? "Memuat cadangan..." : "Belum ada cadangan bertanggal"}</option>
-        ) : history.map((entry) => (
+        ) : history.map((entry, index) => (
           <option key={entry.name} value={entry.name}>
-            {dateLabel(entry.createdAt)} — {entry.name.slice(-12)}
+            {dateLabel(entry.createdAt)} — {index === 0 ? "Terbaru" : `Cadangan ${index + 1}`}
           </option>
         ))}
       </select>
