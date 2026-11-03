@@ -2,7 +2,7 @@
 // disposable Supabase STAGING project. Never target production resources.
 // GitHub Actions secrets stay within the runner and are never printed.
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "playwright";
 import { createClient } from "@supabase/supabase-js";
@@ -268,6 +268,133 @@ try {
   assert.equal(ledgerAfterPreview[0].id,initialTransactions[0].id);
   assert.equal(Number(ledgerAfterPreview[0].amount),25000);
   console.log("PASS: authenticated immutable-snapshot restore preview is read-only; invalid path, cross-origin, and anonymous calls rejected");
+
+  // Smart Restore scenario: Nov 2 expense is accidentally deleted; a
+  // separate Nov 3 expense must remain untouched during selective recovery.
+  const missing = must(await admin.from("transactions").insert({
+    user_id: userId, account_id: account.id, category_id: category.id,
+    transaction_type: "expense", amount: 200000, currency: "IDR",
+    source: "manual", source_reference: null, merchant: "Belanja supermarket",
+    description: "2 November purchase",
+    transaction_at: "2026-11-02T10:00:00+07:00",
+  }).select("*").single(), "seed November 2 synthetic manual transaction");
+  const backBeforeDelete = await context.request.post("/api/settings/backup");
+  assert.equal(backBeforeDelete.status(),200,"store backup containing old transaction");
+  const historyBeforeDelete = await context.request.get("/api/settings/backup/history");
+  assert.equal(historyBeforeDelete.status(),200);
+  const selectedSnapshot = (await historyBeforeDelete.json()).snapshots[0].name;
+  const snapshotFile = await context.request.get("/api/settings/backup?snapshot=" +
+    encodeURIComponent(selectedSnapshot));
+  assert.equal(snapshotFile.status(),200);
+  const originalSnapshot = await snapshotFile.json();
+  const oldTransaction = originalSnapshot.data.transactions.find(t => t.id === missing.id);
+  assert.ok(oldTransaction,"snapshot should contain missing Nov 2 transaction");
+
+  const latest = must(await admin.from("transactions").insert({
+    user_id: userId, account_id: account.id, category_id: category.id,
+    transaction_type: "expense", amount: 45000, currency: "IDR",
+    source: "manual", source_reference: null, merchant: "Makan 3 November",
+    description: "Keep this newer expense",
+    transaction_at: "2026-11-03T10:00:00+07:00",
+  }).select("id,amount").single(), "seed November 3 transaction");
+  must(await admin.from("transactions").delete().eq("user_id",userId).eq("id",missing.id),
+    "simulate accidental deletion of old transaction");
+
+  const beforeSmart = must(await admin.from("transactions").select("id,amount")
+    .eq("user_id",userId), "verify two existing transactions before Smart Restore");
+  assert.equal(beforeSmart.length,2);
+  assert.ok(beforeSmart.some(t=>t.id===latest.id),"newest transaction must exist");
+
+  const previewSmartResponse = await context.request.post("/api/settings/restore/preview",{
+    data:{snapshot:selectedSnapshot},
+  });
+  assert.equal(previewSmartResponse.status(),200);
+  const smartPreview = await previewSmartResponse.json();
+  assert.equal(smartPreview.smartRestoreEnabled,true);
+  assert.equal(smartPreview.smartRestore.eligibleCount,1);
+  assert.deepEqual(smartPreview.smartRestore.defaultSelectedIds,[]);
+  assert.equal(smartPreview.smartRestore.candidates[0].id,missing.id);
+
+  const request = {
+    snapshot:selectedSnapshot, selectedIds:[missing.id],
+    expectedBackupSha256:smartPreview.backupSha256,
+    expectedCurrentSha256:smartPreview.currentSha256,
+    confirmation:"PULIHKAN TRANSAKSI",
+  };
+  const invalidConfirmation = await context.request.post("/api/settings/restore/smart/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1"},
+    data:{...request,confirmation:"YES"},
+  });
+  assert.equal(invalidConfirmation.status(),400,"confirmation is mandatory");
+  const stale = await context.request.post("/api/settings/restore/smart/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1"},
+    data:{...request,expectedCurrentSha256:"0".repeat(64)},
+  });
+  assert.equal(stale.status(),409,"stale current snapshot must fail closed");
+
+  const foreign = await context.request.post("/api/settings/restore/smart/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1",
+      Origin:"https://untrusted.example"},
+    data:request,
+  });
+  assert.equal(foreign.status(),403,"cross-origin restore must be rejected");
+  const anonymousApply = await browser.newContext();
+  const denied = await anonymousApply.request.post(target + "/api/settings/restore/smart/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1"},
+    data:request,maxRedirects:0,
+  });
+  assert.ok([307,401].includes(denied.status()),
+    "anonymous caller must be denied or redirected to login");
+  await anonymousApply.close();
+
+  // Force a database failure *after* the first selected INSERT to prove that
+  // Postgres rolls the entire request back. This never touches production.
+  const invalidRow={...oldTransaction,id:randomUUID(),
+    category_id:randomUUID()};
+  const broken = await userClient.rpc("restore_selected_transactions_v1",{
+    p_rows:[oldTransaction,invalidRow],
+  });
+  assert.ok(broken.error,"invalid second transaction must reject entire batch");
+  const afterBroken = must(await admin.from("transactions").select("id")
+    .eq("user_id",userId),"verify atomic rollback after a rejected SQL batch");
+  assert.equal(afterBroken.length,2);
+  assert.ok(!afterBroken.some(t=>t.id===missing.id));
+  console.log("PASS: invalid second transaction rolls back first insertion atomically");
+
+  await page.goto("/settings",{waitUntil:"domcontentloaded"});
+  await page.getByLabel("Versi cadangan").waitFor({state:"visible",timeout:25000});
+  await page.getByLabel("Versi cadangan").selectOption(selectedSnapshot);
+  await page.getByRole("button",{name:"Periksa dampak cadangan"}).click();
+  await page.getByRole("heading",{name:"Pulihkan transaksi tertentu (uji staging)"})
+    .waitFor({state:"visible",timeout:25000});
+  const chooseOld=page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/});
+  assert.equal(await chooseOld.isChecked(),false,"checkbox must be empty by default");
+  await chooseOld.check();
+  await page.getByRole("button",{name:"Lihat dampak 1 transaksi terpilih"}).click();
+  await page.getByLabel("Ketik PULIHKAN TRANSAKSI untuk melanjutkan")
+    .fill("PULIHKAN TRANSAKSI");
+  await page.getByRole("button",{name:"Pulihkan 1 transaksi (staging)"}).click();
+  await page.getByText("1 transaksi dikembalikan di staging. Data lainnya dipertahankan.")
+    .waitFor({state:"visible",timeout:25000});
+
+  const restored = must(await admin.from("transactions").select("id,amount,merchant")
+    .eq("user_id",userId),"verify Smart Restore final ledger");
+  assert.equal(restored.length,3,"original recurring + restored old + new current");
+  assert.ok(restored.some(t=>t.id===missing.id&&Number(t.amount)===200000));
+  assert.ok(restored.some(t=>t.id===latest.id&&Number(t.amount)===45000));
+  const historyAfter = must(await admin.storage.from("budgetku-backups")
+    .list(userId + "/snapshots"),"verify safety snapshot stored before restore");
+  assert.ok(historyAfter.length>=3,"restore should leave immutable safety backup");
+
+  const attemptedRetry=await context.request.post("/api/settings/restore/smart/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1"},data:request,
+  });
+  assert.equal(attemptedRetry.status(),409,"identical retry must not duplicate");
+  const noDuplicates=must(await admin.from("transactions").select("id")
+    .eq("user_id",userId),"verify retry cannot duplicate");
+  assert.equal(noDuplicates.length,3);
+  console.log("PASS: Smart Restore checkbox restored Nov 2 manual transaction, kept Nov 3 transaction, created safety snapshot, rejected stale/replay/anonymous requests");
+
 
   await context.close();
 } finally {
