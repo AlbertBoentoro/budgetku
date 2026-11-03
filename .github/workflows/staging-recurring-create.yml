@@ -10,6 +10,7 @@ on:
       - fix/p0-smart-restore-selective-*
       - fix/p0-backup-history-auto-refresh-*
       - fix/p0-smart-restore-system-category-*
+      - feat/p0-recovery-scan-history-*
   workflow_dispatch:
 
 permissions:
