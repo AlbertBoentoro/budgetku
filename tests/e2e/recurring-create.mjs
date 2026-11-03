@@ -240,8 +240,14 @@ try {
   const anonymous = await browser.newContext();
   const unauthenticatedPreview = await anonymous.request.post(target + "/api/settings/restore/preview", {
     data: { snapshot: archives[0].name },
+    maxRedirects: 0,
   });
-  assert.equal(unauthenticatedPreview.status(),401,"anonymous caller cannot inspect snapshots");
+  assert.ok([307, 401].includes(unauthenticatedPreview.status()),
+    "anonymous caller must be denied or redirected before accessing snapshot data");
+  if (unauthenticatedPreview.status() === 307) {
+    assert.equal(new URL(unauthenticatedPreview.headers().location, target).pathname,
+      "/auth/login", "anonymous redirect must lead to login");
+  }
   await anonymous.close();
 
   // Exercise the real Settings UI, not only the API. No Apply/Restore control
