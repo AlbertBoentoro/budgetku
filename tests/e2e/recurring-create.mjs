@@ -257,7 +257,11 @@ try {
   // Regression: manual backup must update the independent history dropdown
   // immediately and auto-select the newest verified snapshot, no navigation.
   const picker = page.getByLabel("Versi cadangan");
-  const previouslySelected = await picker.inputValue();
+  const previouslySelected = await eventually(
+    () => picker.inputValue(),
+    value => value === archives[0].name,
+    "existing backup list loaded before creating the next snapshot",
+  );
   assert.equal(previouslySelected, archives[0].name);
   await page.getByRole("button", { name: "Cadangkan sekarang" }).click();
   await page.getByText("Cadangan cloud berhasil dibuat.").waitFor({
