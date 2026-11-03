@@ -4,12 +4,12 @@ import { fetchVerifiedBackup, storeVerifiedBackup } from "@/lib/settings/backup-
 import { isBackupSnapshotFilename } from "@/lib/settings/backup-safety";
 import { sha256 } from "@/lib/settings/backup-storage-core.mjs";
 import { createSmartRestorePlan } from "@/lib/settings/smart-restore-plan.mjs";
-import { isStagingSmartRestoreAllowed } from "@/lib/settings/smart-restore-guard";
+import { isSmartRestoreAllowed } from "@/lib/settings/smart-restore-guard";
 
 export const maxDuration = 60;
 
 const CONFIRMATION = "PULIHKAN TRANSAKSI";
-const INTENT_HEADER = "staging-smart-restore-v1";
+const INTENT_HEADER = "budgetku-smart-restore-v1";
 
 function fail(message: string, status: number) {
   return Response.json({ error: message }, {
@@ -36,13 +36,13 @@ function checkOrigin(request: Request): boolean {
 }
 
 /**
- * STAGING-ONLY write endpoint. This route fails CLOSED on production.
+ * Authorized write endpoint; enabled only for the exact Budgetku environment.
  * Never trust submitted financial rows. Server reads a SHA-checked immutable
  * backup for the authenticated owner, re-plans against current data, creates
  * a verified safety snapshot, then calls a single RLS-invoker DB transaction.
  */
 export async function POST(request: Request) {
-  if (!isStagingSmartRestoreAllowed()) {
+  if (!isSmartRestoreAllowed()) {
     return fail("Pemulihan transaksi belum tersedia.", 404);
   }
   if (!checkOrigin(request)) {
@@ -108,11 +108,11 @@ export async function POST(request: Request) {
       p_rows: rows,
     });
     if (error) {
-      console.error("Staging Smart Restore rejected by database:", error.code);
+      console.error("Smart Restore rejected by database:", error.code);
       return fail("Pemulihan dibatalkan. Data saat ini tetap tersimpan. Periksa ulang.", 409);
     }
     if (inserted !== ids.length) {
-      console.error("Staging Smart Restore count mismatch");
+      console.error("Smart Restore count mismatch");
       return fail("Pemulihan perlu diverifikasi ulang sebelum digunakan.", 500);
     }
     return Response.json({
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
       message: inserted + " transaksi berhasil dikembalikan. Transaksi lainnya dipertahankan.",
     }, { headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
   } catch (error) {
-    console.error("Staging Smart Restore failed:", error instanceof Error ? error.message : "unknown");
+    console.error("Smart Restore failed:", error instanceof Error ? error.message : "unknown");
     return fail("Pemulihan belum berhasil. Tidak ada transaksi lama yang sengaja dihapus.", 422);
   }
 }

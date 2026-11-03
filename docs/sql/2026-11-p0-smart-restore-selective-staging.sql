@@ -1,4 +1,5 @@
--- STAGING-ONLY PROTOTYPE. Never run on production without a separate approval.
+-- Additive Budgetku Smart Restore RPC. Requires explicit production database approval.
+-- Validated against isolated staging before any production migration.
 -- Restore selected *missing* manual transactions only; no UPDATE / DELETE.
 -- One call = one PostgreSQL transaction, preserving original IDs.
 CREATE OR REPLACE FUNCTION public.restore_selected_transactions_v1(p_rows jsonb)

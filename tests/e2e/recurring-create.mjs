@@ -255,7 +255,7 @@ try {
   await page.goto("/settings", { waitUntil: "domcontentloaded" });
   await page.getByLabel("Versi cadangan").waitFor({ state: "visible", timeout: 25000 });
   await page.getByRole("button", { name: "Cari transaksi yang hilang" }).click();
-  await page.getByRole("heading", { name: "Pulihkan transaksi tertentu (uji staging)" })
+  await page.getByRole("heading", { name: "Pulihkan transaksi tertentu" })
     .waitFor({ state: "visible", timeout: 25000 });
   await page.getByText("Pemeriksaan selesai. Pilih transaksi yang ingin dikembalikan.")
     .waitFor({ state: "visible" });
@@ -322,25 +322,25 @@ try {
     confirmation:"PULIHKAN TRANSAKSI",
   };
   const invalidConfirmation = await context.request.post("/api/settings/restore/smart/apply",{
-    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1"},
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
     data:{...request,confirmation:"YES"},
   });
   assert.equal(invalidConfirmation.status(),400,"confirmation is mandatory");
   const stale = await context.request.post("/api/settings/restore/smart/apply",{
-    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1"},
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
     data:{...request,expectedCurrentSha256:"0".repeat(64)},
   });
   assert.equal(stale.status(),409,"stale current snapshot must fail closed");
 
   const foreign = await context.request.post("/api/settings/restore/smart/apply",{
-    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1",
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1",
       Origin:"https://untrusted.example"},
     data:request,
   });
   assert.equal(foreign.status(),403,"cross-origin restore must be rejected");
   const anonymousApply = await browser.newContext();
   const denied = await anonymousApply.request.post(target + "/api/settings/restore/smart/apply",{
-    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1"},
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
     data:request,maxRedirects:0,
   });
   assert.ok([307,401].includes(denied.status()),
@@ -365,7 +365,7 @@ try {
   await page.getByLabel("Versi cadangan").waitFor({state:"visible",timeout:25000});
   await page.getByLabel("Versi cadangan").selectOption(selectedSnapshot);
   await page.getByRole("button",{name:"Cari transaksi yang hilang"}).click();
-  await page.getByRole("heading",{name:"Pulihkan transaksi tertentu (uji staging)"})
+  await page.getByRole("heading",{name:"Pulihkan transaksi tertentu"})
     .waitFor({state:"visible",timeout:25000});
   const chooseOld=page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/});
   assert.equal(await chooseOld.isChecked(),false,"checkbox must be empty by default");
@@ -373,8 +373,8 @@ try {
   await page.getByRole("button",{name:"Lihat dampak 1 transaksi terpilih"}).click();
   await page.getByLabel("Ketik PULIHKAN TRANSAKSI untuk melanjutkan")
     .fill("PULIHKAN TRANSAKSI");
-  await page.getByRole("button",{name:"Pulihkan 1 transaksi (staging)"}).click();
-  await page.getByText("1 transaksi dikembalikan di staging. Data lainnya dipertahankan.")
+  await page.getByRole("button",{name:"Pulihkan 1 transaksi"}).click();
+  await page.getByText("1 transaksi berhasil dikembalikan. Data lainnya dipertahankan.")
     .waitFor({state:"visible",timeout:25000});
 
   const restored = must(await admin.from("transactions").select("id,amount,merchant")
@@ -387,7 +387,7 @@ try {
   assert.ok(historyAfter.length>=3,"restore should leave immutable safety backup");
 
   const attemptedRetry=await context.request.post("/api/settings/restore/smart/apply",{
-    headers:{"X-Budgetku-Smart-Restore-Intent":"staging-smart-restore-v1"},data:request,
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},data:request,
   });
   assert.equal(attemptedRetry.status(),409,"identical retry must not duplicate");
   const noDuplicates=must(await admin.from("transactions").select("id")

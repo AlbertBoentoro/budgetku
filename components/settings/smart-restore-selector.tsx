@@ -63,7 +63,7 @@ export function SmartRestoreSelector({
         method: "POST", cache: "no-store",
         headers: {
           "Content-Type": "application/json",
-          "X-Budgetku-Smart-Restore-Intent": "staging-smart-restore-v1",
+          "X-Budgetku-Smart-Restore-Intent": "budgetku-smart-restore-v1",
         },
         body: JSON.stringify({
           snapshot, selectedIds: selected,
@@ -99,7 +99,7 @@ export function SmartRestoreSelector({
       className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
       <div className="flex flex-col gap-1">
         <h4 id="smart-restore-heading" className="text-body-md font-semibold text-on-surface">
-          Pulihkan transaksi tertentu (uji staging)
+          Pulihkan transaksi tertentu
         </h4>
         <p className="text-body-sm text-on-surface-variant">
           Pilih transaksi yang tidak ada di data sekarang. Transaksi terbaru tidak akan
@@ -178,7 +178,7 @@ export function SmartRestoreSelector({
                 className="min-h-11 w-full rounded-lg border border-input bg-surface-container-lowest px-3 text-body-sm text-on-surface"/>
               <Button type="button" className="min-h-11" onClick={() => void apply()}
                 disabled={pending || confirmation !== CONFIRMATION}>
-                {pending ? "Memulihkan..." : "Pulihkan " + selected.length + " transaksi (staging)"}
+                {pending ? "Memulihkan..." : "Pulihkan " + selected.length + " transaksi"}
               </Button>
               <Button type="button" variant="outline" className="min-h-11"
                 disabled={pending} onClick={() => {setReview(false);setConfirmation("");}}>

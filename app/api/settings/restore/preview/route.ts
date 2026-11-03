@@ -5,7 +5,7 @@ import { sha256 } from "@/lib/settings/backup-storage-core.mjs";
 import { isBackupSnapshotFilename } from "@/lib/settings/backup-safety";
 import { createRestorePreview } from "@/lib/settings/restore-plan-core.mjs";
 import { createSmartRestorePlan } from "@/lib/settings/smart-restore-plan.mjs";
-import { isStagingSmartRestoreAllowed } from "@/lib/settings/smart-restore-guard";
+import { isSmartRestoreAllowed } from "@/lib/settings/smart-restore-guard";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 
 /**
@@ -84,8 +84,8 @@ export async function POST(request: Request) {
       backupSha256: saved.sha256,
       currentSha256: sha256(JSON.stringify(current.data)),
       restoreExecutionEnabled: false,
-      smartRestoreEnabled: isStagingSmartRestoreAllowed(),
-      smartRestore: isStagingSmartRestoreAllowed()
+      smartRestoreEnabled: isSmartRestoreAllowed(),
+      smartRestore: isSmartRestoreAllowed()
         ? createSmartRestorePlan({ incoming: JSON.parse(saved.text), current, userId: user.id })
         : null,
       message: "Ini hanya pratinjau risiko. Tidak ada data yang dipulihkan atau diubah.",
