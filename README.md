@@ -49,6 +49,26 @@ eslint-rules/         Aturan lint khusus proyek
 .kiro/steering/       Aturan scope dan alur kerja proyek
 ```
 
+## Dua environment: Development/Testing dan Production
+
+Budgetku hanya menggunakan **dua database** yang benar-benar terpisah:
+
+| Environment | Aplikasi | Database | Data |
+| --- | --- | --- | --- |
+| Development/Testing (juga disebut *staging* pada nama proyek Supabase) | `http://localhost:3000` di laptop atau GitHub Actions runner | Supabase `budgetku-staging` (`omnzuolrlwczvnxrvenw`) | Akun dan transaksi percobaan |
+| Production | Website Vercel resmi Budgetku | Supabase `budgeting-app` (`zvmqrrttdrqkyrdzyxlf`) | Data keuangan asli |
+
+Vercel dapat membuat URL *Preview* untuk setiap PR, tetapi URL itu **bukan database/environment data ketiga**. Alur pengujian yang disepakati tidak bergantung pada URL Preview: GitHub Actions menjalankan Next.js pada localhost runner dengan database Supabase testing yang sama. PR baru boleh di-merge setelah seluruh tes lulus dan pemilik menyetujui perubahan.
+
+Untuk menjalankan Development/Testing di laptop:
+1. Siapkan `.env.local` (tidak dikirim ke GitHub). Isi `NEXT_PUBLIC_SUPABASE_URL=https://omnzuolrlwczvnxrvenw.supabase.co`, publishable key **staging**, dan secret server-side **staging** yang diperlukan; **jangan** menyalin credential production.
+2. Supaya fitur pemulihan khusus testing aktif, isi `STAGING_PROJECT_REF=omnzuolrlwczvnxrvenw`, `STAGING_SUPABASE_URL=https://omnzuolrlwczvnxrvenw.supabase.co`, dan `BUDGETKU_STAGING_E2E=true` hanya dalam konfigurasi testing. Mode ini harus tetap non-production.
+3. Jalankan `npm ci` dan `npm run dev`; buka `http://localhost:3000`. Untuk tes lokal non-browser, jalankan `npm test` dan `npm run lint`.
+
+Tes browser lengkap dijalankan otomatis oleh workflow `.github/workflows/staging-recurring-create.yml` dengan akun sintetis pada Supabase staging; runner memulai Next.js di `127.0.0.1:3000`. CI menolak project ref selain staging yang telah ditentukan. Credentials tetap disimpan di GitHub Actions Secrets, bukan dalam source atau log.
+
+**Aturan keamanan:** jangan pernah mengarahkan localhost, test runner, atau script penghapusan data sintetis ke Supabase production. Jangan menganggap Vercel Preview dapat diuji dengan data asli; environment variables Vercel Production hanya untuk website resmi.
+
 ## Menjalankan secara lokal
 
 1. Gunakan Node.js yang memenuhi persyaratan paket terkunci. Lingkungan audit memakai Node.js 24.19.0 dan npm 11.9.0; repositori belum memiliki pin versi Node tersendiri.
@@ -99,7 +119,7 @@ Nilai `NEXT_PUBLIC_*` dibundel ke browser. Service role, client secret, kunci en
 
 ## Pengujian
 
-Pada basis `main` yang diaudit (`bc92dd0`), tidak ada skrip `test`, konfigurasi test runner, atau berkas suite pengujian yang dilacak. `npm test` belum dapat dipakai; lint dan build bukan pengganti pengujian perilaku aplikasi. Tes pada branch fitur lain tidak termasuk pernyataan ini.
+Proyek menyediakan `npm test` untuk tes regresi terisolasi. CI juga menjalankan lint, build, dan pemeriksaan TypeScript. Pengujian browser di localhost runner + Supabase staging adalah gerbang **terpisah**; suksesnya unit test/build saja tidak berarti fitur finansial sudah lolos uji end-to-end.
 
 Sebelum merilis perubahan, jalankan lint, pemeriksaan TypeScript, dan build. Pada environment pengujian dengan akun dan skema yang sesuai, periksa login/callback/logout, isolasi data antarpengguna, transaksi dan transfer, perhitungan saldo/anggaran, serta fitur yang berubah. Uji Gmail, cadangan, Cron, dan Web Push hanya dengan akses yang diizinkan; tindakan tersebut dapat membaca layanan eksternal atau menulis data.
 
