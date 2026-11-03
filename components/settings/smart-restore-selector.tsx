@@ -83,7 +83,7 @@ export function SmartRestoreSelector({
         throw new Error("Jumlah transaksi perlu diverifikasi kembali.");
       }
       setComplete(true);
-      setMessage(selected.length + " transaksi dikembalikan di staging. Data lainnya dipertahankan.");
+      setMessage(selected.length + " transaksi berhasil dikembalikan. Data lainnya dipertahankan.");
       setConfirmation("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Pemulihan gagal.");
