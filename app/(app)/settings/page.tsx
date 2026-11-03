@@ -13,6 +13,7 @@ import { ThemeSettingRow } from "@/components/settings/theme-setting-row";
 import { PreferencesForm } from "@/components/settings/preferences-form";
 import { BackupControls } from "@/components/settings/backup-controls";
 import { RestorePreviewControls } from "@/components/settings/restore-preview-controls";
+import { isSmartRestoreAllowed } from "@/lib/settings/smart-restore-guard";
 import { PushSetup } from "@/components/settings/push-setup";
 import { SettingsLoading } from "@/app/(app)/settings/loading";
 
@@ -112,7 +113,6 @@ async function SettingsContent() {
         >
           Fitur
         </h2>
-        <RestorePreviewControls />
         <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           <SettingsLinkRow
             href="/reports"
@@ -214,6 +214,7 @@ async function SettingsContent() {
             )}
           />
         )}
+        <RestorePreviewControls smartRestoreMode={isSmartRestoreAllowed()} />
         <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           <DownloadLinkRow
             href="/api/export/data"

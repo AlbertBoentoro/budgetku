@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { SmartRestoreSelector, type SmartRestorePreview } from "@/components/settings/smart-restore-selector";
 
 type Snapshot = { name: string; createdAt: string; size: number | null };
 type Counts = {
@@ -16,6 +17,10 @@ type ReadOnlyPreview = {
   blockers: string[];
   backupGeneratedAt: string;
   externalGmailLinks: number;
+  backupSha256: string;
+  currentSha256: string;
+  smartRestoreEnabled?: boolean;
+  smartRestore?: SmartRestorePreview | null;
   tables: Record<string, Counts>;
 };
 
@@ -39,7 +44,7 @@ function dateLabel(value: string): string {
   }).format(date) + " WIB";
 }
 
-export function RestorePreviewControls() {
+export function RestorePreviewControls({ smartRestoreMode = false }: { smartRestoreMode?: boolean }) {
   const [history, setHistory] = useState<Snapshot[]>([]);
   const [snapshot, setSnapshot] = useState("");
   const [loading, setLoading] = useState(true);
@@ -120,11 +125,12 @@ export function RestorePreviewControls() {
       className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
       <div className="flex flex-col gap-1">
         <h3 id="restore-preview-title" className="text-body-md font-semibold text-on-surface">
-          Periksa dampak cadangan
+          {smartRestoreMode ? "Pulihkan transaksi dari cadangan" : "Periksa dampak cadangan"}
         </h3>
         <p className="text-body-sm text-on-surface-variant">
-          Bandingkan cadangan bertanggal dengan data sekarang sebelum memutuskan
-          pemulihan. Ini hanya pratinjau; pemulihan data belum tersedia.
+          {smartRestoreMode
+            ? "Pilih backup, lalu centang transaksi yang ingin dikembalikan. Transaksi terbaru tetap disimpan."
+            : "Bandingkan cadangan bertanggal dengan data sekarang sebelum memutuskan pemulihan. Ini hanya pratinjau; pemulihan data belum tersedia."}
         </p>
       </div>
       <label htmlFor="restore-preview-snapshot"
@@ -150,7 +156,7 @@ export function RestorePreviewControls() {
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="button" variant="outline" className="min-h-11 sm:flex-1"
           disabled={!snapshot || loading || checking} onClick={inspect}>
-          {checking ? "Memeriksa cadangan..." : "Periksa dampak cadangan"}
+          {checking ? "Memeriksa cadangan..." : smartRestoreMode ? "Cari transaksi yang hilang" : "Periksa dampak cadangan"}
         </Button>
         <Button type="button" variant="ghost" className="min-h-11 sm:w-auto"
           disabled={loading || checking} onClick={() => void loadHistory()}>
@@ -160,7 +166,9 @@ export function RestorePreviewControls() {
       {preview ? (
         <div className="flex flex-col gap-3" aria-live="polite">
           <p role="status" className="text-body-sm font-medium text-on-surface">
-            Pratinjau saja. Tidak ada data yang dipulihkan atau diubah.
+            {smartRestoreMode
+              ? "Pemeriksaan selesai. Pilih transaksi yang ingin dikembalikan."
+              : "Pratinjau saja. Tidak ada data yang dipulihkan atau diubah."}
           </p>
           <p className="text-body-sm text-on-surface-variant">
             Dibuat {dateLabel(preview.backupGeneratedAt)}.
@@ -168,7 +176,7 @@ export function RestorePreviewControls() {
               ? " " + preview.externalGmailLinks + " transaksi terkait Gmail ikut diperiksa."
               : ""}
           </p>
-          <div className="max-w-full overflow-x-auto">
+          {!smartRestoreMode ? <div className="max-w-full overflow-x-auto">
             <table aria-label="Perbandingan data cadangan"
               className="w-full min-w-[340px] text-left text-body-sm text-on-surface">
               <thead>
@@ -192,8 +200,13 @@ export function RestorePreviewControls() {
                 ))}
               </tbody>
             </table>
-          </div>
-          {preview.blockers.length ? (
+          </div> : null}
+          {preview.smartRestoreEnabled && preview.smartRestore ? (
+            <SmartRestoreSelector key={snapshot + preview.backupSha256} snapshot={snapshot}
+              backupSha256={preview.backupSha256} currentSha256={preview.currentSha256}
+              plan={preview.smartRestore} />
+          ) : null}
+          {!smartRestoreMode ? (preview.blockers.length ? (
             <div role="alert" className="text-body-sm text-expense">
               <p className="font-medium">Masalah yang perlu dibereskan sebelum pemulihan:</p>
               <ul className="ml-5 list-disc space-y-1">
@@ -205,7 +218,7 @@ export function RestorePreviewControls() {
               Belum ditemukan konflik pada pemeriksaan awal. Ini bukan jaminan
               bahwa pemulihan data sudah aman atau tersedia.
             </p>
-          )}
+          )) : null}
         </div>
       ) : null}
       {error ? <p role="alert" className="text-body-sm text-expense">{error}</p> : null}

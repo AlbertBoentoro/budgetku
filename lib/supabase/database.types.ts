@@ -740,6 +740,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      restore_selected_transactions_v1: {
+        Args: { p_rows: Json }
+        Returns: number
+      }
       create_transaction_with_recurring: {
         Args: {
           p_client_key: string
