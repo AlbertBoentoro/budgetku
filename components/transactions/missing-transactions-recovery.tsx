@@ -177,7 +177,10 @@ export function MissingTransactionsRecovery() {
     ? selectedRestoreImpact(picked, picked.map(r => r.id))
     : { count: picked.length, accountChanges: [] };
   const sources = new Set(picked.map(r => r.snapshot));
-  const canRestore = !scanning && !pending && !completeRestore &&
+  // Never permit a financial restore based on a partial history scan.
+  // A later or unverifiable snapshot could contain a conflicting version.
+  const canRestore = completed && !scanning && !pending && !completeRestore &&
+    !incomplete && skipped === 0 && !error &&
     picked.length > 0 && picked.length <= MAX_ROWS && sources.size <= MAX_BACKUPS;
 
   function toggle(row: RecoveryCandidate, checked: boolean) {
@@ -263,6 +266,7 @@ export function MissingTransactionsRecovery() {
           {skipped > 0 ? " Ada file yang gagal diverifikasi." : ""}
           {incomplete ? " Batas 500 cadangan tercapai." : ""}
           Hasil ini belum tentu mencakup semua transaksi yang hilang.
+          Pemulihan dinonaktifkan sampai seluruh riwayat berhasil diperiksa.
         </p>
       ) : null}
       {error ? <p role="alert" className="text-body-sm text-expense">{error}</p> : null}
