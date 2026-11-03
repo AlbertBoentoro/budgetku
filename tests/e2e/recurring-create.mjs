@@ -284,6 +284,14 @@ try {
     .waitFor({ state: "visible", timeout: 25000 });
   await page.getByText("Pemeriksaan selesai. Pilih transaksi yang ingin dikembalikan.")
     .waitFor({ state: "visible" });
+  // When the backup's manual transaction still exists, no restore checkbox
+  // should appear; show counts and a clear empty-state explanation instead.
+  await page.getByText("1 transaksi dalam cadangan · 1 transaksi saat ini")
+    .waitFor({ state: "visible", timeout: 25000 });
+  await page.getByText("Semua transaksi dalam cadangan ini masih ada di Budgetku. Tidak ada yang perlu dipulihkan.")
+    .waitFor({ state: "visible" });
+  assert.equal(await page.getByRole("checkbox",{name:/Pulihkan/}).count(),0);
+  console.log("PASS: Smart Restore explains why no checkboxes appear when all backup transactions still exist");
   assert.equal(await page.getByRole("button", { name: /Pulihkan data/i }).count(),0);
   console.log("PASS: mobile Settings shows read-only preview table and no restore Apply button");
 

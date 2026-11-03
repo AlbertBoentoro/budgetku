@@ -12,8 +12,9 @@ type Candidate = {
   categoryName: string | null; eligible: boolean; reason: string | null;
 };
 export type SmartRestorePreview = {
-  candidates: Candidate[]; alreadyPresent: number; eligibleCount: number;
-  blockedCount: number; defaultSelectedIds: string[];
+  candidates: Candidate[]; alreadyPresent: number;
+  backupTransactionCount: number; currentTransactionCount: number;
+  eligibleCount: number; blockedCount: number; defaultSelectedIds: string[];
 };
 const CONFIRMATION = "PULIHKAN TRANSAKSI";
 const rupiah = (value: number) =>
@@ -103,15 +104,19 @@ export function SmartRestoreSelector({
         </h4>
         <p className="text-body-sm text-on-surface-variant">
           Pilih transaksi yang tidak ada di data sekarang. Transaksi terbaru tidak akan
-          dihapus. Semua pilihan kosong secara default.
+          dihapus. Semua pilihan kosong secara default. Transaksi yang baru dicatat
+          setelah waktu cadangan dibuat memang belum ada di cadangan tersebut.
         </p>
       </div>
-      <p className="text-body-sm text-on-surface-variant">
-        {plan.eligibleCount} bisa dipulihkan · {plan.blockedCount} perlu pemeriksaan lain
-      </p>
+      <div className="flex flex-col gap-1 rounded-lg border border-outline-variant p-3 text-body-sm text-on-surface-variant">
+        <p>{plan.backupTransactionCount} transaksi dalam cadangan · {plan.currentTransactionCount} transaksi saat ini</p>
+        <p>{plan.alreadyPresent} masih ada · {plan.eligibleCount} dapat dipulihkan · {plan.blockedCount} perlu pemeriksaan lain</p>
+      </div>
       {plan.candidates.length === 0 ? (
         <p role="status" className="text-body-sm text-on-surface-variant">
-          Tidak ada transaksi yang hilang dari cadangan ini.
+          {plan.backupTransactionCount === 0
+            ? "Cadangan ini belum berisi transaksi."
+            : "Semua transaksi dalam cadangan ini masih ada di Budgetku. Tidak ada yang perlu dipulihkan."}
         </p>
       ) : (
         <div className="flex flex-col divide-y divide-outline-variant">

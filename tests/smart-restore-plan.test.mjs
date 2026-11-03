@@ -29,6 +29,9 @@ describe("Smart Restore selection safety", () => {
   it("keeps today's transactions and offers yesterday's missing row, unchecked", () => {
     const f = fixture(), result = createSmartRestorePlan(f);
     assert.equal(result.eligibleCount, 1);
+    assert.equal(result.backupTransactionCount, 1);
+    assert.equal(result.currentTransactionCount, 1);
+    assert.equal(result.alreadyPresent, 0);
     assert.deepEqual(result.defaultSelectedIds, []);
     assert.equal(result.candidates[0].id, f.old.id);
     assert.deepEqual(selectedRestoreImpact(result.candidates,[f.old.id]).accountChanges,
@@ -38,6 +41,8 @@ describe("Smart Restore selection safety", () => {
     const f = fixture(); f.current.data.transactions.push({...f.old});
     const r = createSmartRestorePlan(f);
     assert.equal(r.candidates.length,0);assert.equal(r.alreadyPresent,1);
+    assert.equal(r.backupTransactionCount, 1);
+    assert.equal(r.currentTransactionCount, 2);
   });
   it("blocks Gmail and source-reference transactions", () => {
     const f=fixture();f.old.source="gmail";
