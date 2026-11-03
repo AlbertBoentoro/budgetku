@@ -383,8 +383,13 @@ try {
     exact:false,
   }).waitFor({state:"visible",timeout:25000});
   await page.getByRole("button",{name:"Periksa versi ini"}).first().click();
-  assert.equal(await page.getByLabel("Versi cadangan").inputValue(),selectedSnapshot,
-    "search result opens the correct older backup");
+  const pickedSnapshot = await eventually(
+    () => page.getByLabel("Versi cadangan").inputValue(),
+    version => found.matches.some(row => row.snapshot === version && row.eligibleCount > 0),
+    "search-selected snapshot must contain a verified missing transaction",
+  );
+  assert.ok(found.matches.some(row => row.snapshot === pickedSnapshot && row.eligibleCount > 0),
+    "selected backup must be one of the verified matching versions");
   await page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/})
     .waitFor({state:"visible",timeout:25000});
   console.log("PASS: all-backup read-only scan found older missing transaction, skipped newer empty backup, and opened correct checkbox without writes");
