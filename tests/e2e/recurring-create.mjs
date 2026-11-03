@@ -254,10 +254,10 @@ try {
   // is intentionally provided at this stage.
   await page.goto("/settings", { waitUntil: "domcontentloaded" });
   await page.getByLabel("Versi cadangan").waitFor({ state: "visible", timeout: 25000 });
-  await page.getByRole("button", { name: "Periksa dampak cadangan" }).click();
-  await page.getByRole("table", { name: "Perbandingan data cadangan" })
+  await page.getByRole("button", { name: "Cari transaksi yang hilang" }).click();
+  await page.getByRole("heading", { name: "Pulihkan transaksi tertentu (uji staging)" })
     .waitFor({ state: "visible", timeout: 25000 });
-  await page.getByText("Pratinjau saja. Tidak ada data yang dipulihkan atau diubah.")
+  await page.getByText("Pemeriksaan selesai. Pilih transaksi yang ingin dikembalikan.")
     .waitFor({ state: "visible" });
   assert.equal(await page.getByRole("button", { name: /Pulihkan data/i }).count(),0);
   console.log("PASS: mobile Settings shows read-only preview table and no restore Apply button");
@@ -364,7 +364,7 @@ try {
   await page.goto("/settings",{waitUntil:"domcontentloaded"});
   await page.getByLabel("Versi cadangan").waitFor({state:"visible",timeout:25000});
   await page.getByLabel("Versi cadangan").selectOption(selectedSnapshot);
-  await page.getByRole("button",{name:"Periksa dampak cadangan"}).click();
+  await page.getByRole("button",{name:"Cari transaksi yang hilang"}).click();
   await page.getByRole("heading",{name:"Pulihkan transaksi tertentu (uji staging)"})
     .waitFor({state:"visible",timeout:25000});
   const chooseOld=page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/});

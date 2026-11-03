@@ -63,7 +63,7 @@ BEGIN
     -- during this insert. Never create accounts or categories as side effects.
     PERFORM 1 FROM public.accounts a
       WHERE a.id = v_row.account_id AND a.user_id = v_user
-        AND a.currency = 'IDR' AND NOT a.is_archived FOR KEY SHARE;
+        AND a.currency = 'IDR' AND NOT a.is_archived FOR SHARE;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Source account unavailable' USING ERRCODE = 'P0001';
     END IF;
@@ -76,7 +76,7 @@ BEGIN
       END IF;
       PERFORM 1 FROM public.accounts a
         WHERE a.id = v_row.destination_account_id AND a.user_id = v_user
-          AND a.currency = 'IDR' AND NOT a.is_archived FOR KEY SHARE;
+          AND a.currency = 'IDR' AND NOT a.is_archived FOR SHARE;
       IF NOT FOUND THEN
         RAISE EXCEPTION 'Destination account unavailable' USING ERRCODE = 'P0001';
       END IF;
@@ -88,7 +88,7 @@ BEGIN
         WHERE c.id = v_row.category_id
           AND (c.user_id = v_user OR (c.user_id IS NULL AND c.is_system))
           AND c.category_type = v_row.transaction_type AND NOT c.is_archived
-        FOR KEY SHARE;
+        FOR SHARE;
       IF NOT FOUND THEN
         RAISE EXCEPTION 'Category unavailable' USING ERRCODE = 'P0001';
       END IF;
