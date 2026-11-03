@@ -244,6 +244,18 @@ try {
   assert.equal(unauthenticatedPreview.status(),401,"anonymous caller cannot inspect snapshots");
   await anonymous.close();
 
+  // Exercise the real Settings UI, not only the API. No Apply/Restore control
+  // is intentionally provided at this stage.
+  await page.goto("/settings", { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Versi cadangan").waitFor({ state: "visible", timeout: 25000 });
+  await page.getByRole("button", { name: "Periksa dampak cadangan" }).click();
+  await page.getByRole("table", { name: "Perbandingan data cadangan" })
+    .waitFor({ state: "visible", timeout: 25000 });
+  await page.getByText("Pratinjau saja. Tidak ada data yang dipulihkan atau diubah.")
+    .waitFor({ state: "visible" });
+  assert.equal(await page.getByRole("button", { name: /Pulihkan data/i }).count(),0);
+  console.log("PASS: mobile Settings shows read-only preview table and no restore Apply button");
+
   const ledgerAfterPreview = must(await admin.from("transactions")
     .select("id,amount").eq("user_id",userId),"verify read-only preview left ledger unchanged");
   assert.equal(ledgerAfterPreview.length,1);
