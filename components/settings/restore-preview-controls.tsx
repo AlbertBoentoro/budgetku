@@ -7,15 +7,6 @@ import { BACKUP_CREATED_EVENT } from "@/components/settings/backup-events";
 import { SmartRestoreSelector, type SmartRestorePreview } from "@/components/settings/smart-restore-selector";
 
 type Snapshot = { name: string; createdAt: string; size: number | null };
-type SearchMatch = {
-  snapshot: string; createdAt: string;
-  missingCount: number; eligibleCount: number; blockedCount: number;
-};
-type SearchPage = {
-  matches: SearchMatch[]; scanned: number; skipped: number;
-  currentSha256: string; anchor: string | null;
-  nextOffset: number | null; truncated: boolean;
-};
 type Counts = {
   current: number; backup: number;
   wouldAdd: number; wouldUpdate: number; wouldRemove: number;
@@ -62,14 +53,6 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
   const [checking, setChecking] = useState(false);
   const [preview, setPreview] = useState<ReadOnlyPreview | null>(null);
   const [error, setError] = useState("");
-  const [searchingAll, setSearchingAll] = useState(false);
-  const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([]);
-  const [scannedCount, setScannedCount] = useState(0);
-  const [skippedCount, setSkippedCount] = useState(0);
-  const [searchCompleted, setSearchCompleted] = useState(false);
-  const [searchTruncated, setSearchTruncated] = useState(false);
-  const [searchError, setSearchError] = useState("");
-  const scanControllerRef = useRef<AbortController | null>(null);
 
   async function loadHistory(signal?: AbortSignal, preferLatest = false) {
     const requestId = ++historyRequestId.current;
@@ -106,13 +89,6 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
     const controller = new AbortController();
     void loadHistory(controller.signal);
     const onBackupCreated = () => {
-      // New snapshots invalidate an in-progress paginated history scan.
-      scanControllerRef.current?.abort();
-      setSearchMatches([]);
-      setSearchCompleted(false);
-      setScannedCount(0);
-      setSkippedCount(0);
-      setSearchError("");
       // A new immutable snapshot is committed before POST returns 200.
       // Select that newest version, rather than leaving a stale dropdown.
       controller.abort();
@@ -121,14 +97,12 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
     window.addEventListener(BACKUP_CREATED_EVENT, onBackupCreated);
     return () => {
       controller.abort();
-      scanControllerRef.current?.abort();
       window.removeEventListener(BACKUP_CREATED_EVENT, onBackupCreated);
     };
   }, []);
 
-  async function inspect(version = snapshot) {
-    if (!version || checking) return;
-    setSnapshot(version);
+  async function inspect() {
+    if (!snapshot || checking) return;
     setChecking(true);
     setPreview(null);
     setError("");
@@ -137,7 +111,7 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ snapshot: version }),
+        body: JSON.stringify({ snapshot }),
       });
       const result: unknown = await response.json();
       if (!response.ok) {
@@ -160,83 +134,6 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
     }
   }
 
-
-  async function searchAcrossHistory() {
-    if (searchingAll) return;
-    const controller = new AbortController();
-    scanControllerRef.current?.abort();
-    scanControllerRef.current = controller;
-    setSearchMatches([]);
-    setSearchCompleted(false);
-    setSearchTruncated(false);
-    setSearchError("");
-    setScannedCount(0);
-    setSkippedCount(0);
-    setSearchingAll(true);
-    let offset = 0;
-    let anchor: string | null = null;
-    let expectedCurrentHash: string | null = null;
-    try {
-      for (;;) {
-        const response = await fetch("/api/settings/restore/search", {
-          method: "POST", cache: "no-store", signal: controller.signal,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ offset, anchor }),
-        });
-        const payload: unknown = await response.json();
-        if (!response.ok) {
-          const message = payload && typeof payload === "object" && "error" in payload
-            ? (payload as { error: unknown }).error : null;
-          throw new Error(typeof message === "string" ? message : "Pencarian cadangan gagal.");
-        }
-        if (!payload || typeof payload !== "object" ||
-          !("matches" in payload) || !Array.isArray(payload.matches) ||
-          !("currentSha256" in payload) || typeof payload.currentSha256 !== "string" ||
-          !("scanned" in payload) || typeof payload.scanned !== "number" ||
-          !("skipped" in payload) || typeof payload.skipped !== "number" ||
-          !("nextOffset" in payload) ||
-          (payload.nextOffset !== null && typeof payload.nextOffset !== "number") ||
-          !("anchor" in payload) || !("truncated" in payload)) {
-          throw new Error("Respons pencarian tidak valid.");
-        }
-        const page = payload as SearchPage;
-        if (expectedCurrentHash && expectedCurrentHash !== page.currentSha256) {
-          throw new Error("Data transaksi berubah selama pencarian. Mulai ulang agar hasilnya akurat.");
-        }
-        expectedCurrentHash = page.currentSha256;
-        if (controller.signal.aborted) return;
-        setSearchMatches(previous => [...previous, ...page.matches]);
-        setScannedCount(previous => previous + page.scanned);
-        setSkippedCount(previous => previous + page.skipped);
-        setSearchTruncated(page.truncated);
-        if (page.nextOffset === null) break;
-        if (!page.anchor || page.nextOffset <= offset) {
-          throw new Error("Urutan cadangan tidak valid. Mulai ulang.");
-        }
-        offset = page.nextOffset;
-        anchor = page.anchor;
-      }
-      if (!controller.signal.aborted) setSearchCompleted(true);
-    } catch (cause) {
-      if (!controller.signal.aborted) {
-        setSearchError(cause instanceof Error ? cause.message : "Pencarian gagal.");
-      }
-    } finally {
-      if (scanControllerRef.current === controller) {
-        scanControllerRef.current = null;
-        setSearchingAll(false);
-      }
-    }
-  }
-
-  function chooseSearchResult(row: SearchMatch) {
-    // Older backups may be beyond the dropdown's first 100 entries.
-    setHistory(previous => previous.some(s => s.name === row.snapshot) ? previous :
-      [...previous, { name: row.snapshot, createdAt: row.createdAt, size: null }]);
-    setSnapshot(row.snapshot);
-    void inspect(row.snapshot);
-  }
-
   return (
     <section aria-labelledby="restore-preview-title"
       className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
@@ -250,74 +147,6 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
             : "Bandingkan cadangan bertanggal dengan data sekarang sebelum memutuskan pemulihan. Ini hanya pratinjau; pemulihan data belum tersedia."}
         </p>
       </div>
-
-      {smartRestoreMode ? (
-        <div className="flex flex-col gap-2 rounded-lg border border-outline-variant p-3">
-          <p className="text-body-sm font-medium text-on-surface">Tidak tahu transaksi hilang ada di backup yang mana?</p>
-          <p className="text-body-sm text-on-surface-variant">
-            Cari versi cadangan yang masih menyimpan transaksi tersebut. Pencarian
-            hanya membaca backup, tidak memulihkan atau mengubah data.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" disabled={searchingAll || checking}
-              onClick={() => void searchAcrossHistory()}>
-              {searchingAll ? "Mencari di riwayat..." : "Cari di semua cadangan"}
-            </Button>
-            {searchingAll ? (
-              <Button type="button" variant="ghost" onClick={() => scanControllerRef.current?.abort()}>
-                Batalkan pencarian
-              </Button>
-            ) : null}
-          </div>
-          {scannedCount + skippedCount > 0 ? (
-            <p role="status" className="text-body-sm text-on-surface-variant">
-              {scannedCount} cadangan diperiksa · {skippedCount} tidak bisa diperiksa
-              {searchingAll ? " · pencarian berlangsung" : ""}
-            </p>
-          ) : null}
-          {searchMatches.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              <p className="text-body-sm font-medium text-on-surface">
-                {searchMatches.length} versi cadangan memiliki transaksi yang tidak ada di data sekarang
-              </p>
-              <p className="text-label-xs text-on-surface-variant">
-                Transaksi yang sama bisa ada di beberapa versi. Pilih satu versi,
-                periksa transaksi dan dampak saldo sebelum mengonfirmasi pemulihan.
-              </p>
-              {searchMatches.map(row => (
-                <div key={row.snapshot}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-outline-variant p-2">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <p className="text-body-sm text-on-surface">{dateLabel(row.createdAt)}</p>
-                    <p className="text-label-xs text-on-surface-variant">
-                      {row.eligibleCount} bisa dipulihkan · {row.blockedCount} perlu pemeriksaan
-                    </p>
-                  </div>
-                  <Button type="button" variant="outline" disabled={checking || searchingAll}
-                    onClick={() => chooseSearchResult(row)}>
-                    Periksa versi ini
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {searchCompleted && searchMatches.length === 0 && skippedCount === 0 && !searchTruncated ? (
-            <p role="status" className="text-body-sm text-on-surface-variant">
-              Tidak ditemukan transaksi yang hilang dalam {scannedCount} cadangan yang diperiksa.
-              Transaksi yang tidak pernah masuk ke backup tidak dapat ditemukan dari riwayat ini.
-            </p>
-          ) : null}
-          {searchCompleted && (skippedCount > 0 || searchTruncated) ? (
-            <p role="alert" className="text-body-sm text-on-surface-variant">
-              Pencarian belum mencakup semua cadangan:
-              {skippedCount > 0 ? " " + skippedCount + " file gagal diverifikasi." : ""}
-              {searchTruncated ? " Batas pencarian 500 versi tercapai." : ""}
-              Jangan anggap transaksi tidak ada sebelum cadangan yang belum diperiksa ditinjau.
-            </p>
-          ) : null}
-          {searchError ? <p role="alert" className="text-body-sm text-expense">{searchError}</p> : null}
-        </div>
-      ) : null}
       <label htmlFor="restore-preview-snapshot"
         className="text-body-sm font-medium text-on-surface">
         Versi cadangan
@@ -340,7 +169,7 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
       </select>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="button" variant="outline" className="min-h-11 sm:flex-1"
-          disabled={!snapshot || loading || checking || searchingAll} onClick={() => void inspect()}>
+          disabled={!snapshot || loading || checking} onClick={inspect}>
           {checking ? "Memeriksa cadangan..." : smartRestoreMode ? "Cari transaksi yang hilang" : "Periksa dampak cadangan"}
         </Button>
         <Button type="button" variant="ghost" className="min-h-11 sm:w-auto"
