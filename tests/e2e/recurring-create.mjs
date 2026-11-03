@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 
 const PRODUCTION_REF = "zvmqrrttdrqkyrdzyxlf";
+const APPROVED_STAGING_REF = "omnzuolrlwczvnxrvenw";
 const target = process.env.TEST_BASE_URL ?? "http://127.0.0.1:3000";
 const url = process.env.STAGING_SUPABASE_URL;
 const key = process.env.STAGING_SUPABASE_PUBLISHABLE_KEY;
@@ -19,7 +20,8 @@ if (!url || !key || !secret || !stageRef || process.env.BUDGETKU_STAGING_E2E !==
 }
 const host = new URL(url).hostname.toLowerCase();
 if (!host.endsWith(".supabase.co") || !host.startsWith(stageRef + ".") ||
-    stageRef === PRODUCTION_REF || url.includes(PRODUCTION_REF) ||
+    stageRef !== APPROVED_STAGING_REF || stageRef === PRODUCTION_REF ||
+    url.includes(PRODUCTION_REF) ||
     !["http://127.0.0.1:3000", "http://localhost:3000"].includes(target)) {
   throw new Error("Staging safety guard: refused possible production environment.");
 }
@@ -280,13 +282,18 @@ try {
     "Settings picker should select newly created snapshot, not stale previous backup");
   assert.match(await picker.locator("option:checked").textContent(), /Terbaru/);
   console.log("PASS: manual backup immediately updates Settings history and selects newest snapshot");
-  await page.getByRole("button", { name: "Cari transaksi yang hilang" }).click();
-  await page.getByRole("heading", { name: "Pulihkan transaksi tertentu" })
+  // Recovery moved to Transactions. Settings intentionally exposes only
+  // a read-only backup comparison, never an interactive restore control.
+  await page.getByRole("button", { name: "Periksa dampak cadangan" }).click();
+  await page.getByRole("table", { name: "Perbandingan data cadangan" })
     .waitFor({ state: "visible", timeout: 25000 });
-  await page.getByText("Pemeriksaan selesai. Pilih transaksi yang ingin dikembalikan.")
+  await page.getByText("Pratinjau saja. Tidak ada data yang dipulihkan atau diubah.")
     .waitFor({ state: "visible" });
-  assert.equal(await page.getByRole("button", { name: /Pulihkan data/i }).count(),0);
-  console.log("PASS: mobile Settings shows read-only preview table and no restore Apply button");
+  assert.equal(await page.getByRole("checkbox", { name: /Pulihkan /i }).count(),0,
+    "Settings must not offer Smart Restore transaction checkboxes");
+  assert.equal(await page.getByRole("button", { name: /Pulihkan (data|\\d+ transaksi)/i }).count(),0,
+    "Settings must not offer an Apply/Restore action");
+  console.log("PASS: mobile Settings shows read-only backup comparison; recovery controls stay in Transactions");
 
   const ledgerAfterPreview = must(await admin.from("transactions")
     .select("id,amount").eq("user_id",userId),"verify read-only preview left ledger unchanged");
