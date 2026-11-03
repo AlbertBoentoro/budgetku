@@ -291,7 +291,7 @@ try {
     .waitFor({ state: "visible" });
   assert.equal(await page.getByRole("checkbox", { name: /Pulihkan /i }).count(),0,
     "Settings must not offer Smart Restore transaction checkboxes");
-  assert.equal(await page.getByRole("button", { name: /Pulihkan (data|\\d+ transaksi)/i }).count(),0,
+  assert.equal(await page.getByRole("button", { name: /Pulihkan (data|[0-9]+ transaksi)/i }).count(),0,
     "Settings must not offer an Apply/Restore action");
   console.log("PASS: mobile Settings shows read-only backup comparison; recovery controls stay in Transactions");
 
