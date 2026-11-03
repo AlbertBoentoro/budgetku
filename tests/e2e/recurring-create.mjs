@@ -28,6 +28,7 @@ const admin = createClient(url, secret, {
 });
 let userId;
 let browser;
+let globalSystemCategoryId;
 const email = "budgetku-e2e-" + randomBytes(8).toString("hex") + "@example.test";
 const password = randomBytes(25).toString("base64url");
 
@@ -420,6 +421,59 @@ try {
   assert.equal(noDuplicates.length,3);
   console.log("PASS: Smart Restore checkbox restored Nov 2 manual transaction, kept Nov 3 transaction, created safety snapshot, rejected stale/replay/anonymous requests");
 
+  
+  // Regression: production categorizes transactions with globally readable
+  // system categories. Their UPDATE RLS forbids SELECT FOR SHARE, but SELECT
+  // and restoring an eligible manual transaction should still be allowed.
+  const sysCategory = must(await admin.from("categories").insert({
+    user_id: null, name: "E2E Global Restore Category",
+    category_type: "expense", is_system: true, is_archived: false,
+  }).select("id").single(), "create global category in disposable staging");
+  globalSystemCategoryId = sysCategory.id;
+  const sysExpense = must(await admin.from("transactions").insert({
+    user_id: userId, account_id: account.id, category_id: sysCategory.id,
+    transaction_type: "expense", amount: 72000, currency: "IDR",
+    source: "manual", source_reference: null,
+    merchant: "System category fixture",
+    transaction_at: "2026-11-02T12:00:00+07:00",
+  }).select("*").single(), "seed system-category transaction");
+  const sysBackup = await context.request.post("/api/settings/backup");
+  assert.equal(sysBackup.status(),200);
+  const sysHistory = await context.request.get("/api/settings/backup/history");
+  assert.equal(sysHistory.status(),200);
+  const sysSnapshot = (await sysHistory.json()).snapshots[0].name;
+  must(await admin.from("transactions").delete().eq("user_id",userId)
+    .eq("id",sysExpense.id), "simulate removed system-category expense");
+
+  const sysPreviewResp = await context.request.post("/api/settings/restore/preview", {
+    data: {snapshot:sysSnapshot},
+  });
+  assert.equal(sysPreviewResp.status(),200);
+  const sysPreview = await sysPreviewResp.json();
+  assert.equal(sysPreview.smartRestore.candidates.find(t=>t.id===sysExpense.id)?.eligible,true);
+  const oldLedger = must(await admin.from("transactions").select("id,amount")
+    .eq("user_id",userId), "baseline before global category restore");
+  const sysApply = await context.request.post("/api/settings/restore/smart/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data: {
+      snapshot:sysSnapshot, selectedIds:[sysExpense.id],
+      expectedBackupSha256:sysPreview.backupSha256,
+      expectedCurrentSha256:sysPreview.currentSha256,
+      confirmation:"PULIHKAN TRANSAKSI",
+    },
+  });
+  assert.equal(sysApply.status(),200,"read-only global system category should restore");
+  assert.equal((await sysApply.json()).restoredCount,1);
+  const newLedger = must(await admin.from("transactions").select("id,amount,category_id")
+    .eq("user_id",userId), "check recovered global category and existing ledger");
+  assert.equal(newLedger.length,oldLedger.length+1);
+  assert.ok(newLedger.some(t=>t.id===sysExpense.id && t.category_id===sysCategory.id &&
+    Number(t.amount)===72000));
+  assert.ok(oldLedger.every(t=>newLedger.some(n=>n.id===t.id &&
+    Number(n.amount)===Number(t.amount))));
+  console.log("PASS: read-only global system category recovered; existing transactions unchanged");
+
+
 
   await context.close();
 } finally {
@@ -441,5 +495,9 @@ try {
     }
     const deleted = await admin.auth.admin.deleteUser(userId);
     if (deleted.error) throw new Error("Synthetic staging account could not be removed.");
+  }
+  if (globalSystemCategoryId) {
+    const removed = await admin.from("categories").delete().eq("id",globalSystemCategoryId);
+    if (removed.error) throw new Error("Staging global category cleanup failed.");
   }
 }
