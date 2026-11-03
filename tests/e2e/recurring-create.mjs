@@ -131,6 +131,67 @@ try {
   console.log("PASS: Playwright recurring form saved one ledger entry and one correct month-end schedule");
   console.log("PASS: browser expense+recurring schedule recorded correctly in staging");
 
+  // Exercise the actual authenticated staging RPC after the browser's
+  // successful initial Submit. This simulates a network retry/double-submit:
+  // both attempts carry the same stable request token and MUST return the
+  // original ledger ID, never add another transaction or schedule.
+  const userClient = createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  must(await userClient.auth.signInWithPassword({ email, password }),
+    "authenticate synthetic caller for retry checks");
+  const requestKey = initialTransactions[0].source_reference.slice("initial-recurring:".length);
+  const retryPayload = {
+    p_client_key: requestKey,
+    p_transaction_type: "expense",
+    p_amount: 25000,
+    p_account_id: account.id,
+    p_destination_account_id: null,
+    p_category_id: category.id,
+    p_transaction_date: "2026-01-31",
+    p_description: null,
+    p_merchant: null,
+    p_recurring_name: "E2E Test Expense",
+    p_frequency: "monthly",
+    p_end_date: null,
+  };
+  const retryResponses = await Promise.all([
+    userClient.rpc("create_transaction_with_recurring", retryPayload),
+    userClient.rpc("create_transaction_with_recurring", retryPayload),
+  ]);
+  for (const result of retryResponses) {
+    assert.equal(must(result, "repeat synthetic recurring save"), initialTransactions[0].id);
+  }
+
+  // Previously, a retry changing ONLY the recurrence was silently accepted
+  // even though the modified schedule was not saved. Reject this ambiguity.
+  for (const changed of [
+    { p_frequency: "weekly" },
+    { p_end_date: "2026-06-30" },
+    { p_recurring_name: "E2E Changed Schedule" },
+    { p_amount: 30000 },
+  ]) {
+    const result = await userClient.rpc("create_transaction_with_recurring", {
+      ...retryPayload, ...changed,
+    });
+    assert.equal(result.error?.code, "P0001",
+      "Changed retry must be rejected without affecting synthetic ledger");
+  }
+
+  const afterRetries = must(await admin.from("transactions")
+    .select("id,amount").eq("user_id",userId),"verify no repeated ledger entries");
+  const schedulesAfterRetries = must(await admin.from("recurring_transactions")
+    .select("id,amount,name,frequency,end_date").eq("user_id",userId),
+    "verify unchanged synthetic recurring schedule");
+  assert.equal(afterRetries.length,1);
+  assert.equal(afterRetries[0].id,initialTransactions[0].id);
+  assert.equal(Number(afterRetries[0].amount),25000);
+  assert.equal(schedulesAfterRetries.length,1);
+  assert.equal(schedulesAfterRetries[0].name,"E2E Test Expense");
+  assert.equal(schedulesAfterRetries[0].frequency,"monthly");
+  assert.equal(schedulesAfterRetries[0].end_date,null);
+  console.log("PASS: authenticated parallel retries return original ID; mismatched recurring retries are rejected without duplicates");
+
   // Test backup API through browser's authenticated HTTP context. This
   // creates test-user-only storage objects on staging, never production.
   const backupResponse = await context.request.post("/api/settings/backup");
