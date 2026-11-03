@@ -51,6 +51,9 @@ jobs:
           test -n "$STAGING_SUPABASE_URL"
           test -n "$STAGING_SUPABASE_PUBLISHABLE_KEY"
           test -n "$STAGING_SUPABASE_SERVICE_ROLE_KEY"
+          # Two databases only: synthetic localhost tests use this exact staging project.
+          # A missing or unexpected ref fails closed instead of reaching production.
+          test "$STAGING_PROJECT_REF" = "omnzuolrlwczvnxrvenw"
           test "$STAGING_PROJECT_REF" != "zvmqrrttdrqkyrdzyxlf"
           case "$STAGING_SUPABASE_URL" in
             https://"$STAGING_PROJECT_REF".supabase.co) ;;
