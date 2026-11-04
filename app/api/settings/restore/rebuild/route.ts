@@ -102,8 +102,14 @@ export async function POST(request: Request) {
       },{headers:HEADERS});
     }
     if (fields.get("confirmation") !== CONFIRM) return fail("Konfirmasi pemulihan tidak cocok.",400);
-    if (fields.get("expectedBackupSha256") !== backupSha256 ||
-        fields.get("expectedCurrentSha256") !== currentSha256) {
+    const expectedBackup = fields.get("expectedBackupSha256");
+    const expectedCurrent = fields.get("expectedCurrentSha256");
+    if (typeof expectedBackup !== "string" || !SHA.test(expectedBackup) ||
+        typeof expectedCurrent !== "string" || !SHA.test(expectedCurrent)) {
+      return fail("Pemeriksaan sebelumnya tidak valid. Ulangi pemeriksaan.",400);
+    }
+    if (expectedBackup.toLowerCase() !== backupSha256 ||
+        expectedCurrent.toLowerCase() !== currentSha256) {
       return fail("Cadangan atau kondisi akun berubah. Periksa ulang dahulu.",409);
     }
     if (!plan.eligibleForAtomicRestore) return fail("Cadangan belum lolos pemeriksaan keamanan.",409);
