@@ -102,8 +102,6 @@ export function MissingTransactionsRecovery() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
-  const [completeRestore, setCompleteRestore] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   async function scan(controller: AbortController) {
@@ -113,8 +111,6 @@ export function MissingTransactionsRecovery() {
     setRows([]);
     setSelected([]);
     setCurrentHash("");
-    setCompleteRestore(false);
-    setMessage("");
     setError("");
     setSkipped(0);
     let offset = 0, anchor: string | null = null, sha: string | null = null;
@@ -210,12 +206,12 @@ export function MissingTransactionsRecovery() {
   const sources = new Set(picked.filter(r => !r.journalEventId).map(r => r.snapshot));
   // Never permit a financial restore based on a partial history scan.
   // A later or unverifiable snapshot could contain a conflicting version.
-  const canRestore = completed && !scanning && !pending && !completeRestore &&
+  const canRestore = completed && !scanning && !pending &&
     !incomplete && skipped === 0 && !error &&
     picked.length > 0 && picked.length <= MAX_ROWS && sources.size <= MAX_BACKUPS;
 
   function toggle(row: RecoveryCandidate, checked: boolean) {
-    if (scanning || pending || completeRestore || !row.eligible) return;
+    if (scanning || pending || !row.eligible) return;
     setSelected(old => checked
       ? old.includes(row.id) ? old : [...old, row.id]
       : old.filter(id => id !== row.id));
@@ -252,12 +248,16 @@ export function MissingTransactionsRecovery() {
         result.restoredCount !== picked.length) {
         throw new Error("Hasil pemulihan perlu diverifikasi.");
       }
-      setCompleteRestore(true);
-          setMessage(picked.length + " transaksi berhasil dipulihkan. Transaksi lainnya dipertahankan.");
+      // Recovery succeeded; update the inbox without an extra success panel.
+      // A fresh scan removes restored rows and preserves unrelated candidates.
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      void scan(controller);
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Pemulihan gagal.");
-        } finally {
+    } finally {
       setPending(false);
     }
   }
@@ -321,7 +321,7 @@ export function MissingTransactionsRecovery() {
                     <label key={row.id} className="flex items-start gap-3 p-4">
                       <input type="checkbox" className="mt-1 size-5 shrink-0 accent-primary"
                         checked={selected.includes(row.id)}
-                        disabled={scanning || pending || completeRestore || !row.eligible}
+                        disabled={scanning || pending || !row.eligible}
                         onChange={event => toggle(row, event.target.checked)}
                         aria-label={"Pulihkan " + summary(row) + " " + money(signedAmount(row))} />
                       <span className="flex min-w-0 flex-1 flex-col gap-2">
@@ -356,13 +356,7 @@ export function MissingTransactionsRecovery() {
           Tidak ada transaksi terhapus yang ditemukan pada riwayat yang tersedia.
         </p>
       ) : null}
-      {completeRestore ? (
-        <div role="status" className="rounded-lg border border-outline-variant p-3">
-          <p className="text-body-sm text-on-surface">{message}</p>
-          <Button type="button" variant="outline" className="mt-3"
-            onClick={restart}>Periksa kembali</Button>
-        </div>
-      ) : selected.length > 0 ? (
+      {selected.length > 0 ? (
         <div className="flex flex-col gap-2">
           {picked.length > MAX_ROWS || sources.size > MAX_BACKUPS ? (
             <p role="alert" className="text-body-sm text-expense">
