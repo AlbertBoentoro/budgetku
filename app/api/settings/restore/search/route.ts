@@ -86,7 +86,8 @@ export async function POST(request: Request) {
     if (!newest || !isBackupSnapshotFilename(newest)) {
       if (offset > 0) return fail("Riwayat cadangan berubah, ulangi pencarian.", 409);
       return Response.json({
-        matches: [], candidates: [], scanned: 0, skipped: 0, currentSha256: sha256(JSON.stringify(current.data)),
+        matches: [], coverage: [], candidates: [], currentTransactionCount: current.data.transactions.length,
+        scanned: 0, skipped: 0, currentSha256: sha256(JSON.stringify(current.data)),
         anchor: null, nextOffset: null, truncated: false,
       }, { headers: HEADERS });
     }
@@ -98,6 +99,10 @@ export async function POST(request: Request) {
     const results: Array<{
       snapshot: string; createdAt: string; missingCount: number;
       eligibleCount: number; blockedCount: number;
+    }> = [];
+    const coverage: Array<{
+      createdAt: string; transactionCount: number; presentCount: number;
+      missingCount: number; eligibleCount: number; blockedCount: number;
     }> = [];
     const candidates: Array<{
       id: string; snapshot: string; backupSha256: string; fingerprint: string;
@@ -115,12 +120,12 @@ export async function POST(request: Request) {
         if (!isBackupSnapshotFilename(file.name) || typeof createdAt !== "string") return null;
         try {
           const verified = await fetchVerifiedBackup(supabase, user.id, file.name);
+          const incoming = JSON.parse(verified.text);
           const plan = createSmartRestorePlan({
-            incoming: JSON.parse(verified.text), current, userId: user.id,
+            incoming, current, userId: user.id,
           });
-          if (plan.candidates.length === 0) return undefined;
           const backupRows = new Map<string, Record<string, unknown>>(
-            (JSON.parse(verified.text).data.transactions as Array<Record<string, unknown>>)
+            (incoming.data.transactions as Array<Record<string, unknown>>)
               .map(row => [row.id as string, row]),
           );
           const found = plan.candidates.map((candidate: Omit<(typeof candidates)[number], "snapshot" | "backupSha256" | "fingerprint">) => {
@@ -138,8 +143,14 @@ export async function POST(request: Request) {
             };
           });
           return {
-            summary: {
+            summary: plan.candidates.length > 0 ? {
               snapshot: file.name, createdAt,
+              missingCount: plan.candidates.length,
+              eligibleCount: plan.eligibleCount, blockedCount: plan.blockedCount,
+            } : null,
+            coverage: {
+              createdAt, transactionCount: incoming.data.transactions.length,
+              presentCount: plan.alreadyPresent,
               missingCount: plan.candidates.length,
               eligibleCount: plan.eligibleCount, blockedCount: plan.blockedCount,
             },
@@ -153,7 +164,8 @@ export async function POST(request: Request) {
       for (const value of batch) {
         if (value === null) skipped++;
         else if (value !== undefined) {
-          results.push(value.summary);
+          if (value.summary) results.push(value.summary);
+          coverage.push(value.coverage);
           candidates.push(...value.found);
         }
       }
@@ -161,7 +173,9 @@ export async function POST(request: Request) {
     const hasMore = (page.data?.length ?? 0) > PAGE_SIZE;
     const nextOffset = hasMore && offset < MAX_OFFSET ? offset + PAGE_SIZE : null;
     return Response.json({
-      matches: results, candidates, scanned: entries.length - skipped, skipped,
+      matches: results, coverage, candidates,
+      currentTransactionCount: current.data.transactions.length,
+      scanned: entries.length - skipped, skipped,
       currentSha256: sha256(JSON.stringify(current.data)),
       anchor: newest, nextOffset,
       truncated: hasMore && nextOffset === null,
