@@ -770,6 +770,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      restore_missing_budgetku_v1: {
+        Args: { p_backup: Json }
+        Returns: Json
+      }
       restore_selected_transactions_v1: {
         Args: { p_rows: Json }
         Returns: number
