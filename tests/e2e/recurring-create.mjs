@@ -333,6 +333,12 @@ try {
   assert.equal(allBackupSearch.status(),200,"authenticated read-only backup history search");
   const found = await allBackupSearch.json();
   assert.ok(found.scanned>=2);
+  assert.ok(Array.isArray(found.coverage) && found.coverage.length===found.scanned,
+    "every verified backup, even one with no missing transaction, needs a coverage row");
+  assert.equal(found.currentTransactionCount,beforeSmart.length,
+    "history counts must use the current user's live ledger");
+  assert.ok(found.coverage.some(s=>s.missingCount===0&&s.presentCount>=1),
+    "recent backup without missing records still appears in coverage");
   assert.ok(found.matches.some(s=>s.snapshot===selectedSnapshot&&s.eligibleCount===1),
     "older backup must be found automatically");
   assert.ok(!found.matches.some(s=>s.snapshot===newestMissingBackup),
@@ -369,6 +375,10 @@ try {
   await recoverLink.click();
   await page.getByRole("heading",{name:"Transaksi terdeteksi hilang"})
     .waitFor({state:"visible",timeout:25000});
+  await page.getByText("Hasil pemeriksaan backup").waitFor({state:"visible",timeout:40000});
+  await page.getByText(/Lihat isi [0-9]+ backup yang berhasil diperiksa/).click();
+  assert.ok(await page.getByText(/transaksi tersimpan/).count()>=1,
+    "user must see how many records each backup actually contains");
   await page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/})
     .waitFor({state:"visible",timeout:40000});
   await page.getByRole("region", { name: /Tanggal transaksi.*2 November 2026/ })
