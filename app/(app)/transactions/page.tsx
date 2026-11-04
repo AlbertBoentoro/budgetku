@@ -42,6 +42,11 @@ export default function TransactionsPage({
         title="Transaksi"
       />
       <PageContainer>
+        <div className="flex justify-end pb-4">
+          <Button asChild variant="outline" className="min-h-11">
+            <Link href="/transactions/recover">Pulihkan transaksi terhapus</Link>
+          </Button>
+        </div>
         <Suspense fallback={<TransactionsLoading />}>
           <TransactionsContent searchParams={searchParams} />
         </Suspense>
