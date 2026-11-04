@@ -517,7 +517,7 @@ try {
   await page.getByRole("heading",{name:"Transaksi terdeteksi hilang"})
     .waitFor({state:"visible",timeout:25000});
   const restoreToggle=page.getByRole("checkbox",{
-    name:"Pulihkan Delete only recovery test Rp33.000",
+    name:/Pulihkan Delete only recovery test.*Rp33\\.000/,
   });
   await restoreToggle.check({timeout:40000});
   assert.equal(await page.getByText("Periksa dampak pemulihan").count(),0,
