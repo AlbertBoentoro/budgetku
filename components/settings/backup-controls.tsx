@@ -62,11 +62,11 @@ export function BackupControls({
               : "Cadangan pertama belum dibuat."}
         </p>
         <p className="mt-1 text-body-sm text-on-surface-variant">
-          Transaksi tetap tersimpan di Supabase. Cadangan tambahan mencakup
-          transaksi, rekening, anggaran, dan preferensi. Budgetku memperbarui
-          salinan sekitar pukul 20.00 WIB setiap hari jika pencadangan otomatis
-          sudah dikonfigurasi. Cadangan baru diperiksa dan versi sebelumnya
-          tetap disimpan sebagai riwayat.
+          Perubahan transaksi (tambah, edit, hapus) dicatat otomatis selama
+          30 hari, tanpa menunggu backup harian. Cadangan cloud ini tetap
+          melindungi data yang lebih luas, termasuk rekening, anggaran,
+          dan preferensi. Jika sudah dikonfigurasi, cadangan harian dibuat
+          sekitar pukul 20.00 WIB sebagai perlindungan tambahan.
         </p>
         {!configured ? (
           <p role="status" className="mt-1 text-body-sm text-expense">
