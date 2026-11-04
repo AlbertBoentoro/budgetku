@@ -134,6 +134,21 @@ try {
   console.log("PASS: Playwright recurring form saved one ledger entry and one correct month-end schedule");
   console.log("PASS: browser expense+recurring schedule recorded correctly in staging");
 
+  // User-facing export is a native Excel workbook, not CSV or downloadable
+  // full-account JSON. Verify real authenticated route and file signature.
+  const excelExport = await context.request.get("/api/export/transactions");
+  assert.equal(excelExport.status(), 200);
+  assert.match(excelExport.headers()["content-type"],
+    /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/);
+  assert.match(excelExport.headers()["content-disposition"], /\.xlsx"/);
+  const excelBytes = await excelExport.body();
+  assert.equal(excelBytes.subarray(0, 2).toString("ascii"), "PK");
+  const fullJsonExport = await context.request.get("/api/export/data");
+  assert.equal(fullJsonExport.status(), 404,
+    "Removed full-account JSON endpoint must stay inaccessible");
+  console.log("PASS: authenticated transactions download as native XLSX; full-data JSON export is removed");
+
+
   // Exercise the actual authenticated staging RPC after the browser's
   // successful initial Submit. This simulates a network retry/double-submit:
   // both attempts carry the same stable request token and MUST return the
