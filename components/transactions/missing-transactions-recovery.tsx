@@ -7,6 +7,7 @@ import { selectedRestoreImpact } from "@/lib/settings/smart-restore-plan.mjs";
 
 type RecoveryCandidate = {
   id: string; snapshot: string; backupSha256: string; fingerprint: string;
+  journalEventId?: number;
   createdAt: string | null; transactionAt: string;
   amount: number; transactionType: string;
   merchant: string | null; description: string | null;
@@ -66,6 +67,17 @@ function combine(previous: RecoveryCandidate[], next: RecoveryCandidate[]) {
     const found = byId.get(row.id);
     if (!found) {
       byId.set(row.id, row);
+      continue;
+    }
+    // The deletion journal is the latest saved state immediately before
+    // deletion. Prefer it over an older (potentially stale) nightly backup.
+    if (found.journalEventId && !row.journalEventId) continue;
+    if (!found.journalEventId && row.journalEventId) {
+      byId.set(row.id, row);
+      continue;
+    }
+    if (found.journalEventId && row.journalEventId) {
+      if (row.journalEventId > found.journalEventId) byId.set(row.id, row);
       continue;
     }
     if (found.fingerprint !== row.fingerprint) {
@@ -149,7 +161,7 @@ export function MissingTransactionsRecovery() {
         setRows(old => combine(old, page.candidates));
         setScanned(v => v + page.scanned);
         setSkipped(v => v + page.skipped);
-        setIncomplete(page.truncated);
+        setIncomplete(old => old || page.truncated);
         if (page.nextOffset === null) break;
         if (!page.anchor || page.nextOffset <= offset) {
           throw new Error("Urutan backup tidak konsisten. Jalankan ulang.");
@@ -206,7 +218,7 @@ export function MissingTransactionsRecovery() {
   const impact = picked.length <= MAX_ROWS
     ? selectedRestoreImpact(picked, picked.map(r => r.id))
     : { count: picked.length, accountChanges: [] };
-  const sources = new Set(picked.map(r => r.snapshot));
+  const sources = new Set(picked.filter(r => !r.journalEventId).map(r => r.snapshot));
   // Never permit a financial restore based on a partial history scan.
   // A later or unverifiable snapshot could contain a conflicting version.
   const canRestore = completed && !scanning && !pending && !completeRestore &&
@@ -235,9 +247,9 @@ export function MissingTransactionsRecovery() {
           "X-Budgetku-Smart-Restore-Intent": "budgetku-smart-restore-v1",
         },
         body: JSON.stringify({
-          selections: picked.map(row => ({
-            id: row.id, snapshot: row.snapshot, backupSha256: row.backupSha256,
-          })),
+          selections: picked.map(row => row.journalEventId
+            ? { id: row.id, journalEventId: row.journalEventId }
+            : { id: row.id, snapshot: row.snapshot, backupSha256: row.backupSha256 }),
           expectedCurrentSha256: currentHash,
           confirmation,
         }),
@@ -273,9 +285,9 @@ export function MissingTransactionsRecovery() {
           Transaksi terdeteksi hilang
         </h2>
         <p className="text-body-sm text-on-surface-variant">
-          Daftar ini menampilkan transaksi dari backup yang sudah tidak ada di
-          catatan saat ini, termasuk transaksi yang mungkin sengaja dihapus.
-          Transaksi yang belum pernah dicadangkan tidak bisa ditemukan.
+          Budgetku menyimpan jejak perubahan transaksi selama 30 hari.
+          Transaksi yang dihapus bisa dipulihkan dari riwayat perubahan
+          atau cadangan sebelumnya tanpa mengubah transaksi lain.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
