@@ -253,54 +253,35 @@ try {
   }
   await anonymous.close();
 
-  // Exercise the real Settings UI, not only the API. No Apply/Restore control
-  // is intentionally provided at this stage.
+  // Settings must only create/download backups; recovery UI belongs exclusively
+  // to Transactions. The server's read-only preview API retains regression
+  // coverage above but no longer has an entry point in Settings.
   await page.goto("/settings", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Versi cadangan").waitFor({ state: "visible", timeout: 25000 });
-  // Regression: manual backup must update the independent history dropdown
-  // immediately and auto-select the newest verified snapshot, no navigation.
-  const picker = page.getByLabel("Versi cadangan");
-  const previouslySelected = await eventually(
-    () => picker.inputValue(),
-    value => value === archives[0].name,
-    "existing backup list loaded before creating the next snapshot",
-  );
-  assert.equal(previouslySelected, archives[0].name);
+  await page.getByRole("button", { name: "Cadangkan sekarang" })
+    .waitFor({ state: "visible", timeout: 25000 });
+  assert.equal(await page.getByLabel("Versi cadangan").count(), 0,
+    "Settings must not show the retired backup comparison selector");
+  assert.equal(await page.getByRole("button", { name: "Bandingkan isi backup" }).count(), 0,
+    "Settings must not show any backup comparison/restore control");
+  assert.equal(await page.getByRole("link", { name: "Pulihkan transaksi" }).count(), 0,
+    "Recovery entry must only be on the Transactions page");
   await page.getByRole("button", { name: "Cadangkan sekarang" }).click();
   await page.getByText("Cadangan cloud berhasil dibuat.").waitFor({
     state: "visible", timeout: 25000,
   });
-  const refreshedSelection = await eventually(
-    () => picker.inputValue(),
-    value => value !== previouslySelected && value.endsWith(".json"),
-    "newly created backup becomes selected without page reload",
-  );
   const refreshedHistory = await context.request.get("/api/settings/backup/history");
   assert.equal(refreshedHistory.status(), 200);
   const latestFilename = (await refreshedHistory.json()).snapshots[0].name;
-  assert.equal(refreshedSelection, latestFilename,
-    "Settings picker should select newly created snapshot, not stale previous backup");
-  assert.match(await picker.locator("option:checked").textContent(), /Terbaru/);
-  console.log("PASS: manual backup immediately updates Settings history and selects newest snapshot");
-  // Recovery moved to Transactions. Settings intentionally exposes only
-  // a read-only backup comparison, never an interactive restore control.
-  await page.getByRole("button", { name: "Bandingkan isi backup" }).click();
-  await page.getByRole("table", { name: "Perbandingan data cadangan" })
-    .waitFor({ state: "visible", timeout: 25000 });
-  await page.getByText("Pratinjau saja. Tidak ada data yang dipulihkan atau diubah.")
-    .waitFor({ state: "visible" });
-  assert.equal(await page.getByRole("checkbox", { name: /Pulihkan /i }).count(),0,
-    "Settings must not offer Smart Restore transaction checkboxes");
-  assert.equal(await page.getByRole("button", { name: /Pulihkan (data|[0-9]+ transaksi)/i }).count(),0,
-    "Settings must not offer an Apply/Restore action");
-  console.log("PASS: mobile Settings shows read-only backup comparison; recovery controls stay in Transactions");
+  assert.notEqual(latestFilename, archives[0].name,
+    "Manual backup should create a new immutable snapshot");
+  console.log("PASS: Settings only creates backups, with no backup comparison or recovery controls");
 
   const ledgerAfterPreview = must(await admin.from("transactions")
     .select("id,amount").eq("user_id",userId),"verify read-only preview left ledger unchanged");
   assert.equal(ledgerAfterPreview.length,1);
   assert.equal(ledgerAfterPreview[0].id,initialTransactions[0].id);
   assert.equal(Number(ledgerAfterPreview[0].amount),25000);
-  console.log("PASS: authenticated immutable-snapshot restore preview is read-only; invalid path, cross-origin, and anonymous calls rejected");
+  console.log("PASS: authenticated immutable-snapshot restore preview API remains read-only; invalid path, cross-origin, and anonymous calls rejected");
 
   // Smart Restore scenario: Nov 2 expense is accidentally deleted; a
   // separate Nov 3 expense must remain untouched during selective recovery.
@@ -390,9 +371,12 @@ try {
     .waitFor({state:"visible",timeout:25000});
   await page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/})
     .waitFor({state:"visible",timeout:40000});
-  assert.ok(await page.getByText("Dibuat:",{exact:false}).count()>=1);
-  assert.ok(await page.getByText("Tanggal transaksi:",{exact:false}).count()>=1);
-  console.log("PASS: Transactions recovery inbox finds missing transaction across backups with original created_at");
+  await page.getByRole("region", { name: /Tanggal transaksi.*2 November 2026/ })
+    .waitFor({ state: "visible", timeout: 25000 });
+  assert.ok(await page.getByText("Jam transaksi", { exact: true }).count() >= 1);
+  assert.ok(await page.getByText("Dicatat di Budgetku:", { exact: false }).count() >= 1);
+  assert.ok(await page.getByText("10.00 WIB", { exact: false }).count() >= 1);
+  console.log("PASS: Transactions recovery inbox groups lost transactions by Jakarta date, displays transaction time separately from creation time");
 
   const previewSmartResponse = await context.request.post("/api/settings/restore/preview",{
     data:{snapshot:selectedSnapshot},
