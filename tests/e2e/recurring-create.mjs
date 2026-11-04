@@ -375,18 +375,15 @@ try {
   await recoverLink.click();
   await page.getByRole("heading",{name:"Transaksi terdeteksi hilang"})
     .waitFor({state:"visible",timeout:25000});
-  await page.getByText("Hasil pemeriksaan backup").waitFor({state:"visible",timeout:40000});
-  await page.getByText(/Lihat isi [0-9]+ backup yang berhasil diperiksa/).click();
-  assert.ok(await page.getByText(/transaksi tersimpan/).count()>=1,
-    "user must see how many records each backup actually contains");
+  assert.equal(await page.getByText("Hasil pemeriksaan backup").count(), 0,
+    "verbose backup audit must be removed from the user interface");
   await page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/})
     .waitFor({state:"visible",timeout:40000});
-  await page.getByRole("region", { name: /Tanggal transaksi.*2 November 2026/ })
+  await page.getByRole("region", { name: /Dicatat di Budgetku/ })
     .waitFor({ state: "visible", timeout: 25000 });
-  assert.ok(await page.getByText("Jam transaksi", { exact: true }).count() >= 1);
+  assert.equal(await page.getByText("Jam transaksi", { exact: true }).count(), 0);
   assert.ok(await page.getByText("Dicatat di Budgetku:", { exact: false }).count() >= 1);
-  assert.ok(await page.getByText("10.00 WIB", { exact: false }).count() >= 1);
-  console.log("PASS: Transactions recovery inbox groups lost transactions by Jakarta date, displays transaction time separately from creation time");
+  console.log("PASS: recovery groups transactions by the Budgetku creation date and hides technical backup statistics");
 
   const previewSmartResponse = await context.request.post("/api/settings/restore/preview",{
     data:{snapshot:selectedSnapshot},
