@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { selectedRestoreImpact } from "@/lib/settings/smart-restore-plan.mjs";
 
 type RecoveryCandidate = {
   id: string; snapshot: string; backupSha256: string; fingerprint: string;
@@ -102,8 +101,6 @@ export function MissingTransactionsRecovery() {
   const [currentHash, setCurrentHash] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
-  const [review, setReview] = useState(false);
-  const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
   const [completeRestore, setCompleteRestore] = useState(false);
   const [message, setMessage] = useState("");
@@ -115,9 +112,7 @@ export function MissingTransactionsRecovery() {
     setIncomplete(false);
     setRows([]);
     setSelected([]);
-    setReview(false);
     setCurrentHash("");
-    setConfirmation("");
     setCompleteRestore(false);
     setMessage("");
     setError("");
@@ -212,9 +207,6 @@ export function MissingTransactionsRecovery() {
     group.push(row);
     groupedByTransactionDay.set(key, group);
   }
-  const impact = picked.length <= MAX_ROWS
-    ? selectedRestoreImpact(picked, picked.map(r => r.id))
-    : { count: picked.length, accountChanges: [] };
   const sources = new Set(picked.filter(r => !r.journalEventId).map(r => r.snapshot));
   // Never permit a financial restore based on a partial history scan.
   // A later or unverifiable snapshot could contain a conflicting version.
@@ -227,13 +219,11 @@ export function MissingTransactionsRecovery() {
     setSelected(old => checked
       ? old.includes(row.id) ? old : [...old, row.id]
       : old.filter(id => id !== row.id));
-    setReview(false);
-    setConfirmation("");
     setError("");
   }
 
   async function apply() {
-    if (!canRestore || !review || confirmation !== CONFIRMATION) return;
+    if (!canRestore) return;
     setPending(true);
     setError("");
     try {
@@ -248,7 +238,8 @@ export function MissingTransactionsRecovery() {
             ? { id: row.id, journalEventId: row.journalEventId }
             : { id: row.id, snapshot: row.snapshot, backupSha256: row.backupSha256 }),
           expectedCurrentSha256: currentHash,
-          confirmation,
+          // A click on the selected transaction(s) is the explicit confirmation.
+          confirmation: CONFIRMATION,
         }),
       });
       const result: unknown = await response.json();
@@ -262,15 +253,11 @@ export function MissingTransactionsRecovery() {
         throw new Error("Hasil pemulihan perlu diverifikasi.");
       }
       setCompleteRestore(true);
-      setReview(false);
-      setConfirmation("");
-      setMessage(picked.length + " transaksi berhasil dipulihkan. Transaksi lainnya dipertahankan.");
+          setMessage(picked.length + " transaksi berhasil dipulihkan. Transaksi lainnya dipertahankan.");
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Pemulihan gagal.");
-      setReview(false);
-      setConfirmation("");
-    } finally {
+        } finally {
       setPending(false);
     }
   }
@@ -282,8 +269,7 @@ export function MissingTransactionsRecovery() {
           Transaksi terdeteksi hilang
         </h2>
         <p className="text-body-sm text-on-surface-variant">
-          Transaksi yang dihapus bisa dikembalikan dari riwayat penghapusan
-          30 hari atau cadangan sebelumnya. Transaksi lain tetap aman.
+          Pilih transaksi yang ingin dikembalikan.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -374,57 +360,19 @@ export function MissingTransactionsRecovery() {
         <div role="status" className="rounded-lg border border-outline-variant p-3">
           <p className="text-body-sm text-on-surface">{message}</p>
           <Button type="button" variant="outline" className="mt-3"
-            onClick={restart}>Periksa kembali transaksi yang belum ada</Button>
+            onClick={restart}>Periksa kembali</Button>
         </div>
       ) : selected.length > 0 ? (
-        <div className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-          <p className="text-body-sm font-semibold text-on-surface">
-            {selected.length} transaksi dipilih (maksimal {MAX_ROWS})
-          </p>
+        <div className="flex flex-col gap-2">
           {picked.length > MAX_ROWS || sources.size > MAX_BACKUPS ? (
             <p role="alert" className="text-body-sm text-expense">
-              Untuk satu pemulihan, pilih maksimal {MAX_ROWS} transaksi dari {MAX_BACKUPS}
-              sumber cadangan. Bagi menjadi beberapa kelompok bila perlu.
+              Pilih maksimal {MAX_ROWS} transaksi dari {MAX_BACKUPS} sumber cadangan.
             </p>
           ) : null}
-          {review ? (
-            <>
-              <h3 className="text-body-sm font-semibold text-on-surface">Periksa dampak pemulihan</h3>
-              <p className="text-body-sm text-on-surface-variant">
-                {picked.length} transaksi akan ditambahkan kembali secara atomik.
-                Transaksi yang sudah ada tidak akan dihapus atau ditimpa.
-              </p>
-              {impact.accountChanges.map(a => (
-                <div key={a.accountId} className="flex justify-between gap-2 text-body-sm">
-                  <span>{a.name}</span><span className="font-semibold tabular-nums">{money(a.delta)}</span>
-                </div>
-              ))}
-              <p className="text-body-sm text-on-surface-variant">
-                Sebelum pemulihan, Budgetku menyimpan cadangan pengaman.
-                Bila saldo atau transaksi berubah selama pemeriksaan, pemulihan akan ditolak.
-              </p>
-              <label htmlFor="recovery-confirm" className="text-body-sm font-medium text-on-surface">
-                Ketik {CONFIRMATION} untuk mengonfirmasi
-              </label>
-              <input id="recovery-confirm" value={confirmation}
-                onChange={e => setConfirmation(e.target.value)}
-                disabled={pending} autoComplete="off" spellCheck={false}
-                className="min-h-11 w-full rounded-lg border border-input bg-surface-container-lowest px-3 text-body-sm"/>
-              <Button type="button" className="min-h-11" disabled={!canRestore || confirmation !== CONFIRMATION}
-                onClick={() => void apply()}>
-                {pending ? "Memulihkan..." : "Pulihkan " + picked.length + " transaksi"}
-              </Button>
-              <Button type="button" variant="outline" disabled={pending}
-                onClick={() => { setReview(false); setConfirmation(""); }}>
-                Kembali memilih
-              </Button>
-            </>
-          ) : (
-            <Button type="button" className="min-h-11"
-              disabled={!canRestore} onClick={() => setReview(true)}>
-              Lihat dampak {picked.length} transaksi terpilih
-            </Button>
-          )}
+          <Button type="button" className="min-h-12 w-full"
+            disabled={!canRestore} onClick={() => void apply()}>
+            {pending ? "Memulihkan..." : "Pulihkan " + picked.length + " transaksi"}
+          </Button>
         </div>
       ) : null}
     </section>
