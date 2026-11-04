@@ -31,18 +31,32 @@ export async function storeVerifiedBackup(
   if (size > MAX_BACKUP_BYTES) throw new Error("Backup exceeds the 10 MB limit.");
   inspectBackupJson(text, userId);
 
-  const snapshot = buildSnapshotFilename(new Date(), randomUUID(), sha256(text));
-  const filePath = `${userId}/snapshots/${snapshot}`;
   const storage = client.storage.from(BUCKET);
-
-  const verified = await commitVerifiedSnapshot(
-    storage,
-    filePath,
-    `${userId}/latest.json`,
-    text,
-    (value: string) => inspectBackupJson(value, userId),
-  );
-  return { snapshot, sha256: verified.sha256 };
+  // Two writers (manual backup / scheduled backup / safety snapshot) may
+  // race on latest.json. The core publisher fails closed and keeps immutable
+  // snapshots intact. Retry ONLY that specific optimistic-concurrency error,
+  // with a fresh immutable path and full checksum verification every time.
+  // Never treat a storage error as success or overwrite an existing snapshot.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const snapshot = buildSnapshotFilename(new Date(), randomUUID(), sha256(text));
+    const filePath = `${userId}/snapshots/${snapshot}`;
+    try {
+      const verified = await commitVerifiedSnapshot(
+        storage,
+        filePath,
+        `${userId}/latest.json`,
+        text,
+        (value: string) => inspectBackupJson(value, userId),
+      );
+      return { snapshot, sha256: verified.sha256 };
+    } catch (error) {
+      if (!(error instanceof Error) ||
+          error.message !== "Latest backup changed during publication; retry." ||
+          attempt === 2) throw error;
+      await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 175));
+    }
+  }
+  throw new Error("Verified backup could not be published.");
 }
 
 export async function fetchVerifiedBackup(
