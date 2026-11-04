@@ -280,15 +280,14 @@ export function MissingTransactionsRecovery() {
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p role="status" className="text-body-sm text-on-surface-variant">
-          {scanning ? "Memeriksa riwayat..." : completed ? "Pencarian selesai" : "Pencarian belum lengkap"}
-          {" · "}{scanned} cadangan diperiksa
-          {skipped > 0 ? " · " + skipped + " file gagal diverifikasi" : ""}
+          {scanning ? "Mencari transaksi..." : completed ? "Pencarian selesai" : "Pencarian belum lengkap"}
+          {skipped > 0 ? " · " + skipped + " cadangan tidak bisa diperiksa" : ""}
         </p>
         <Button type="button" variant="outline" disabled={scanning || pending}
           onClick={restart}>Periksa ulang</Button>
       </div>
       {scanning ? <p className="text-body-sm text-on-surface-variant">
-        Pencarian dilakukan bertahap untuk menghindari timeout. Tidak ada data yang diubah.
+        Pemeriksaan tidak mengubah data keuangan lo.
       </p> : null}
       {skipped > 0 || incomplete ? (
         <p role="alert" className="text-body-sm text-expense">
