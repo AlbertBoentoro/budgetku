@@ -627,9 +627,16 @@ try {
   await page.getByRole("button",{name:"Lihat dampak 2 transaksi terpilih"}).click();
   await page.getByLabel("Ketik PULIHKAN TRANSAKSI untuk mengonfirmasi")
     .fill("PULIHKAN TRANSAKSI");
+  const multiUiResponsePromise=page.waitForResponse(response=>
+    response.url().includes("/api/transactions/recovery/apply")&&
+    response.request().method()==="POST", {timeout:90000});
   await page.getByRole("button",{name:"Pulihkan 2 transaksi"}).click();
+  const multiUiResponse=await multiUiResponsePromise;
+  assert.equal(multiUiResponse.status(),200,
+    "UI multi-source recovery rejected by API: "+multiUiResponse.status()+" "+
+    JSON.stringify(await multiUiResponse.json()).slice(0,350));
   await page.getByText("2 transaksi berhasil dipulihkan. Transaksi lainnya dipertahankan.")
-    .waitFor({state:"visible",timeout:30000});
+    .waitFor({state:"visible",timeout:20000});
 
   const postMulti=must(await admin.from("transactions").select("id,amount").eq("user_id",userId),
     "ledger after combined restore");
