@@ -323,7 +323,7 @@ export function MissingTransactionsRecovery() {
                         checked={selected.includes(row.id)}
                         disabled={scanning || pending || completeRestore || !row.eligible}
                         onChange={event => toggle(row, event.target.checked)}
-                        aria-label={"Pulihkan " + summary(row) + " " + money(row.amount)} />
+                        aria-label={"Pulihkan " + summary(row) + " " + money(signedAmount(row))} />
                       <span className="flex min-w-0 flex-1 flex-col gap-2">
                         <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
                           <span className="min-w-0 break-words text-body-md font-semibold text-on-surface">
