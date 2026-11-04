@@ -284,7 +284,7 @@ try {
   console.log("PASS: manual backup immediately updates Settings history and selects newest snapshot");
   // Recovery moved to Transactions. Settings intentionally exposes only
   // a read-only backup comparison, never an interactive restore control.
-  await page.getByRole("button", { name: "Periksa dampak cadangan" }).click();
+  await page.getByRole("button", { name: "Bandingkan isi backup" }).click();
   await page.getByRole("table", { name: "Perbandingan data cadangan" })
     .waitFor({ state: "visible", timeout: 25000 });
   await page.getByText("Pratinjau saja. Tidak ada data yang dipulihkan atau diubah.")
