@@ -789,6 +789,135 @@ try {
 
 
 
+  // Recovery of missing ENTIRE ACCOUNT DATA from both immutable cloud
+  // snapshot and a user-provided JSON file. Never mutate non-synthetic users.
+  const disasterAccount=must(await admin.from("accounts").insert({
+    user_id:userId,name:"E2E Disaster Cash",account_type:"cash",
+    initial_balance:900000,currency:"IDR",include_in_total:true,
+  }).select("id").single(),"seed disaster-test account");
+  const disasterCategory=must(await admin.from("categories").insert({
+    user_id:userId,name:"E2E Disaster Expense",category_type:"expense",
+    is_system:false,is_archived:false,
+  }).select("id").single(),"seed disaster-test category");
+  const disasterTransaction=must(await admin.from("transactions").insert({
+    user_id:userId,account_id:disasterAccount.id,
+    category_id:disasterCategory.id,transaction_type:"expense",
+    amount:45000,currency:"IDR",source:"manual",source_reference:null,
+    merchant:"Disaster test",transaction_at:"2026-11-04T08:00:00+07:00",
+  }).select("id").single(),"seed disaster-test transaction");
+  assert.equal((await context.request.post("/api/settings/backup")).status(),200);
+  const disasterHistory=await context.request.get("/api/settings/backup/history");
+  assert.equal(disasterHistory.status(),200);
+  const disasterName=(await disasterHistory.json()).snapshots[0].name;
+  const disasterFile=await context.request.get("/api/settings/backup?snapshot="+
+    encodeURIComponent(disasterName));
+  assert.equal(disasterFile.status(),200);
+  const disasterJson=await disasterFile.text();
+  assert.equal(JSON.parse(disasterJson).format,"budgetku-backup");
+  must(await admin.from("transactions").delete().eq("id",disasterTransaction.id),
+    "remove synthetic transaction");
+  must(await admin.from("categories").delete().eq("id",disasterCategory.id),
+    "remove synthetic category");
+  must(await admin.from("accounts").delete().eq("id",disasterAccount.id),
+    "remove synthetic account");
+  const disasterHeaders={"X-Budgetku-Restore-Intent":"budgetku-disaster-recovery-v1"};
+  const cloudFields={mode:"preview",source:"cloud",snapshot:disasterName};
+  const disasterPreviewResp=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:cloudFields,
+  });
+  assert.equal(disasterPreviewResp.status(),200,"cloud disaster preflight");
+  const disasterPreview=await disasterPreviewResp.json();
+  assert.equal(disasterPreview.previewOnly,true);
+  assert.equal(disasterPreview.tables.transactions.wouldAdd>=1,true);
+  assert.equal(disasterPreview.tables.accounts.wouldAdd>=1,true);
+  assert.equal(disasterPreview.tables.categories.wouldAdd>=1,true);
+  assert.equal(disasterPreview.canRestore,true);
+  const fromFile=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      mode:"preview",source:"file",
+      file:{name:"budgetku-cadangan.json",mimeType:"application/json",
+        buffer:Buffer.from(disasterJson,"utf8")},
+    },
+  });
+  assert.equal(fromFile.status(),200,"uploaded JSON preview");
+  const filePreview=await fromFile.json();
+  assert.equal(filePreview.backupSha256,disasterPreview.backupSha256);
+  assert.equal(filePreview.missingCount,disasterPreview.missingCount);
+  const noConsentFull=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      ...cloudFields,mode:"apply",confirmation:"",
+      expectedCurrentSha256:disasterPreview.currentSha256,
+      expectedBackupSha256:disasterPreview.backupSha256,
+    },
+  });
+  assert.equal(noConsentFull.status(),400,"disaster restore requires explicit confirmation");
+  const disasterApply=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      ...cloudFields,mode:"apply",confirmation:"PULIHKAN DATA",
+      expectedCurrentSha256:disasterPreview.currentSha256,
+      expectedBackupSha256:disasterPreview.backupSha256,
+    },
+  });
+  assert.equal(disasterApply.status(),200,
+    "atomic cloud restore of missing account/category/transaction");
+  const disasterResult=await disasterApply.json();
+  assert.equal(disasterResult.ok,true);
+  assert.ok(disasterResult.safetySnapshot,"verified safety snapshot must be preserved");
+  const recoveredDisaster=must(await admin.from("transactions")
+    .select("id,amount,account_id,category_id")
+    .eq("id",disasterTransaction.id).single(),"confirm disaster recovery restored original financial row");
+  assert.equal(Number(recoveredDisaster.amount),45000);
+  assert.equal(recoveredDisaster.account_id,disasterAccount.id);
+  assert.equal(recoveredDisaster.category_id,disasterCategory.id);
+
+  // Data which survived after this backup is NEVER deleted or overwritten.
+  must(await admin.from("transactions").update({amount:65000})
+    .eq("id",disasterTransaction.id),"simulate a newer edited value");
+  const newest=must(await admin.from("transactions").insert({
+    user_id:userId,account_id:disasterAccount.id,category_id:disasterCategory.id,
+    transaction_type:"expense",amount:12000,currency:"IDR",
+    source:"manual",merchant:"Newer than backup",
+    transaction_at:"2026-11-04T09:00:00+07:00",
+  }).select("id").single(),"create newer transaction absent from backup");
+  must(await admin.from("transactions").delete().eq("id",disasterTransaction.id),
+    "remove original to test file-based recovery");
+  const fileApplyPreview=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      mode:"preview",source:"file",
+      file:{name:"budgetku-cadangan.json",mimeType:"application/json",
+        buffer:Buffer.from(disasterJson,"utf8")},
+    },
+  });
+  assert.equal(fileApplyPreview.status(),200);
+  const filePlan=await fileApplyPreview.json();
+  assert.ok(filePlan.protectedNewerRows>=1,"new live record must not be deleted");
+  const fileApply=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      mode:"apply",source:"file",
+      file:{name:"budgetku-cadangan.json",mimeType:"application/json",
+        buffer:Buffer.from(disasterJson,"utf8")},
+      confirmation:"PULIHKAN DATA",
+      expectedCurrentSha256:filePlan.currentSha256,
+      expectedBackupSha256:filePlan.backupSha256,
+    },
+  });
+  assert.equal(fileApply.status(),200,"uploaded file must restore missing rows");
+  const newerRows=must(await admin.from("transactions")
+    .select("id,amount").in("id",[disasterTransaction.id,newest.id]),
+    "verify file disaster recovery preserves the newer ledger");
+  assert.equal(newerRows.length,2);
+  assert.equal(Number(newerRows.find(r=>r.id===newest.id).amount),12000);
+  assert.equal(Number(newerRows.find(r=>r.id===disasterTransaction.id).amount),45000);
+  const repeatedFull=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      ...cloudFields,mode:"apply",confirmation:"PULIHKAN DATA",
+      expectedCurrentSha256:disasterPreview.currentSha256,
+      expectedBackupSha256:disasterPreview.backupSha256,
+    },
+  });
+  assert.equal(repeatedFull.status(),409,"stale full recovery may not replay");
+  console.log("PASS: disaster recovery restores missing account/category/transaction from cloud or JSON atomically, requires consent, and preserves newer data");
+
   await context.close();
 } finally {
   if (browser) await browser.close();
