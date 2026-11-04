@@ -214,16 +214,10 @@ async function SettingsContent() {
         )}
         <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           <DownloadLinkRow
-            href="/api/export/data"
-            glyph="data_object"
-            title="Ekspor semua data"
-            description="Unduh data Budgetku dalam format JSON."
-          />
-          <DownloadLinkRow
             href="/api/export/transactions"
             glyph="table_view"
             title="Ekspor transaksi"
-            description="Unduh transaksi dalam format CSV."
+            description="Unduh semua transaksi sebagai file Excel (.xlsx)."
           />
         </ul>
       </section>
