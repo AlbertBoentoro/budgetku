@@ -191,7 +191,7 @@ export async function POST(request: Request) {
             (incoming.data.transactions as Array<Record<string, unknown>>)
               .map(row => [row.id as string, row]),
           );
-          const found = plan.candidates.map((candidate: Omit<(typeof candidates)[number], "snapshot" | "backupSha256" | "fingerprint">) => {
+          const found = plan.candidates.map((candidate) => {
             const row = backupRows.get(candidate.id);
             if (!row) throw new Error("Snapshot candidate row missing");
             return {
