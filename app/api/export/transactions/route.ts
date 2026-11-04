@@ -1,10 +1,10 @@
-import { csvNumber, csvText, toCsv } from "@/lib/csv";
+import { createTransactionsXlsx } from "@/lib/xlsx-export.mjs";
 import { createClient } from "@/lib/supabase/server";
 import { formatTransactionTypeLabel } from "@/lib/transactions";
 
 /**
  * GET /api/export/transactions: download the signed-in user's transactions
- * as CSV (read-only). Uses the anon-key server client, so RLS plus the
+ * as a native XLSX workbook (read-only). Uses the anon-key server client, so RLS plus the
  * explicit user_id filter scope every row to the user. createClient() reads
  * cookies(), which makes this handler request-time under Cache Components;
  * no route segment config is needed.
@@ -46,18 +46,6 @@ const SOURCE_LABELS: Record<string, string> = {
   recurring: "Berulang",
   email: "Gmail",
 };
-
-const HEADER = [
-  "tanggal",
-  "tipe",
-  "jumlah",
-  "kategori",
-  "rekening",
-  "rekening_tujuan",
-  "catatan",
-  "merchant",
-  "sumber",
-];
 
 // Filename date labels the download day for an Indonesian user (WIB).
 const filenameDateFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -124,7 +112,7 @@ export async function GET() {
   // Any failure returns an error, never a partial file that looks complete.
   const failure = accounts.error ?? categories.error ?? transactions.error;
   if (failure) {
-    console.error("CSV export failed:", failure);
+    console.error("XLSX export failed:", failure);
     return textResponse("Gagal mengekspor transaksi. Coba lagi.", 500);
   }
 
@@ -133,32 +121,40 @@ export async function GET() {
     categories.rows.map((c) => [c.id, c.name]),
   );
 
-  const rows = transactions.rows.map((t) => [
-    csvText(toDateOnly(t.transaction_at)),
-    csvText(formatTransactionTypeLabel(t.transaction_type)),
-    csvNumber(t.amount),
-    csvText(t.category_id ? categoryNameById.get(t.category_id) : null),
-    csvText(accountNameById.get(t.account_id)),
-    csvText(
+  // Build only after all three paginated queries succeed. Nominal and date
+  // remain native numeric Excel cells, while user text stays literal text
+  // (never evaluated as formulas).
+  try {
+    const rows = transactions.rows.map((t) => [
+      toDateOnly(t.transaction_at),
+      formatTransactionTypeLabel(t.transaction_type),
+      Number(t.amount),
+      t.category_id ? categoryNameById.get(t.category_id) ?? "" : "",
+      accountNameById.get(t.account_id) ?? "",
       t.destination_account_id
-        ? accountNameById.get(t.destination_account_id)
-        : null,
-    ),
-    csvText(t.description),
-    csvText(t.merchant),
-    csvText(SOURCE_LABELS[t.source] ?? t.source),
-  ]);
-
-  const csv = toCsv(HEADER.map(csvText), rows);
-  const filename = `budgetku-transaksi-${filenameDateFormatter.format(new Date())}.csv`;
-
-  return new Response(csv, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+        ? accountNameById.get(t.destination_account_id) ?? ""
+        : "",
+      t.description ?? "",
+      t.merchant ?? "",
+      SOURCE_LABELS[t.source] ?? t.source,
+    ]);
+    if (rows.length > 50000) {
+      return textResponse("Ekspor dibatasi hingga 50.000 transaksi per berkas.", 413);
+    }
+    const workbook = createTransactionsXlsx(rows);
+    const filename = `budgetku-transaksi-${filenameDateFormatter.format(new Date())}.xlsx`;
+    return new Response(new Uint8Array(workbook), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": String(workbook.length),
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    console.error("Excel transaction export failed:", error instanceof Error ? error.message : "unknown");
+    return textResponse("File Excel gagal dibuat. Tidak ada data yang diubah.", 500);
+  }
 }

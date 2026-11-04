@@ -139,12 +139,12 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
       className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
       <div className="flex flex-col gap-1">
         <h3 id="restore-preview-title" className="text-body-md font-semibold text-on-surface">
-          {smartRestoreMode ? "Pulihkan transaksi dari cadangan" : "Periksa dampak cadangan"}
+          {smartRestoreMode ? "Pulihkan transaksi dari cadangan" : "Bandingkan isi backup"}
         </h3>
         <p className="text-body-sm text-on-surface-variant">
           {smartRestoreMode
             ? "Pilih backup, lalu centang transaksi yang ingin dikembalikan. Transaksi terbaru tetap disimpan."
-            : "Bandingkan cadangan bertanggal dengan data sekarang sebelum memutuskan pemulihan. Ini hanya pratinjau; pemulihan data belum tersedia."}
+            : "Lihat perbedaan antara isi backup dan data sekarang tanpa mengubah apa pun. Untuk mengembalikan transaksi yang hilang, buka Transaksi → Pulihkan transaksi."}
         </p>
       </div>
       <label htmlFor="restore-preview-snapshot"
@@ -170,7 +170,7 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="button" variant="outline" className="min-h-11 sm:flex-1"
           disabled={!snapshot || loading || checking} onClick={inspect}>
-          {checking ? "Memeriksa cadangan..." : smartRestoreMode ? "Cari transaksi yang hilang" : "Periksa dampak cadangan"}
+          {checking ? "Memeriksa cadangan..." : smartRestoreMode ? "Cari transaksi yang hilang" : "Bandingkan isi backup"}
         </Button>
         <Button type="button" variant="ghost" className="min-h-11 sm:w-auto"
           disabled={loading || checking} onClick={() => void loadHistory()}>
@@ -215,7 +215,7 @@ export function RestorePreviewControls({ smartRestoreMode = false }: { smartRest
               </tbody>
             </table>
           </div> : null}
-          {preview.smartRestoreEnabled && preview.smartRestore ? (
+          {smartRestoreMode && preview.smartRestoreEnabled && preview.smartRestore ? (
             <SmartRestoreSelector key={snapshot + preview.backupSha256} snapshot={snapshot}
               backupSha256={preview.backupSha256} currentSha256={preview.currentSha256}
               plan={preview.smartRestore} />

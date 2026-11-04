@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 
 const PRODUCTION_REF = "zvmqrrttdrqkyrdzyxlf";
+const APPROVED_STAGING_REF = "omnzuolrlwczvnxrvenw";
 const target = process.env.TEST_BASE_URL ?? "http://127.0.0.1:3000";
 const url = process.env.STAGING_SUPABASE_URL;
 const key = process.env.STAGING_SUPABASE_PUBLISHABLE_KEY;
@@ -19,7 +20,8 @@ if (!url || !key || !secret || !stageRef || process.env.BUDGETKU_STAGING_E2E !==
 }
 const host = new URL(url).hostname.toLowerCase();
 if (!host.endsWith(".supabase.co") || !host.startsWith(stageRef + ".") ||
-    stageRef === PRODUCTION_REF || url.includes(PRODUCTION_REF) ||
+    stageRef !== APPROVED_STAGING_REF || stageRef === PRODUCTION_REF ||
+    url.includes(PRODUCTION_REF) ||
     !["http://127.0.0.1:3000", "http://localhost:3000"].includes(target)) {
   throw new Error("Staging safety guard: refused possible production environment.");
 }
@@ -131,6 +133,21 @@ try {
   assert.match(initialTransactions[0].source_reference,/^initial-recurring:[0-9a-f-]{36}$/);
   console.log("PASS: Playwright recurring form saved one ledger entry and one correct month-end schedule");
   console.log("PASS: browser expense+recurring schedule recorded correctly in staging");
+
+  // User-facing export is a native Excel workbook, not CSV or downloadable
+  // full-account JSON. Verify real authenticated route and file signature.
+  const excelExport = await context.request.get("/api/export/transactions");
+  assert.equal(excelExport.status(), 200);
+  assert.match(excelExport.headers()["content-type"],
+    /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/);
+  assert.match(excelExport.headers()["content-disposition"], /\.xlsx"/);
+  const excelBytes = await excelExport.body();
+  assert.equal(excelBytes.subarray(0, 2).toString("ascii"), "PK");
+  const fullJsonExport = await context.request.get("/api/export/data");
+  assert.equal(fullJsonExport.status(), 404,
+    "Removed full-account JSON endpoint must stay inaccessible");
+  console.log("PASS: authenticated transactions download as native XLSX; full-data JSON export is removed");
+
 
   // Exercise the actual authenticated staging RPC after the browser's
   // successful initial Submit. This simulates a network retry/double-submit:
@@ -251,49 +268,35 @@ try {
   }
   await anonymous.close();
 
-  // Exercise the real Settings UI, not only the API. No Apply/Restore control
-  // is intentionally provided at this stage.
+  // Settings must only create/download backups; recovery UI belongs exclusively
+  // to Transactions. The server's read-only preview API retains regression
+  // coverage above but no longer has an entry point in Settings.
   await page.goto("/settings", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Versi cadangan").waitFor({ state: "visible", timeout: 25000 });
-  // Regression: manual backup must update the independent history dropdown
-  // immediately and auto-select the newest verified snapshot, no navigation.
-  const picker = page.getByLabel("Versi cadangan");
-  const previouslySelected = await eventually(
-    () => picker.inputValue(),
-    value => value === archives[0].name,
-    "existing backup list loaded before creating the next snapshot",
-  );
-  assert.equal(previouslySelected, archives[0].name);
+  await page.getByRole("button", { name: "Cadangkan sekarang" })
+    .waitFor({ state: "visible", timeout: 25000 });
+  assert.equal(await page.getByLabel("Versi cadangan").count(), 0,
+    "Settings must not show the retired backup comparison selector");
+  assert.equal(await page.getByRole("button", { name: "Bandingkan isi backup" }).count(), 0,
+    "Settings must not show any backup comparison/restore control");
+  assert.equal(await page.getByRole("link", { name: "Pulihkan transaksi" }).count(), 0,
+    "Recovery entry must only be on the Transactions page");
   await page.getByRole("button", { name: "Cadangkan sekarang" }).click();
   await page.getByText("Cadangan cloud berhasil dibuat.").waitFor({
     state: "visible", timeout: 25000,
   });
-  const refreshedSelection = await eventually(
-    () => picker.inputValue(),
-    value => value !== previouslySelected && value.endsWith(".json"),
-    "newly created backup becomes selected without page reload",
-  );
   const refreshedHistory = await context.request.get("/api/settings/backup/history");
   assert.equal(refreshedHistory.status(), 200);
   const latestFilename = (await refreshedHistory.json()).snapshots[0].name;
-  assert.equal(refreshedSelection, latestFilename,
-    "Settings picker should select newly created snapshot, not stale previous backup");
-  assert.match(await picker.locator("option:checked").textContent(), /Terbaru/);
-  console.log("PASS: manual backup immediately updates Settings history and selects newest snapshot");
-  await page.getByRole("button", { name: "Cari transaksi yang hilang" }).click();
-  await page.getByRole("heading", { name: "Pulihkan transaksi tertentu" })
-    .waitFor({ state: "visible", timeout: 25000 });
-  await page.getByText("Pemeriksaan selesai. Pilih transaksi yang ingin dikembalikan.")
-    .waitFor({ state: "visible" });
-  assert.equal(await page.getByRole("button", { name: /Pulihkan data/i }).count(),0);
-  console.log("PASS: mobile Settings shows read-only preview table and no restore Apply button");
+  assert.notEqual(latestFilename, archives[0].name,
+    "Manual backup should create a new immutable snapshot");
+  console.log("PASS: Settings only creates backups, with no backup comparison or recovery controls");
 
   const ledgerAfterPreview = must(await admin.from("transactions")
     .select("id,amount").eq("user_id",userId),"verify read-only preview left ledger unchanged");
   assert.equal(ledgerAfterPreview.length,1);
   assert.equal(ledgerAfterPreview[0].id,initialTransactions[0].id);
   assert.equal(Number(ledgerAfterPreview[0].amount),25000);
-  console.log("PASS: authenticated immutable-snapshot restore preview is read-only; invalid path, cross-origin, and anonymous calls rejected");
+  console.log("PASS: authenticated immutable-snapshot restore preview API remains read-only; invalid path, cross-origin, and anonymous calls rejected");
 
   // Smart Restore scenario: Nov 2 expense is accidentally deleted; a
   // separate Nov 3 expense must remain untouched during selective recovery.
@@ -330,6 +333,72 @@ try {
     .eq("user_id",userId), "verify two existing transactions before Smart Restore");
   assert.equal(beforeSmart.length,2);
   assert.ok(beforeSmart.some(t=>t.id===latest.id),"newest transaction must exist");
+
+  // Regression: a recent backup made AFTER deletion has no missing row.
+  // The history scanner must identify the older version containing it.
+  const postDeleteBackup = await context.request.post("/api/settings/backup");
+  assert.equal(postDeleteBackup.status(),200,"save newer snapshot without deleted transaction");
+  const afterDeleteHistory = await context.request.get("/api/settings/backup/history");
+  assert.equal(afterDeleteHistory.status(),200);
+  const newestMissingBackup = (await afterDeleteHistory.json()).snapshots[0].name;
+  assert.notEqual(newestMissingBackup,selectedSnapshot);
+  const allBackupSearch = await context.request.post("/api/settings/restore/search",{
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(allBackupSearch.status(),200,"authenticated read-only backup history search");
+  const found = await allBackupSearch.json();
+  assert.ok(found.scanned>=2);
+  assert.ok(Array.isArray(found.coverage) && found.coverage.length===found.scanned,
+    "every verified backup, even one with no missing transaction, needs a coverage row");
+  assert.equal(found.currentTransactionCount,beforeSmart.length,
+    "history counts must use the current user's live ledger");
+  assert.ok(found.coverage.some(s=>s.missingCount===0&&s.presentCount>=1),
+    "recent backup without missing records still appears in coverage");
+  assert.ok(found.matches.some(s=>s.snapshot===selectedSnapshot&&s.eligibleCount===1),
+    "older backup must be found automatically");
+  assert.ok(!found.matches.some(s=>s.snapshot===newestMissingBackup),
+    "newest backup without missing transaction should not match");
+  const badSearchOrigin=await context.request.post("/api/settings/restore/search",{
+    headers:{Origin:"https://untrusted.example"},
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(badSearchOrigin.status(),403);
+  const badSearchOffset=await context.request.post("/api/settings/restore/search",{
+    data:{offset:10,anchor:null},
+  });
+  assert.equal(badSearchOffset.status(),400);
+  const badSearchAnchor=await context.request.post("/api/settings/restore/search",{
+    data:{offset:10,anchor:selectedSnapshot},
+  });
+  assert.equal(badSearchAnchor.status(),409,
+    "history anchor mismatch must fail closed");
+  const anonymousSearchContext = await browser.newContext();
+  const anonymousSearch=await anonymousSearchContext.request.post(
+    target+"/api/settings/restore/search",{
+      data:{offset:0,anchor:null},maxRedirects:0,
+    });
+  assert.ok([307,401].includes(anonymousSearch.status()));
+  await anonymousSearchContext.close();
+  const currentDuringSearch = must(await admin.from("transactions").select("id,amount")
+    .eq("user_id",userId), "verify scan did not alter ledger");
+  assert.deepEqual(
+    currentDuringSearch.map(x=>x.id).sort(),beforeSmart.map(x=>x.id).sort(),
+    "read-only history search must leave existing ledger untouched");
+  await page.goto("/transactions",{waitUntil:"domcontentloaded"});
+  const recoverLink=page.getByRole("link",{name:"Pulihkan transaksi"});
+  await recoverLink.waitFor({state:"visible",timeout:25000});
+  await recoverLink.click();
+  await page.getByRole("heading",{name:"Transaksi terdeteksi hilang"})
+    .waitFor({state:"visible",timeout:25000});
+  assert.equal(await page.getByText("Hasil pemeriksaan backup").count(), 0,
+    "verbose backup audit must be removed from the user interface");
+  await page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/})
+    .waitFor({state:"visible",timeout:40000});
+  await page.getByRole("region", { name: /Dicatat di Budgetku/ })
+    .waitFor({ state: "visible", timeout: 25000 });
+  assert.equal(await page.getByText("Jam transaksi", { exact: true }).count(), 0);
+  assert.ok(await page.getByText("Dicatat di Budgetku:", { exact: false }).count() >= 1);
+  console.log("PASS: recovery groups transactions by the Budgetku creation date and hides technical backup statistics");
 
   const previewSmartResponse = await context.request.post("/api/settings/restore/preview",{
     data:{snapshot:selectedSnapshot},
@@ -387,21 +456,16 @@ try {
   assert.ok(!afterBroken.some(t=>t.id===missing.id));
   console.log("PASS: invalid second transaction rolls back first insertion atomically");
 
-  await page.goto("/settings",{waitUntil:"domcontentloaded"});
-  await page.getByLabel("Versi cadangan").waitFor({state:"visible",timeout:25000});
-  await page.getByLabel("Versi cadangan").selectOption(selectedSnapshot);
-  await page.getByRole("button",{name:"Cari transaksi yang hilang"}).click();
-  await page.getByRole("heading",{name:"Pulihkan transaksi tertentu"})
-    .waitFor({state:"visible",timeout:25000});
   const chooseOld=page.getByRole("checkbox",{name:/Pulihkan Belanja supermarket/});
   assert.equal(await chooseOld.isChecked(),false,"checkbox must be empty by default");
-  await chooseOld.check();
-  await page.getByRole("button",{name:"Lihat dampak 1 transaksi terpilih"}).click();
-  await page.getByLabel("Ketik PULIHKAN TRANSAKSI untuk melanjutkan")
-    .fill("PULIHKAN TRANSAKSI");
-  await page.getByRole("button",{name:"Pulihkan 1 transaksi"}).click();
-  await page.getByText("1 transaksi berhasil dikembalikan. Data lainnya dipertahankan.")
-    .waitFor({state:"visible",timeout:25000});
+  // Keep the established single-snapshot API test, even after the primary
+  // recovery entry moves out of Settings.
+  const manualApply=await context.request.post("/api/settings/restore/smart/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:request,
+  });
+  assert.equal(manualApply.status(),200,"single-snapshot recovery remains compatible");
+  assert.equal((await manualApply.json()).restoredCount,1);
 
   const restored = must(await admin.from("transactions").select("id,amount,merchant")
     .eq("user_id",userId),"verify Smart Restore final ledger");
@@ -473,7 +537,386 @@ try {
     Number(n.amount)===Number(t.amount))));
   console.log("PASS: read-only global system category recovered; existing transactions unchanged");
 
+  // Multi-snapshot recovery regression: each disappeared transaction exists
+  // in a different immutable backup. The UI must show ONE deduplicated list
+  // with created-at timestamps and restore both in ONE atomic RPC.
+  const firstMissing = must(await admin.from("transactions").insert({
+    user_id:userId,account_id:account.id,category_id:category.id,
+    transaction_type:"expense",amount:18000,currency:"IDR",
+    source:"manual",source_reference:null,merchant:"Missing multi A",
+    transaction_at:"2026-11-02T14:00:00+07:00",
+  }).select("*").single(),"create first missing transaction");
+  assert.equal((await context.request.post("/api/settings/backup")).status(),200);
+  const firstHistory=await context.request.get("/api/settings/backup/history");
+  const firstSnapshot=(await firstHistory.json()).snapshots[0].name;
+  must(await admin.from("transactions").delete().eq("id",firstMissing.id).eq("user_id",userId),
+    "remove first missing transaction");
 
+  const secondMissing=must(await admin.from("transactions").insert({
+    user_id:userId,account_id:account.id,category_id:category.id,
+    transaction_type:"expense",amount:27000,currency:"IDR",
+    source:"manual",source_reference:null,merchant:"Missing multi B",
+    transaction_at:"2026-11-03T15:00:00+07:00",
+  }).select("*").single(),"create second missing transaction");
+  assert.equal((await context.request.post("/api/settings/backup")).status(),200);
+  const secondHistory=await context.request.get("/api/settings/backup/history");
+  const secondSnapshot=(await secondHistory.json()).snapshots[0].name;
+  must(await admin.from("transactions").delete().eq("id",secondMissing.id).eq("user_id",userId),
+    "remove second missing transaction");
+
+  const preMulti=must(await admin.from("transactions").select("id,amount").eq("user_id",userId),
+    "baseline before multi-source restore");
+  const scanBeforeMulti=await context.request.post("/api/settings/restore/search",{
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(scanBeforeMulti.status(),200);
+  const scanData=await scanBeforeMulti.json();
+  // Explicitly exercise legacy two-backup recovery even though the UI
+  // now prioritizes newer 30-day journal versions.
+  const a=scanData.candidates.find(row=>row.id===firstMissing.id&&!row.journalEventId);
+  const b=scanData.candidates.find(row=>row.id===secondMissing.id&&!row.journalEventId);
+  assert.ok(a?.eligible && b?.eligible);
+  assert.equal(typeof a.createdAt,"string");
+  assert.equal(typeof b.createdAt,"string");
+  assert.notEqual(firstSnapshot,secondSnapshot,"distinct immutable sources");
+  assert.notEqual(a.snapshot,b.snapshot,"two deleted transactions originate from distinct verified backups");
+  const selections=[
+    {id:a.id,snapshot:a.snapshot,backupSha256:a.backupSha256},
+    {id:b.id,snapshot:b.snapshot,backupSha256:b.backupSha256},
+  ];
+  const multiRequest={
+    selections,expectedCurrentSha256:scanData.currentSha256,
+    confirmation:"PULIHKAN TRANSAKSI",
+  };
+  const crossOriginMulti=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1",
+      Origin:"https://untrusted.example"},data:multiRequest,
+  });
+  assert.equal(crossOriginMulti.status(),403);
+  const staleMulti=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{...multiRequest,expectedCurrentSha256:"0".repeat(64)},
+  });
+  assert.equal(staleMulti.status(),409);
+  const wrongBackupHash=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{...multiRequest,selections:[
+      {...selections[0],backupSha256:"0".repeat(64)},selections[1]]},
+  });
+  assert.equal(wrongBackupHash.status(),409);
+  const anonymousMultiCtx=await browser.newContext();
+  const anonymousMulti=await anonymousMultiCtx.request.post(
+    target+"/api/transactions/recovery/apply",{
+      headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+      data:multiRequest,maxRedirects:0,
+    });
+  assert.ok([307,401].includes(anonymousMulti.status()));
+  await anonymousMultiCtx.close();
+
+  await page.goto("/transactions/recover",{waitUntil:"domcontentloaded"});
+  await page.getByRole("checkbox",{name:/Pulihkan Missing multi A/})
+    .waitFor({state:"visible",timeout:40000});
+  await page.getByRole("checkbox",{name:/Pulihkan Missing multi B/})
+    .waitFor({state:"visible",timeout:40000});
+  const bothA=page.getByRole("checkbox",{name:/Pulihkan Missing multi A/});
+  const bothB=page.getByRole("checkbox",{name:/Pulihkan Missing multi B/});
+  assert.equal(await bothA.isChecked(),false);
+  assert.equal(await bothB.isChecked(),false);
+  await bothA.check();
+  await bothB.check();
+  await page.getByRole("button",{name:"Lihat dampak 2 transaksi terpilih"}).click();
+  await page.getByLabel("Ketik PULIHKAN TRANSAKSI untuk mengonfirmasi")
+    .fill("PULIHKAN TRANSAKSI");
+  const multiUiResponsePromise=page.waitForResponse(response=>
+    response.url().includes("/api/transactions/recovery/apply")&&
+    response.request().method()==="POST", {timeout:90000});
+  await page.getByRole("button",{name:"Pulihkan 2 transaksi"}).click();
+  const multiUiResponse=await multiUiResponsePromise;
+  assert.equal(multiUiResponse.status(),200,
+    "UI multi-source recovery rejected by API: "+multiUiResponse.status()+" "+
+    JSON.stringify(await multiUiResponse.json()).slice(0,350));
+  await page.getByText("2 transaksi berhasil dipulihkan. Transaksi lainnya dipertahankan.")
+    .waitFor({state:"visible",timeout:20000});
+
+  const postMulti=must(await admin.from("transactions").select("id,amount").eq("user_id",userId),
+    "ledger after combined restore");
+  assert.equal(postMulti.length,preMulti.length+2);
+  assert.ok(postMulti.some(row=>row.id===firstMissing.id && Number(row.amount)===18000));
+  assert.ok(postMulti.some(row=>row.id===secondMissing.id && Number(row.amount)===27000));
+  assert.ok(preMulti.every(previous=>postMulti.some(row=>
+    row.id===previous.id && Number(row.amount)===Number(previous.amount))),
+    "pre-existing financial records must be unchanged");
+  const repeatedMulti=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:multiRequest,
+  });
+  assert.equal(repeatedMulti.status(),409,"stale repeated action must not duplicate");
+  console.log("PASS: Transactions inbox restored two missing records from different backups in one atomic request, preserving existing ledger");
+
+  // The 30-day transaction journal must log every write, including changes
+  // that happen before the next daily cloud backup. This synthetic row must
+  // be created, updated and deleted without any backup request in between.
+  const journalFixture=must(await admin.from("transactions").insert({
+    user_id:userId, account_id:account.id, category_id:category.id,
+    transaction_type:"expense", amount:22000, currency:"IDR",
+    source:"manual", source_reference:null, merchant:"Journal check",
+    description:"synthetic retention test",transaction_at:"2026-11-04T08:00:00+07:00",
+  }).select("id").single(),"create synthetic transaction to test automatic journal");
+  must(await admin.from("transactions").update({amount:33000})
+    .eq("id",journalFixture.id).eq("user_id",userId),"edit synthetic transaction in journal test");
+  must(await admin.from("transactions").delete()
+    .eq("id",journalFixture.id).eq("user_id",userId),"delete synthetic transaction in journal test");
+  const changeRows=must(await userClient.from("transaction_change_history")
+    .select("id,operation,before_row,after_row,changed_at")
+    .eq("transaction_id",journalFixture.id).order("id",{ascending:true}),
+    "read user's audit journal through RLS");
+  assert.deepEqual(changeRows.map(x=>x.operation),["create","edit","delete"]);
+  assert.equal(Number(changeRows[0].after_row.amount),22000);
+  assert.equal(Number(changeRows[1].before_row.amount),22000);
+  assert.equal(Number(changeRows[1].after_row.amount),33000);
+  assert.equal(Number(changeRows[2].before_row.amount),33000);
+  assert.equal(changeRows[2].after_row,null);
+
+  // No full backup was created for this new transaction. It still must show
+  // as a restorable candidate because deletion itself was atomically journaled.
+  const recentSearch=await context.request.post("/api/settings/restore/search",{
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(recentSearch.status(),200,"recent journal search");
+  const recentResult=await recentSearch.json();
+  const fromJournal=recentResult.candidates.find(c=>
+    c.id===journalFixture.id && Number.isSafeInteger(c.journalEventId));
+  assert.ok(fromJournal?.eligible,"deleted 30-day transaction must be recoverable without backup");
+  const restoreFromJournal=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{
+      selections:[{id:journalFixture.id,journalEventId:fromJournal.journalEventId}],
+      expectedCurrentSha256:recentResult.currentSha256,
+      confirmation:"PULIHKAN TRANSAKSI",
+    },
+  });
+  assert.equal(restoreFromJournal.status(),200,
+    "restore deleted transaction exclusively from atomic journal");
+  assert.equal((await restoreFromJournal.json()).restoredCount,1);
+  const journalRestored=must(await admin.from("transactions").select("id,amount")
+    .eq("id",journalFixture.id).single(),"verify recovered 30-day history row");
+  assert.equal(Number(journalRestored.amount),33000);
+  const replayJournal=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{
+      selections:[{id:journalFixture.id,journalEventId:fromJournal.journalEventId}],
+      expectedCurrentSha256:recentResult.currentSha256,
+      confirmation:"PULIHKAN TRANSAKSI",
+    },
+  });
+  assert.equal(replayJournal.status(),409,"journal restore replay must not duplicate");
+  console.log("PASS: deleted transaction restored from its 30-day journal without a daily backup, replay refused");
+  const deniedJournalTampering=await userClient.from("transaction_change_history")
+    .delete().eq("id",changeRows[2].id);
+  assert.ok(deniedJournalTampering.error,
+    "authenticated user must not mutate immutable transaction journal");
+  console.log("PASS: create, edit and delete each create atomic, owner-readable, immutable journal entries with no backup request");
+
+  // Same transaction ID, different amounts: never silently overwrite live
+  // money. A 30-day edit version and an immutable backup both offer a choice.
+  const amountFixture=must(await admin.from("transactions").insert({
+    user_id:userId, account_id:account.id, category_id:category.id,
+    transaction_type:"expense", amount:100000, currency:"IDR",
+    source:"manual", source_reference:null, merchant:"Conflict version E2E",
+    description:"Choose between 100k and 150k",
+    transaction_at:"2026-11-04T08:00:00+07:00",
+  }).select("*").single(),"create amount version fixture");
+  assert.equal((await context.request.post("/api/settings/backup")).status(),200);
+  must(await admin.from("transactions")
+    .update({amount:150000,updated_at:new Date().toISOString()})
+    .eq("user_id",userId).eq("id",amountFixture.id),
+    "edit 100000 to 150000 in same transaction");
+  const amountScan=await context.request.post("/api/settings/restore/search",{
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(amountScan.status(),200);
+  const amountPage=await amountScan.json();
+  const editVersion=amountPage.conflicts.find(row=>row.id===amountFixture.id&&row.journalEventId);
+  const backupVersion=amountPage.conflicts.find(row=>row.id===amountFixture.id&&row.snapshot);
+  assert.ok(editVersion,"edited nominal must appear as a journal conflict");
+  assert.ok(backupVersion,"verified cloud backup must also provide older amount");
+  assert.equal(editVersion.savedAmount,100000);
+  assert.equal(editVersion.currentAmount,150000);
+  assert.equal(backupVersion.savedAmount,100000);
+  await page.goto("/transactions/recover",{waitUntil:"domcontentloaded"});
+  await page.getByRole("heading",{name:"Versi transaksi berbeda"})
+    .waitFor({state:"visible",timeout:30000});
+  assert.ok(await page.getByRole("radio",{name:/Pertahankan data sekarang/}).count()>=1);
+  assert.ok(await page.getByRole("radio",{name:/Gunakan versi cadangan/}).count()>=1);
+  const changeRequest={
+    id:amountFixture.id,
+    source:{journalEventId:editVersion.journalEventId},
+    expectedCurrentSha256:amountPage.currentSha256,
+    confirmation:"GUNAKAN VERSI CADANGAN",
+  };
+  const noConsent=await context.request.post("/api/transactions/recovery/conflict",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{...changeRequest,confirmation:""},
+  });
+  assert.equal(noConsent.status(),400,"no implicit overwrite without user confirmation");
+  const unchangedAfterRefusal=must(await admin.from("transactions").select("amount")
+    .eq("id",amountFixture.id).single(),"verify default keep-current option");
+  assert.equal(Number(unchangedAfterRefusal.amount),150000);
+  const chosen=await context.request.post("/api/transactions/recovery/conflict",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:changeRequest,
+  });
+  assert.equal(chosen.status(),200,
+    "explicit choice must update the same transaction without duplicating it");
+  const afterChoice=must(await admin.from("transactions").select("id,amount,merchant")
+    .eq("id",amountFixture.id).single(),"verify selected older amount");
+  assert.equal(Number(afterChoice.amount),100000);
+  assert.equal(afterChoice.merchant,"Conflict version E2E");
+  const replayChoice=await context.request.post("/api/transactions/recovery/conflict",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:changeRequest,
+  });
+  assert.equal(replayChoice.status(),409,"stale conflict choice must not silently overwrite");
+  const amountEvents=must(await userClient.from("transaction_change_history")
+    .select("operation,after_row").eq("transaction_id",amountFixture.id)
+    .order("id",{ascending:true}),"validate conflict update remains in 30-day history");
+  assert.ok(amountEvents.some(entry=>entry.operation==="edit"&&
+    Number(entry.after_row?.amount)===100000));
+  console.log("PASS: 100k vs 150k conflict asks for an explicit choice, defaults to current, verifies backup and journal, rejects stale replay");
+
+
+
+
+
+
+  // Recovery of missing ENTIRE ACCOUNT DATA from both immutable cloud
+  // snapshot and a user-provided JSON file. Never mutate non-synthetic users.
+  const disasterAccount=must(await admin.from("accounts").insert({
+    user_id:userId,name:"E2E Disaster Cash",account_type:"cash",
+    initial_balance:900000,currency:"IDR",include_in_total:true,
+  }).select("id").single(),"seed disaster-test account");
+  const disasterCategory=must(await admin.from("categories").insert({
+    user_id:userId,name:"E2E Disaster Expense",category_type:"expense",
+    is_system:false,is_archived:false,
+  }).select("id").single(),"seed disaster-test category");
+  const disasterTransaction=must(await admin.from("transactions").insert({
+    user_id:userId,account_id:disasterAccount.id,
+    category_id:disasterCategory.id,transaction_type:"expense",
+    amount:45000,currency:"IDR",source:"manual",source_reference:null,
+    merchant:"Disaster test",transaction_at:"2026-11-04T08:00:00+07:00",
+  }).select("id").single(),"seed disaster-test transaction");
+  assert.equal((await context.request.post("/api/settings/backup")).status(),200);
+  const disasterHistory=await context.request.get("/api/settings/backup/history");
+  assert.equal(disasterHistory.status(),200);
+  const disasterName=(await disasterHistory.json()).snapshots[0].name;
+  const disasterFile=await context.request.get("/api/settings/backup?snapshot="+
+    encodeURIComponent(disasterName));
+  assert.equal(disasterFile.status(),200);
+  const disasterJson=await disasterFile.text();
+  assert.equal(JSON.parse(disasterJson).format,"budgetku-backup");
+  must(await admin.from("transactions").delete().eq("id",disasterTransaction.id),
+    "remove synthetic transaction");
+  must(await admin.from("categories").delete().eq("id",disasterCategory.id),
+    "remove synthetic category");
+  must(await admin.from("accounts").delete().eq("id",disasterAccount.id),
+    "remove synthetic account");
+  const disasterHeaders={"X-Budgetku-Restore-Intent":"budgetku-disaster-recovery-v1"};
+  const cloudFields={mode:"preview",source:"cloud",snapshot:disasterName};
+  const disasterPreviewResp=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:cloudFields,
+  });
+  assert.equal(disasterPreviewResp.status(),200,"cloud disaster preflight");
+  const disasterPreview=await disasterPreviewResp.json();
+  assert.equal(disasterPreview.previewOnly,true);
+  assert.equal(disasterPreview.tables.transactions.wouldAdd>=1,true);
+  assert.equal(disasterPreview.tables.accounts.wouldAdd>=1,true);
+  assert.equal(disasterPreview.tables.categories.wouldAdd>=1,true);
+  assert.equal(disasterPreview.canRestore,true);
+  const fromFile=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      mode:"preview",source:"file",
+      file:{name:"budgetku-cadangan.json",mimeType:"application/json",
+        buffer:Buffer.from(disasterJson,"utf8")},
+    },
+  });
+  assert.equal(fromFile.status(),200,"uploaded JSON preview");
+  const filePreview=await fromFile.json();
+  assert.equal(filePreview.backupSha256,disasterPreview.backupSha256);
+  assert.equal(filePreview.missingCount,disasterPreview.missingCount);
+  const noConsentFull=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      ...cloudFields,mode:"apply",confirmation:"",
+      expectedCurrentSha256:disasterPreview.currentSha256,
+      expectedBackupSha256:disasterPreview.backupSha256,
+    },
+  });
+  assert.equal(noConsentFull.status(),400,"disaster restore requires explicit confirmation");
+  const disasterApply=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      ...cloudFields,mode:"apply",confirmation:"PULIHKAN DATA",
+      expectedCurrentSha256:disasterPreview.currentSha256,
+      expectedBackupSha256:disasterPreview.backupSha256,
+    },
+  });
+  assert.equal(disasterApply.status(),200,
+    "atomic cloud restore of missing account/category/transaction");
+  const disasterResult=await disasterApply.json();
+  assert.equal(disasterResult.ok,true);
+  assert.ok(disasterResult.safetySnapshot,"verified safety snapshot must be preserved");
+  const recoveredDisaster=must(await admin.from("transactions")
+    .select("id,amount,account_id,category_id")
+    .eq("id",disasterTransaction.id).single(),"confirm disaster recovery restored original financial row");
+  assert.equal(Number(recoveredDisaster.amount),45000);
+  assert.equal(recoveredDisaster.account_id,disasterAccount.id);
+  assert.equal(recoveredDisaster.category_id,disasterCategory.id);
+
+  // Data which survived after this backup is NEVER deleted or overwritten.
+  must(await admin.from("transactions").update({amount:65000})
+    .eq("id",disasterTransaction.id),"simulate a newer edited value");
+  const newest=must(await admin.from("transactions").insert({
+    user_id:userId,account_id:disasterAccount.id,category_id:disasterCategory.id,
+    transaction_type:"expense",amount:12000,currency:"IDR",
+    source:"manual",merchant:"Newer than backup",
+    transaction_at:"2026-11-04T09:00:00+07:00",
+  }).select("id").single(),"create newer transaction absent from backup");
+  must(await admin.from("transactions").delete().eq("id",disasterTransaction.id),
+    "remove original to test file-based recovery");
+  const fileApplyPreview=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      mode:"preview",source:"file",
+      file:{name:"budgetku-cadangan.json",mimeType:"application/json",
+        buffer:Buffer.from(disasterJson,"utf8")},
+    },
+  });
+  assert.equal(fileApplyPreview.status(),200);
+  const filePlan=await fileApplyPreview.json();
+  assert.ok(filePlan.protectedNewerRows>=1,"new live record must not be deleted");
+  const fileApply=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      mode:"apply",source:"file",
+      file:{name:"budgetku-cadangan.json",mimeType:"application/json",
+        buffer:Buffer.from(disasterJson,"utf8")},
+      confirmation:"PULIHKAN DATA",
+      expectedCurrentSha256:filePlan.currentSha256,
+      expectedBackupSha256:filePlan.backupSha256,
+    },
+  });
+  assert.equal(fileApply.status(),200,"uploaded file must restore missing rows");
+  const newerRows=must(await admin.from("transactions")
+    .select("id,amount").in("id",[disasterTransaction.id,newest.id]),
+    "verify file disaster recovery preserves the newer ledger");
+  assert.equal(newerRows.length,2);
+  assert.equal(Number(newerRows.find(r=>r.id===newest.id).amount),12000);
+  assert.equal(Number(newerRows.find(r=>r.id===disasterTransaction.id).amount),45000);
+  const repeatedFull=await context.request.post("/api/settings/restore/rebuild",{
+    headers:disasterHeaders,multipart:{
+      ...cloudFields,mode:"apply",confirmation:"PULIHKAN DATA",
+      expectedCurrentSha256:disasterPreview.currentSha256,
+      expectedBackupSha256:disasterPreview.backupSha256,
+    },
+  });
+  assert.equal(repeatedFull.status(),409,"stale full recovery may not replay");
+  console.log("PASS: disaster recovery restores missing account/category/transaction from cloud or JSON atomically, requires consent, and preserves newer data");
 
   await context.close();
 } finally {

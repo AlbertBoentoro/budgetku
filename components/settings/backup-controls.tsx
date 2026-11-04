@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { BACKUP_CREATED_EVENT } from "@/components/settings/backup-events";
 
 export function BackupControls({
   lastBackupAt,
@@ -33,8 +32,6 @@ export function BackupControls({
 
       const result: { message: string } = await response.json();
       setMessage(result.message);
-      // Refresh the independent recovery-version picker immediately.
-      window.dispatchEvent(new Event(BACKUP_CREATED_EVENT));
       router.refresh();
     } catch {
       setMessage("Cadangan gagal dibuat karena koneksi terputus.");
@@ -65,11 +62,11 @@ export function BackupControls({
               : "Cadangan pertama belum dibuat."}
         </p>
         <p className="mt-1 text-body-sm text-on-surface-variant">
-          Transaksi tetap tersimpan di Supabase. Cadangan tambahan mencakup
-          transaksi, rekening, anggaran, dan preferensi. Budgetku memperbarui
-          salinan sekitar pukul 20.00 WIB setiap hari. Cadangan baru diperiksa
-          dan versi sebelumnya tetap disimpan sebagai riwayat. Pemulihan
-          transaksi terpilih tersedia melalui bagian pemulihan di bawah.
+          Perubahan transaksi (tambah, edit, hapus) dicatat otomatis selama
+          30 hari, tanpa menunggu backup harian. Cadangan cloud ini tetap
+          melindungi data yang lebih luas, termasuk rekening, anggaran,
+          dan preferensi. Jika sudah dikonfigurasi, cadangan harian dibuat
+          sekitar pukul 20.00 WIB sebagai perlindungan tambahan.
         </p>
         {!configured ? (
           <p role="status" className="mt-1 text-body-sm text-expense">

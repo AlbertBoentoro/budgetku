@@ -1,5 +1,21 @@
 import type { NextConfig } from "next";
 
+/**
+ * Development/Testing is intentionally isolated from the real financial ledger.
+ * Next.js loads .env.local before evaluating next.config.ts. Refuse an accidental
+ * local connection to Production (or any unapproved Supabase project).
+ * CI's production-mode Next build still uses its explicitly guarded staging URL.
+ */
+const LOCAL_STAGING_SUPABASE_URL = "https://omnzuolrlwczvnxrvenw.supabase.co";
+const localSupabaseURL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/[/]+$/, "");
+if (process.env.NODE_ENV === "development" && localSupabaseURL &&
+    localSupabaseURL !== LOCAL_STAGING_SUPABASE_URL) {
+  throw new Error(
+    "Budgetku Development/Testing hanya boleh memakai Supabase staging. " +
+    "Periksa NEXT_PUBLIC_SUPABASE_URL di .env.local; jangan gunakan database production.",
+  );
+}
+
 // Baseline security headers for every route. A full script/style CSP is
 // intentionally not set yet: the app loads Google Fonts (Material Symbols)
 // and Next.js inline scripts, so a strict CSP needs nonces and separate

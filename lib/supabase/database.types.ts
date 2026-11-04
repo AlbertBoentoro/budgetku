@@ -659,6 +659,36 @@ export type Database = {
           },
         ]
       }
+      transaction_change_history: {
+        Row: {
+          id: number
+          user_id: string
+          transaction_id: string
+          operation: string
+          before_row: Json | null
+          after_row: Json | null
+          changed_at: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          transaction_id: string
+          operation: string
+          before_row?: Json | null
+          after_row?: Json | null
+          changed_at?: string
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          transaction_id?: string
+          operation?: string
+          before_row?: Json | null
+          after_row?: Json | null
+          changed_at?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           account_id: string
@@ -740,6 +770,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      restore_missing_budgetku_v1: {
+        Args: { p_backup: Json }
+        Returns: Json
+      }
       restore_selected_transactions_v1: {
         Args: { p_rows: Json }
         Returns: number
