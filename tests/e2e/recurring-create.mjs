@@ -528,8 +528,16 @@ try {
   const oneClick=page.getByRole("button",{name:"Pulihkan 1 transaksi"});
   assert.equal(await oneClick.isEnabled(),true);
   await oneClick.click();
-  await page.getByText("1 transaksi berhasil dipulihkan. Transaksi lainnya dipertahankan.")
-    .waitFor({state:"visible",timeout:30000});
+  // Restored rows disappear automatically after a fresh scan; no success
+  // paragraph or secondary "Periksa kembali" action is shown.
+  await restoreToggle.waitFor({state:"detached",timeout:40000});
+  await page.getByText("Pencarian selesai").waitFor({state:"visible",timeout:40000});
+  assert.equal(await restoreToggle.count(),0,
+    "the restored transaction should no longer appear in recovery inbox");
+  assert.equal(await page.getByText(/transaksi berhasil dipulihkan/).count(),0,
+    "no extra success paragraph after one-click restore");
+  assert.equal(await page.getByRole("button",{name:"Periksa kembali"}).count(),0,
+    "no extra post-recovery action");
   const recovered=must(await admin.from("transactions").select("id,amount")
     .eq("user_id",userId).eq("id",deletedAfterBackup.id).single(),
     "check recovered transaction has the same original ID and nominal");
