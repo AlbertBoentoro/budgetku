@@ -14,8 +14,13 @@ type RecoveryCandidate = {
   destinationAccountId: string | null; destinationAccountName: string | null;
   categoryName: string | null; eligible: boolean; reason: string | null;
 };
+type BackupCoverage = {
+  createdAt: string; transactionCount: number; presentCount: number;
+  missingCount: number; eligibleCount: number; blockedCount: number;
+};
 type SearchPage = {
-  candidates: RecoveryCandidate[];
+  candidates: RecoveryCandidate[]; coverage: BackupCoverage[];
+  currentTransactionCount: number;
   scanned: number; skipped: number; currentSha256: string;
   anchor: string | null; nextOffset: number | null; truncated: boolean;
 };
@@ -97,6 +102,8 @@ export function MissingTransactionsRecovery() {
   const [scanned, setScanned] = useState(0);
   const [skipped, setSkipped] = useState(0);
   const [rows, setRows] = useState<RecoveryCandidate[]>([]);
+  const [coverage, setCoverage] = useState<BackupCoverage[]>([]);
+  const [currentTransactionCount, setCurrentTransactionCount] = useState(0);
   const [currentHash, setCurrentHash] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -112,6 +119,8 @@ export function MissingTransactionsRecovery() {
     setCompleted(false);
     setIncomplete(false);
     setRows([]);
+    setCoverage([]);
+    setCurrentTransactionCount(0);
     setSelected([]);
     setReview(false);
     setCurrentHash("");
@@ -138,6 +147,9 @@ export function MissingTransactionsRecovery() {
         if (!payload || typeof payload !== "object" || !("candidates" in payload) ||
           !Array.isArray(payload.candidates) ||
           !("currentSha256" in payload) || typeof payload.currentSha256 !== "string" ||
+          !("coverage" in payload) || !Array.isArray(payload.coverage) ||
+          !("currentTransactionCount" in payload) ||
+          typeof payload.currentTransactionCount !== "number" ||
           !("scanned" in payload) || typeof payload.scanned !== "number" ||
           !("skipped" in payload) || typeof payload.skipped !== "number" ||
           !("nextOffset" in payload) ||
@@ -153,6 +165,8 @@ export function MissingTransactionsRecovery() {
         if (controller.signal.aborted) return;
         setCurrentHash(page.currentSha256);
         setRows(old => combine(old, page.candidates));
+        setCoverage(old => [...old, ...page.coverage]);
+        setCurrentTransactionCount(page.currentTransactionCount);
         setScanned(v => v + page.scanned);
         setSkipped(v => v + page.skipped);
         setIncomplete(page.truncated);
@@ -311,6 +325,41 @@ export function MissingTransactionsRecovery() {
         </p>
       ) : null}
       {error ? <p role="alert" className="text-body-sm text-expense">{error}</p> : null}
+      {completed && coverage.length > 0 ? (
+        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-body-sm text-on-surface">
+          <p className="font-semibold">Hasil pemeriksaan backup</p>
+          <p className="mt-1 text-on-surface-variant">
+            Ada {currentTransactionCount} transaksi yang masih tersimpan sekarang.
+            Ditemukan {rows.length} transaksi unik yang ada di backup tetapi tidak ada sekarang;
+            {" "}{eligible.length} di antaranya dapat dipulihkan.
+          </p>
+          <p className="mt-2 text-on-surface-variant">
+            Jumlah backup bukan jumlah transaksi yang bisa dipulihkan.
+            Transaksi yang belum pernah masuk backup tidak bisa dimunculkan kembali.
+          </p>
+          <details className="mt-3">
+            <summary className="cursor-pointer font-medium text-on-surface">
+              Lihat isi {coverage.length} backup yang berhasil diperiksa
+            </summary>
+            <div className="mt-3 flex max-h-80 flex-col gap-2 overflow-y-auto">
+              {coverage.map((item, index) => (
+                <div key={index} className="rounded-lg border border-outline-variant p-3">
+                  <p className="font-medium">Backup {moment(item.createdAt)}</p>
+                  <p className="mt-1 text-on-surface-variant">
+                    {item.transactionCount} transaksi tersimpan · {item.presentCount} masih ada ·
+                    {" "}{item.missingCount} hilang · {item.eligibleCount} bisa dipulihkan
+                    {item.blockedCount > 0 ? " · " + item.blockedCount + " perlu pemeriksaan" : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-label-sm text-on-surface-variant">
+              Transaksi yang sama bisa muncul di beberapa backup.
+              Jangan menjumlahkan angka antarbackup.
+            </p>
+          </details>
+        </div>
+      ) : null}
       {rows.length > 0 ? (
         <>
           <p className="text-body-sm font-medium text-on-surface">
