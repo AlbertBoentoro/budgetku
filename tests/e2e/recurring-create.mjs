@@ -475,6 +475,64 @@ try {
 
 
 
+  // Deleted-only recovery regression: a transaction created and deleted
+  // between daily backups must be recoverable from the private 30-day journal.
+  const deletedAfterBackup=must(await admin.from("transactions").insert({
+    user_id:userId,account_id:account.id,category_id:category.id,
+    transaction_type:"expense",amount:33000,currency:"IDR",
+    source:"manual",source_reference:null,merchant:"Delete only recovery test",
+    transaction_at:"2026-11-04T08:00:00+07:00",
+  }).select("id").single(),"create a no-backup deletion fixture");
+  must(await admin.from("transactions").delete().eq("user_id",userId)
+    .eq("id",deletedAfterBackup.id),"delete before next daily backup");
+  const deletedSearch=await context.request.post("/api/transactions/recovery/search",{
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(deletedSearch.status(),200,"read deleted-only recovery inbox");
+  const deletedPage=await deletedSearch.json();
+  assert.equal("conflicts" in deletedPage,false,
+    "deleted-only endpoint must not expose edited-amount conflicts");
+  const deletedRow=deletedPage.candidates.find(row=>
+    row.id===deletedAfterBackup.id&&Number.isSafeInteger(row.journalEventId));
+  assert.ok(deletedRow?.eligible,"deleted transaction must be recoverable without a full backup");
+  assert.equal(deletedRow.amount,33000);
+  const attempt={selections:[{id:deletedAfterBackup.id,journalEventId:deletedRow.journalEventId}],
+    expectedCurrentSha256:deletedPage.currentSha256,
+    confirmation:"PULIHKAN TRANSAKSI"};
+  const refused=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{...attempt,confirmation:""},
+  });
+  assert.equal(refused.status(),400,"no recovery without explicit confirmation");
+  const anonymousRestore=await browser.newContext();
+  const anonResult=await anonymousRestore.request.post(target+"/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:attempt,maxRedirects:0,
+  });
+  assert.ok([307,401].includes(anonResult.status()));
+  await anonymousRestore.close();
+  const deletedApply=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:attempt,
+  });
+  assert.equal(deletedApply.status(),200,"restore a deleted row from deletion journal");
+  assert.equal((await deletedApply.json()).restoredCount,1);
+  const recovered=must(await admin.from("transactions").select("id,amount")
+    .eq("user_id",userId).eq("id",deletedAfterBackup.id).single(),
+    "check recovered transaction has the same original ID and nominal");
+  assert.equal(Number(recovered.amount),33000);
+  const replay=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:attempt,
+  });
+  assert.equal(replay.status(),409,"prevent duplicate recovery");
+  await page.goto("/transactions/recover",{waitUntil:"domcontentloaded"});
+  await page.getByRole("heading",{name:"Transaksi terdeteksi hilang"})
+    .waitFor({state:"visible",timeout:25000});
+  assert.equal(await page.getByRole("heading",{name:"Versi transaksi berbeda"}).count(),0,
+    "edit-version selection must NOT ship in deleted-only release");
+  console.log("PASS: deleted-only recovery from journal without daily backup, explicit consent, original ID, replay and anonymous denied");
+
   await context.close();
 } finally {
   if (browser) await browser.close();
