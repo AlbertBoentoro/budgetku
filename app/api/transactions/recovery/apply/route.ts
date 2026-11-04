@@ -17,7 +17,11 @@ const MAX_BACKUPS = 10;
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA = /^[a-f0-9]{64}$/i;
 const HEADERS = { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
-type Selection = { id: string; snapshot: string; backupSha256: string };
+type BackupSelection = { id: string; snapshot: string; backupSha256: string };
+type JournalSelection = { id: string; journalEventId: number };
+type Selection = BackupSelection | JournalSelection;
+const isJournal = (s: Selection): s is JournalSelection => "journalEventId" in s;
+const isBackup = (s: Selection): s is BackupSelection => !isJournal(s);
 function fail(error: string, status: number) {
   return Response.json({ error }, { status, headers: HEADERS });
 }
@@ -76,13 +80,17 @@ export async function POST(request: Request) {
     if (!values.selections.every((r: unknown) => {
       if (!r || typeof r !== "object" || Array.isArray(r)) return false;
       const row = r as Record<string, unknown>;
-      return typeof row.id === "string" && ID.test(row.id) &&
-        typeof row.snapshot === "string" && isBackupSnapshotFilename(row.snapshot) &&
+      if (typeof row.id !== "string" || !ID.test(row.id)) return false;
+      if ("journalEventId" in row) {
+        return Number.isSafeInteger(row.journalEventId) && (row.journalEventId as number) > 0 &&
+          !("snapshot" in row) && !("backupSha256" in row);
+      }
+      return typeof row.snapshot === "string" && isBackupSnapshotFilename(row.snapshot) &&
         typeof row.backupSha256 === "string" && SHA.test(row.backupSha256);
-    })) return fail("Pilihan cadangan tidak valid.", 400);
+    })) return fail("Pilihan sumber pemulihan tidak valid.", 400);
     selections = values.selections as Selection[];
     if (new Set(selections.map(s => s.id)).size !== selections.length ||
-      new Set(selections.map(s => s.snapshot)).size > MAX_BACKUPS) {
+      new Set(selections.filter(isBackup).map(s => s.snapshot)).size > MAX_BACKUPS) {
       return fail("Pilih maksimal 50 transaksi dari 10 versi cadangan per pemulihan.", 400);
     }
     expectedCurrentSha256 = values.expectedCurrentSha256.toLowerCase();
@@ -100,8 +108,8 @@ export async function POST(request: Request) {
     }
 
     // Limit external download costs and memory: one verified backup at a time.
-    const bySnapshot = new Map<string, Selection[]>();
-    for (const item of selections) {
+    const bySnapshot = new Map<string, BackupSelection[]>();
+    for (const item of selections.filter(isBackup)) {
       const rows = bySnapshot.get(item.snapshot) ?? [];
       rows.push(item);
       bySnapshot.set(item.snapshot, rows);
@@ -123,6 +131,55 @@ export async function POST(request: Request) {
       const rows = backup.data.transactions.filter((row: { id: string }) => selection.has(row.id));
       if (rows.length !== requests.length) return fail("Transaksi cadangan tidak cocok.", 409);
       verifiedRows.push(...rows);
+    }
+    // A recent deletion is recoverable even if the nightly full backup has
+    // never included it. Read immutable owner-scoped journal rows server-side,
+    // validate their references with the same planner, and feed ALL chosen
+    // records to the existing one-transaction atomic database RPC.
+    const recent = selections.filter(isJournal);
+    if (recent.length > 0) {
+      const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
+      const { data: events, error: journalError } = await supabase
+        .from("transaction_change_history")
+        .select("id,user_id,transaction_id,operation,before_row,changed_at")
+        .eq("user_id", user.id).eq("operation", "delete")
+        .gte("changed_at", cutoff)
+        .in("id", recent.map(row => row.journalEventId));
+      if (journalError || !events || events.length !== recent.length) {
+        return fail("Riwayat perubahan kedaluwarsa atau tidak tersedia. Cari ulang.", 409);
+      }
+      const byEventId = new Map(events.map(e => [e.id, e]));
+      for (const item of recent) {
+        const event = byEventId.get(item.journalEventId);
+        if (!event || event.transaction_id !== item.id || event.user_id !== user.id ||
+          !event.before_row || typeof event.before_row !== "object" ||
+          Array.isArray(event.before_row)) {
+          return fail("Transaksi tidak cocok dengan riwayat perubahan.", 409);
+        }
+        // Reject replaying an older delete when the same record was later
+        // restored, edited, or deleted again. Latest history wins.
+        const { data: newer, error: newerError } = await supabase
+          .from("transaction_change_history").select("id")
+          .eq("user_id", user.id).eq("transaction_id", item.id)
+          .gt("id", event.id).limit(1);
+        if (newerError || (newer && newer.length > 0)) {
+          return fail("Riwayat transaksi telah berubah. Cari ulang.", 409);
+        }
+        const incoming = {
+          format: "budgetku-backup", version: 1,
+          data: {
+            transactions: [event.before_row],
+            accounts: current.data.accounts,
+            categories: current.data.categories,
+          },
+        };
+        const plan = createSmartRestorePlan({ incoming, current, userId: user.id });
+        if (plan.candidates.length !== 1 ||
+          plan.candidates[0].id !== item.id || !plan.candidates[0].eligible) {
+          return fail("Transaksi belum dapat dipulihkan. Periksa kembali kategori atau rekening.", 409);
+        }
+        verifiedRows.push(event.before_row as Json);
+      }
     }
     if (verifiedRows.length !== selections.length) {
       return fail("Jumlah transaksi tidak cocok. Tidak ada pemulihan.", 409);
