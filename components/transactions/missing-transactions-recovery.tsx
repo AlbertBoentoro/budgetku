@@ -97,7 +97,6 @@ export function MissingTransactionsRecovery() {
   const [scanning, setScanning] = useState(true);
   const [completed, setCompleted] = useState(false);
   const [incomplete, setIncomplete] = useState(false);
-  const [scanned, setScanned] = useState(0);
   const [skipped, setSkipped] = useState(0);
   const [rows, setRows] = useState<RecoveryCandidate[]>([]);
   const [currentHash, setCurrentHash] = useState("");
@@ -122,7 +121,6 @@ export function MissingTransactionsRecovery() {
     setCompleteRestore(false);
     setMessage("");
     setError("");
-    setScanned(0);
     setSkipped(0);
     let offset = 0, anchor: string | null = null, sha: string | null = null;
     try {
@@ -159,7 +157,6 @@ export function MissingTransactionsRecovery() {
         if (controller.signal.aborted) return;
         setCurrentHash(page.currentSha256);
         setRows(old => combine(old, page.candidates));
-        setScanned(v => v + page.scanned);
         setSkipped(v => v + page.skipped);
         setIncomplete(old => old || page.truncated);
         if (page.nextOffset === null) break;
