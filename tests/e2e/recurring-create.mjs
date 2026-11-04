@@ -629,6 +629,36 @@ try {
   assert.equal(repeatedMulti.status(),409,"stale repeated action must not duplicate");
   console.log("PASS: Transactions inbox restored two missing records from different backups in one atomic request, preserving existing ledger");
 
+  // The 30-day transaction journal must log every write, including changes
+  // that happen before the next daily cloud backup. This synthetic row must
+  // be created, updated and deleted without any backup request in between.
+  const journalFixture=must(await admin.from("transactions").insert({
+    user_id:userId, account_id:account.id, category_id:category.id,
+    transaction_type:"expense", amount:22000, currency:"IDR",
+    source:"manual", source_reference:null, merchant:"Journal check",
+    description:"synthetic retention test",transaction_at:"2026-11-04T08:00:00+07:00",
+  }).select("id").single(),"create synthetic transaction to test automatic journal");
+  must(await admin.from("transactions").update({amount:33000})
+    .eq("id",journalFixture.id).eq("user_id",userId),"edit synthetic transaction in journal test");
+  must(await admin.from("transactions").delete()
+    .eq("id",journalFixture.id).eq("user_id",userId),"delete synthetic transaction in journal test");
+  const changeRows=must(await userClient.from("transaction_change_history")
+    .select("id,operation,before_row,after_row,changed_at")
+    .eq("transaction_id",journalFixture.id).order("id",{ascending:true}),
+    "read user's audit journal through RLS");
+  assert.deepEqual(changeRows.map(x=>x.operation),["create","edit","delete"]);
+  assert.equal(Number(changeRows[0].after_row.amount),22000);
+  assert.equal(Number(changeRows[1].before_row.amount),22000);
+  assert.equal(Number(changeRows[1].after_row.amount),33000);
+  assert.equal(Number(changeRows[2].before_row.amount),33000);
+  assert.equal(changeRows[2].after_row,null);
+  const deniedJournalTampering=await userClient.from("transaction_change_history")
+    .delete().eq("id",changeRows[2].id);
+  assert.ok(deniedJournalTampering.error,
+    "authenticated user must not mutate immutable transaction journal");
+  console.log("PASS: create, edit and delete each create atomic, owner-readable, immutable journal entries with no backup request");
+
+
 
 
 
