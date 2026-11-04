@@ -3,6 +3,7 @@ import { buildUserBackup } from "@/lib/settings/backup";
 import { fetchVerifiedBackup } from "@/lib/settings/backup-storage";
 import { isBackupSnapshotFilename } from "@/lib/settings/backup-safety";
 import { createSmartRestorePlan } from "@/lib/settings/smart-restore-plan.mjs";
+import { createAmountConflict } from "@/lib/settings/transaction-amount-conflicts.mjs";
 import { sha256 } from "@/lib/settings/backup-storage-core.mjs";
 import { isSmartRestoreAllowed } from "@/lib/settings/smart-restore-guard";
 
@@ -80,10 +81,10 @@ export async function POST(request: Request) {
       buildUserBackup(supabase, user.id),
       offset === 0
         ? supabase.from("transaction_change_history")
-            .select("id,transaction_id,before_row,changed_at")
-            .eq("user_id", user.id).eq("operation", "delete")
+            .select("id,transaction_id,operation,before_row,changed_at")
+            .eq("user_id", user.id).in("operation", ["create", "edit", "delete"])
             .gte("changed_at", new Date(Date.now() - DAYS * 86_400_000).toISOString())
-            .order("changed_at", { ascending: false }).limit(MAX_JOURNAL_EVENTS + 1)
+            .order("id", { ascending: false }).limit(MAX_JOURNAL_EVENTS + 1)
         : Promise.resolve(null),
     ]);
     if (page.error || (top && top.error) || (journal && journal.error)) {
@@ -95,11 +96,22 @@ export async function POST(request: Request) {
     // and do not depend on the nightly full-account backup.
     const journalEvents = journal?.data ?? [];
     const journalTruncated = journalEvents.length > MAX_JOURNAL_EVENTS;
-    const latestDeleted = new Map<string, (typeof journalEvents)[number]>();
+    const latestEventById = new Map<string, (typeof journalEvents)[number]>();
     for (const event of journalEvents.slice(0, MAX_JOURNAL_EVENTS)) {
-      if (!latestDeleted.has(event.transaction_id)) latestDeleted.set(event.transaction_id, event);
+      if (!latestEventById.has(event.transaction_id)) {
+        latestEventById.set(event.transaction_id, event);
+      }
     }
-    const deletedRows = [...latestDeleted.values()];
+    const deletedRows = [...latestEventById.values()].filter(e => e.operation === "delete");
+    const currentById = new Map(current.data.transactions.map(row => [row.id, row]));
+    const journalConflicts = [...latestEventById.values()]
+      .filter(e => e.operation === "edit")
+      .flatMap(e => {
+        const existing = currentById.get(e.transaction_id);
+        const conflict = createAmountConflict(e.before_row, existing, user.id);
+        return conflict ? [{ ...conflict, journalEventId: e.id,
+          snapshot: "", backupSha256: "" }] : [];
+      });
     const journalCandidates: Array<{
       id: string; snapshot: string; backupSha256: string; fingerprint: string;
       journalEventId?: number;
@@ -147,6 +159,7 @@ export async function POST(request: Request) {
       if (offset > 0) return fail("Riwayat cadangan berubah, ulangi pencarian.", 409);
       return Response.json({
         matches: [], coverage: [], candidates: journalCandidates,
+        conflicts: journalConflicts,
         currentTransactionCount: current.data.transactions.length,
         scanned: 0, skipped: 0, currentSha256: sha256(JSON.stringify(current.data)),
         anchor: null, nextOffset: null, truncated: journalTruncated,
@@ -164,6 +177,13 @@ export async function POST(request: Request) {
     const coverage: Array<{
       createdAt: string; transactionCount: number; presentCount: number;
       missingCount: number; eligibleCount: number; blockedCount: number;
+    }> = [];
+    const conflicts: Array<{
+      id: string; currentAmount: number; savedAmount: number;
+      currentUpdatedAt: string; transactionType: string;
+      merchant: string | null; description: string | null;
+      transactionAt: string; createdAt: string;
+      journalEventId?: number; snapshot: string; backupSha256: string;
     }> = [];
     const candidates: Array<{
       id: string; snapshot: string; backupSha256: string; fingerprint: string;
@@ -190,6 +210,11 @@ export async function POST(request: Request) {
             (incoming.data.transactions as Array<Record<string, unknown>>)
               .map(row => [row.id as string, row]),
           );
+          const changed = [...backupRows.values()].flatMap(row => {
+            const conflict = createAmountConflict(row, currentById.get(row.id as string), user.id);
+            return conflict ? [{ ...conflict, snapshot: file.name,
+              backupSha256: verified.sha256 }] : [];
+          });
           const found = plan.candidates.map((candidate: Omit<(typeof candidates)[number], "snapshot" | "backupSha256" | "fingerprint">) => {
             const row = backupRows.get(candidate.id);
             if (!row) throw new Error("Snapshot candidate row missing");
@@ -216,7 +241,7 @@ export async function POST(request: Request) {
               missingCount: plan.candidates.length,
               eligibleCount: plan.eligibleCount, blockedCount: plan.blockedCount,
             },
-            found,
+            found, changed,
           };
         } catch {
           // Corrupt/incompatible backups must not be silently reported as empty.
@@ -229,6 +254,7 @@ export async function POST(request: Request) {
           if (value.summary) results.push(value.summary);
           coverage.push(value.coverage);
           candidates.push(...value.found);
+          conflicts.push(...value.changed);
         }
       }
     }
@@ -236,6 +262,7 @@ export async function POST(request: Request) {
     const nextOffset = hasMore && offset < MAX_OFFSET ? offset + PAGE_SIZE : null;
     return Response.json({
       matches: results, coverage, candidates: [...journalCandidates, ...candidates],
+      conflicts: [...journalConflicts, ...conflicts],
       currentTransactionCount: current.data.transactions.length,
       scanned: entries.length - skipped, skipped,
       currentSha256: sha256(JSON.stringify(current.data)),
