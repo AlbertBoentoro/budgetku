@@ -556,8 +556,10 @@ try {
   });
   assert.equal(scanBeforeMulti.status(),200);
   const scanData=await scanBeforeMulti.json();
-  const a=scanData.candidates.find(row=>row.id===firstMissing.id);
-  const b=scanData.candidates.find(row=>row.id===secondMissing.id);
+  // Explicitly exercise legacy two-backup recovery even though the UI
+  // now prioritizes newer 30-day journal versions.
+  const a=scanData.candidates.find(row=>row.id===firstMissing.id&&!row.journalEventId);
+  const b=scanData.candidates.find(row=>row.id===secondMissing.id&&!row.journalEventId);
   assert.ok(a?.eligible && b?.eligible);
   assert.equal(typeof a.createdAt,"string");
   assert.equal(typeof b.createdAt,"string");
@@ -652,6 +654,41 @@ try {
   assert.equal(Number(changeRows[1].after_row.amount),33000);
   assert.equal(Number(changeRows[2].before_row.amount),33000);
   assert.equal(changeRows[2].after_row,null);
+
+  // No full backup was created for this new transaction. It still must show
+  // as a restorable candidate because deletion itself was atomically journaled.
+  const recentSearch=await context.request.post("/api/settings/restore/search",{
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(recentSearch.status(),200,"recent journal search");
+  const recentResult=await recentSearch.json();
+  const fromJournal=recentResult.candidates.find(c=>
+    c.id===journalFixture.id && Number.isSafeInteger(c.journalEventId));
+  assert.ok(fromJournal?.eligible,"deleted 30-day transaction must be recoverable without backup");
+  const restoreFromJournal=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{
+      selections:[{id:journalFixture.id,journalEventId:fromJournal.journalEventId}],
+      expectedCurrentSha256:recentResult.currentSha256,
+      confirmation:"PULIHKAN TRANSAKSI",
+    },
+  });
+  assert.equal(restoreFromJournal.status(),200,
+    "restore deleted transaction exclusively from atomic journal");
+  assert.equal((await restoreFromJournal.json()).restoredCount,1);
+  const journalRestored=must(await admin.from("transactions").select("id,amount")
+    .eq("id",journalFixture.id).single(),"verify recovered 30-day history row");
+  assert.equal(Number(journalRestored.amount),33000);
+  const replayJournal=await context.request.post("/api/transactions/recovery/apply",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{
+      selections:[{id:journalFixture.id,journalEventId:fromJournal.journalEventId}],
+      expectedCurrentSha256:recentResult.currentSha256,
+      confirmation:"PULIHKAN TRANSAKSI",
+    },
+  });
+  assert.equal(replayJournal.status(),409,"journal restore replay must not duplicate");
+  console.log("PASS: deleted transaction restored from its 30-day journal without a daily backup, replay refused");
   const deniedJournalTampering=await userClient.from("transaction_change_history")
     .delete().eq("id",changeRows[2].id);
   assert.ok(deniedJournalTampering.error,
