@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { selectedRestoreImpact } from "@/lib/settings/smart-restore-plan.mjs";
+import { AmountConflictChoices, type AmountConflict } from "@/components/transactions/amount-conflict-choice";
 
 type RecoveryCandidate = {
   id: string; snapshot: string; backupSha256: string; fingerprint: string;
@@ -17,6 +18,7 @@ type RecoveryCandidate = {
 };
 type SearchPage = {
   candidates: RecoveryCandidate[];
+  conflicts: AmountConflict[];
   scanned: number; skipped: number; currentSha256: string;
   anchor: string | null; nextOffset: number | null; truncated: boolean;
 };
@@ -91,6 +93,19 @@ function combine(previous: RecoveryCandidate[], next: RecoveryCandidate[]) {
     (b.createdAt ?? b.transactionAt).localeCompare(a.createdAt ?? a.transactionAt));
 }
 
+function combineConflicts(previous: AmountConflict[], next: AmountConflict[]) {
+  const byId = new Map(previous.map(row => [row.id, row]));
+  for (const row of next) {
+    const existing = byId.get(row.id);
+    if (!existing || (!existing.journalEventId && row.journalEventId) ||
+      (existing.journalEventId && row.journalEventId &&
+        row.journalEventId > existing.journalEventId)) {
+      byId.set(row.id, row);
+    }
+  }
+  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export function MissingTransactionsRecovery() {
   const router = useRouter();
   const controllerRef = useRef<AbortController | null>(null);
@@ -99,6 +114,7 @@ export function MissingTransactionsRecovery() {
   const [incomplete, setIncomplete] = useState(false);
   const [skipped, setSkipped] = useState(0);
   const [rows, setRows] = useState<RecoveryCandidate[]>([]);
+  const [conflicts, setConflicts] = useState<AmountConflict[]>([]);
   const [currentHash, setCurrentHash] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -114,6 +130,7 @@ export function MissingTransactionsRecovery() {
     setCompleted(false);
     setIncomplete(false);
     setRows([]);
+    setConflicts([]);
     setSelected([]);
     setReview(false);
     setCurrentHash("");
@@ -138,6 +155,7 @@ export function MissingTransactionsRecovery() {
         }
         if (!payload || typeof payload !== "object" || !("candidates" in payload) ||
           !Array.isArray(payload.candidates) ||
+          !("conflicts" in payload) || !Array.isArray(payload.conflicts) ||
           !("currentSha256" in payload) || typeof payload.currentSha256 !== "string" ||
           !("coverage" in payload) || !Array.isArray(payload.coverage) ||
           !("currentTransactionCount" in payload) ||
@@ -157,6 +175,7 @@ export function MissingTransactionsRecovery() {
         if (controller.signal.aborted) return;
         setCurrentHash(page.currentSha256);
         setRows(old => combine(old, page.candidates));
+        setConflicts(old => combineConflicts(old, page.conflicts));
         setSkipped(v => v + page.skipped);
         setIncomplete(old => old || page.truncated);
         if (page.nextOffset === null) break;
@@ -368,8 +387,13 @@ export function MissingTransactionsRecovery() {
         </>
       ) : completed && skipped === 0 && !incomplete ? (
         <p role="status" className="text-body-sm text-on-surface-variant">
-          Tidak ada transaksi hilang yang terdeteksi di cadangan yang tersedia.
+          Tidak ada transaksi terhapus yang perlu dipulihkan.
         </p>
+      ) : null}
+      {conflicts.length > 0 ? (
+        <AmountConflictChoices conflicts={conflicts} currentHash={currentHash}
+          enabled={completed && !scanning && !pending && !incomplete && skipped === 0 && !error}
+          onApplied={restart} />
       ) : null}
       {completeRestore ? (
         <div role="status" className="rounded-lg border border-outline-variant p-3">
