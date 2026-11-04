@@ -659,6 +659,36 @@ export type Database = {
           },
         ]
       }
+      transaction_change_history: {
+        Row: {
+          id: number
+          user_id: string
+          transaction_id: string
+          operation: string
+          before_row: Json | null
+          after_row: Json | null
+          changed_at: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          transaction_id: string
+          operation: string
+          before_row?: Json | null
+          after_row?: Json | null
+          changed_at?: string
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          transaction_id?: string
+          operation?: string
+          before_row?: Json | null
+          after_row?: Json | null
+          changed_at?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           account_id: string
