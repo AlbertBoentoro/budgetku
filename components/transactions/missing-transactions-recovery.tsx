@@ -14,13 +14,8 @@ type RecoveryCandidate = {
   destinationAccountId: string | null; destinationAccountName: string | null;
   categoryName: string | null; eligible: boolean; reason: string | null;
 };
-type BackupCoverage = {
-  createdAt: string; transactionCount: number; presentCount: number;
-  missingCount: number; eligibleCount: number; blockedCount: number;
-};
 type SearchPage = {
-  candidates: RecoveryCandidate[]; coverage: BackupCoverage[];
-  currentTransactionCount: number;
+  candidates: RecoveryCandidate[];
   scanned: number; skipped: number; currentSha256: string;
   anchor: string | null; nextOffset: number | null; truncated: boolean;
 };
@@ -29,9 +24,7 @@ const MAX_ROWS = 50;
 const MAX_BACKUPS = 10;
 const money = (n: number) => (n < 0 ? "−" : n > 0 ? "+" : "") +
   "Rp" + Math.abs(n).toLocaleString("id-ID");
-// Both timestamps come from the verified backup, not the current clock.
-// "transactionAt" is the user's effective transaction date; "createdAt" is
-// when the transaction was saved. Render both consistently in Jakarta time.
+// Use the original creation timestamp from the verified snapshot. Display time in WIB.
 const moment = (value: string | null) => {
   if (!value) return "Tidak diketahui";
   const date = new Date(value);
@@ -55,13 +48,6 @@ const dayLabel = (value: string) => {
   return new Intl.DateTimeFormat("id-ID", {
     dateStyle: "full", timeZone: "Asia/Jakarta",
   }).format(date);
-};
-const transactionTime = (value: string) => {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Tidak diketahui";
-  return new Intl.DateTimeFormat("id-ID", {
-    hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Jakarta",
-  }).format(date) + " WIB";
 };
 const summary = (row: RecoveryCandidate) => row.merchant || row.description ||
   (row.transactionType === "income" ? "Pemasukan" :
@@ -102,8 +88,6 @@ export function MissingTransactionsRecovery() {
   const [scanned, setScanned] = useState(0);
   const [skipped, setSkipped] = useState(0);
   const [rows, setRows] = useState<RecoveryCandidate[]>([]);
-  const [coverage, setCoverage] = useState<BackupCoverage[]>([]);
-  const [currentTransactionCount, setCurrentTransactionCount] = useState(0);
   const [currentHash, setCurrentHash] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -119,8 +103,6 @@ export function MissingTransactionsRecovery() {
     setCompleted(false);
     setIncomplete(false);
     setRows([]);
-    setCoverage([]);
-    setCurrentTransactionCount(0);
     setSelected([]);
     setReview(false);
     setCurrentHash("");
@@ -165,8 +147,6 @@ export function MissingTransactionsRecovery() {
         if (controller.signal.aborted) return;
         setCurrentHash(page.currentSha256);
         setRows(old => combine(old, page.candidates));
-        setCoverage(old => [...old, ...page.coverage]);
-        setCurrentTransactionCount(page.currentTransactionCount);
         setScanned(v => v + page.scanned);
         setSkipped(v => v + page.skipped);
         setIncomplete(page.truncated);
@@ -214,11 +194,11 @@ export function MissingTransactionsRecovery() {
       dayLabel(row.transactionAt)].join(" ").toLowerCase();
     return text.includes(query.trim().toLowerCase());
   }).sort((a, b) =>
-    new Date(b.transactionAt).getTime() - new Date(a.transactionAt).getTime() ||
-    new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
+    new Date(b.createdAt ?? b.transactionAt).getTime() -
+    new Date(a.createdAt ?? a.transactionAt).getTime());
   const groupedByTransactionDay = new Map<string, RecoveryCandidate[]>();
   for (const row of matched) {
-    const key = transactionDay(row.transactionAt);
+    const key = transactionDay(row.createdAt ?? row.transactionAt);
     const group = groupedByTransactionDay.get(key) ?? [];
     group.push(row);
     groupedByTransactionDay.set(key, group);
@@ -298,11 +278,6 @@ export function MissingTransactionsRecovery() {
           Transaksi yang belum pernah dicadangkan tidak bisa ditemukan.
         </p>
       </div>
-      <div className="rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
-        <p><strong className="text-on-surface">Tanggal transaksi</strong> = kapan pemasukan atau pengeluaran terjadi (tanggal yang dipilih saat mencatat).</p>
-        <p className="mt-1"><strong className="text-on-surface">Dicatat di Budgetku</strong> = kapan transaksi dibuat dalam aplikasi. Jam dan tanggalnya bisa berbeda jika dicatat belakangan.</p>
-        <p className="mt-1">Semua waktu ditampilkan dalam WIB.</p>
-      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p role="status" className="text-body-sm text-on-surface-variant">
           {scanning ? "Memeriksa riwayat..." : completed ? "Pencarian selesai" : "Pencarian belum lengkap"}
@@ -325,45 +300,10 @@ export function MissingTransactionsRecovery() {
         </p>
       ) : null}
       {error ? <p role="alert" className="text-body-sm text-expense">{error}</p> : null}
-      {completed && coverage.length > 0 ? (
-        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-body-sm text-on-surface">
-          <p className="font-semibold">Hasil pemeriksaan backup</p>
-          <p className="mt-1 text-on-surface-variant">
-            Ada {currentTransactionCount} transaksi yang masih tersimpan sekarang.
-            Ditemukan {rows.length} transaksi unik yang ada di backup tetapi tidak ada sekarang;
-            {" "}{eligible.length} di antaranya dapat dipulihkan.
-          </p>
-          <p className="mt-2 text-on-surface-variant">
-            Jumlah backup bukan jumlah transaksi yang bisa dipulihkan.
-            Transaksi yang belum pernah masuk backup tidak bisa dimunculkan kembali.
-          </p>
-          <details className="mt-3">
-            <summary className="cursor-pointer font-medium text-on-surface">
-              Lihat isi {coverage.length} backup yang berhasil diperiksa
-            </summary>
-            <div className="mt-3 flex max-h-80 flex-col gap-2 overflow-y-auto">
-              {coverage.map((item, index) => (
-                <div key={index} className="rounded-lg border border-outline-variant p-3">
-                  <p className="font-medium">Backup {moment(item.createdAt)}</p>
-                  <p className="mt-1 text-on-surface-variant">
-                    {item.transactionCount} transaksi tersimpan · {item.presentCount} masih ada ·
-                    {" "}{item.missingCount} hilang · {item.eligibleCount} bisa dipulihkan
-                    {item.blockedCount > 0 ? " · " + item.blockedCount + " perlu pemeriksaan" : ""}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-label-sm text-on-surface-variant">
-              Transaksi yang sama bisa muncul di beberapa backup.
-              Jangan menjumlahkan angka antarbackup.
-            </p>
-          </details>
-        </div>
-      ) : null}
       {rows.length > 0 ? (
         <>
           <p className="text-body-sm font-medium text-on-surface">
-            {rows.length} transaksi unik terdeteksi · {eligible.length} dapat dipulihkan
+            {eligible.length} transaksi dapat dipulihkan{rows.length > eligible.length ? " · " + (rows.length - eligible.length) + " perlu diperiksa" : ""}
           </p>
           <label className="flex flex-col gap-1 text-body-sm text-on-surface" htmlFor="recovery-search">
             Cari transaksi berdasarkan keterangan atau tanggal
@@ -373,11 +313,11 @@ export function MissingTransactionsRecovery() {
           </label>
           <div className="flex flex-col gap-5">
             {[...groupedByTransactionDay.entries()].map(([day, group]) => (
-              <section key={day} aria-label={"Tanggal transaksi " + dayLabel(group[0].transactionAt)}
+              <section key={day} aria-label={"Dicatat di Budgetku " + dayLabel(group[0].createdAt ?? group[0].transactionAt)}
                 className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                   <h3 className="text-body-md font-semibold text-on-surface">
-                    {dayLabel(group[0].transactionAt)}
+                    {dayLabel(group[0].createdAt ?? group[0].transactionAt)}
                   </h3>
                   <span className="text-label-sm text-on-surface-variant">
                     {group.length} transaksi
@@ -403,10 +343,6 @@ export function MissingTransactionsRecovery() {
                         <span className="text-body-sm text-on-surface-variant">
                           {row.accountName}{row.categoryName ? " · " + row.categoryName : ""}
                           {row.destinationAccountName ? " → " + row.destinationAccountName : ""}
-                        </span>
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-on-surface">
-                          <strong className="font-semibold">Jam transaksi</strong>
-                          <span className="font-semibold tabular-nums">{transactionTime(row.transactionAt)}</span>
                         </span>
                         <span className="text-label-sm text-on-surface-variant">
                           Dicatat di Budgetku: {moment(row.createdAt)}
