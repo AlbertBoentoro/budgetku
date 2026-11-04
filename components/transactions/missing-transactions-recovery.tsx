@@ -24,12 +24,38 @@ const MAX_ROWS = 50;
 const MAX_BACKUPS = 10;
 const money = (n: number) => (n < 0 ? "−" : n > 0 ? "+" : "") +
   "Rp" + Math.abs(n).toLocaleString("id-ID");
+// Both timestamps come from the verified backup, not the current clock.
+// "transactionAt" is the user's effective transaction date; "createdAt" is
+// when the transaction was saved. Render both consistently in Jakarta time.
 const moment = (value: string | null) => {
   if (!value) return "Tidak diketahui";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "Tidak diketahui";
   return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium", timeStyle: "medium", timeZone: "Asia/Jakarta",
+    dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta",
+  }).format(date) + " WIB";
+};
+const transactionDay = (value: string) => {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "unknown";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Jakarta",
+  }).formatToParts(date);
+  const valueFor = (type: string) => parts.find(part => part.type === type)?.value ?? "";
+  return [valueFor("year"), valueFor("month"), valueFor("day")].join("-");
+};
+const dayLabel = (value: string) => {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Tanggal transaksi tidak diketahui";
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "full", timeZone: "Asia/Jakarta",
+  }).format(date);
+};
+const transactionTime = (value: string) => {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Tidak diketahui";
+  return new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Jakarta",
   }).format(date) + " WIB";
 };
 const summary = (row: RecoveryCandidate) => row.merchant || row.description ||
@@ -170,9 +196,19 @@ export function MissingTransactionsRecovery() {
   const eligible = rows.filter(row => row.eligible);
   const matched = rows.filter(row => {
     const text = [summary(row), row.description, row.categoryName, row.accountName,
-      row.createdAt ? moment(row.createdAt) : "", moment(row.transactionAt)].join(" ").toLowerCase();
+      row.createdAt ? moment(row.createdAt) : "", moment(row.transactionAt),
+      dayLabel(row.transactionAt)].join(" ").toLowerCase();
     return text.includes(query.trim().toLowerCase());
-  });
+  }).sort((a, b) =>
+    new Date(b.transactionAt).getTime() - new Date(a.transactionAt).getTime() ||
+    new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
+  const groupedByTransactionDay = new Map<string, RecoveryCandidate[]>();
+  for (const row of matched) {
+    const key = transactionDay(row.transactionAt);
+    const group = groupedByTransactionDay.get(key) ?? [];
+    group.push(row);
+    groupedByTransactionDay.set(key, group);
+  }
   const impact = picked.length <= MAX_ROWS
     ? selectedRestoreImpact(picked, picked.map(r => r.id))
     : { count: picked.length, accountChanges: [] };
@@ -243,10 +279,15 @@ export function MissingTransactionsRecovery() {
           Transaksi terdeteksi hilang
         </h2>
         <p className="text-body-sm text-on-surface-variant">
-          Transaksi ini tercatat pada cadangan lama, tetapi sekarang tidak ada
-          di daftar transaksi. Termasuk transaksi yang mungkin sengaja dihapus.
-          Transaksi yang tidak pernah dicadangkan tidak bisa ditemukan.
+          Daftar ini menampilkan transaksi dari backup yang sudah tidak ada di
+          catatan saat ini, termasuk transaksi yang mungkin sengaja dihapus.
+          Transaksi yang belum pernah dicadangkan tidak bisa ditemukan.
         </p>
+      </div>
+      <div className="rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3 text-body-sm text-on-surface-variant">
+        <p><strong className="text-on-surface">Tanggal transaksi</strong> = kapan pemasukan atau pengeluaran terjadi (tanggal yang dipilih saat mencatat).</p>
+        <p className="mt-1"><strong className="text-on-surface">Dicatat di Budgetku</strong> = kapan transaksi dibuat dalam aplikasi. Jam dan tanggalnya bisa berbeda jika dicatat belakangan.</p>
+        <p className="mt-1">Semua waktu ditampilkan dalam WIB.</p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p role="status" className="text-body-sm text-on-surface-variant">
@@ -281,36 +322,54 @@ export function MissingTransactionsRecovery() {
               type="search" placeholder="Contoh: belanja, 3 Nov 2026"
               className="min-h-11 w-full rounded-lg border border-input bg-surface-container-lowest px-3 text-body-sm"/>
           </label>
-          <div className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest px-3">
-            {matched.map(row => (
-              <label key={row.id} className="flex items-start gap-3 py-4">
-                <input type="checkbox" className="mt-1 size-5 shrink-0 accent-primary"
-                  checked={selected.includes(row.id)}
-                  disabled={scanning || pending || completeRestore || !row.eligible}
-                  onChange={event => toggle(row, event.target.checked)}
-                  aria-label={"Pulihkan " + summary(row) + " " + money(row.amount)} />
-                <span className="flex min-w-0 flex-1 flex-col gap-2">
-                  <span className="flex justify-between gap-2">
-                    <span className="break-words text-body-sm font-medium text-on-surface">{summary(row)}</span>
-                    <span className="shrink-0 text-body-sm font-semibold tabular-nums text-on-surface">
-                      {money(signedAmount(row))}
-                    </span>
+          <div className="flex flex-col gap-5">
+            {[...groupedByTransactionDay.entries()].map(([day, group]) => (
+              <section key={day} aria-label={"Tanggal transaksi " + dayLabel(group[0].transactionAt)}
+                className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                  <h3 className="text-body-md font-semibold text-on-surface">
+                    {dayLabel(group[0].transactionAt)}
+                  </h3>
+                  <span className="text-label-sm text-on-surface-variant">
+                    {group.length} transaksi
                   </span>
-                  <span className="text-label-xs text-on-surface-variant">
-                    {row.accountName}{row.categoryName ? " · " + row.categoryName : ""}
-                    {row.destinationAccountName ? " → " + row.destinationAccountName : ""}
-                  </span>
-                  <span className="text-label-xs text-on-surface-variant">
-                    <strong>Dibuat:</strong> {moment(row.createdAt)}
-                  </span>
-                  <span className="text-label-xs text-on-surface-variant">
-                    <strong>Tanggal transaksi:</strong> {moment(row.transactionAt)}
-                  </span>
-                  {row.reason ? (
-                    <span className="text-label-xs text-expense">{row.reason}</span>
-                  ) : null}
-                </span>
-              </label>
+                </div>
+                <div className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+                  {group.map(row => (
+                    <label key={row.id} className="flex items-start gap-3 p-4">
+                      <input type="checkbox" className="mt-1 size-5 shrink-0 accent-primary"
+                        checked={selected.includes(row.id)}
+                        disabled={scanning || pending || completeRestore || !row.eligible}
+                        onChange={event => toggle(row, event.target.checked)}
+                        aria-label={"Pulihkan " + summary(row) + " " + money(row.amount)} />
+                      <span className="flex min-w-0 flex-1 flex-col gap-2">
+                        <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                          <span className="min-w-0 break-words text-body-md font-semibold text-on-surface">
+                            {summary(row)}
+                          </span>
+                          <span className="shrink-0 text-body-md font-semibold tabular-nums text-on-surface">
+                            {money(signedAmount(row))}
+                          </span>
+                        </span>
+                        <span className="text-body-sm text-on-surface-variant">
+                          {row.accountName}{row.categoryName ? " · " + row.categoryName : ""}
+                          {row.destinationAccountName ? " → " + row.destinationAccountName : ""}
+                        </span>
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-on-surface">
+                          <strong className="font-semibold">Jam transaksi</strong>
+                          <span className="font-semibold tabular-nums">{transactionTime(row.transactionAt)}</span>
+                        </span>
+                        <span className="text-label-sm text-on-surface-variant">
+                          Dicatat di Budgetku: {moment(row.createdAt)}
+                        </span>
+                        {row.reason ? (
+                          <span className="text-label-sm text-expense">{row.reason}</span>
+                        ) : null}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         </>
