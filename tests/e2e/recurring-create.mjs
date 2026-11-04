@@ -710,6 +710,74 @@ try {
     "authenticated user must not mutate immutable transaction journal");
   console.log("PASS: create, edit and delete each create atomic, owner-readable, immutable journal entries with no backup request");
 
+  // Same transaction ID, different amounts: never silently overwrite live
+  // money. A 30-day edit version and an immutable backup both offer a choice.
+  const amountFixture=must(await admin.from("transactions").insert({
+    user_id:userId, account_id:account.id, category_id:category.id,
+    transaction_type:"expense", amount:100000, currency:"IDR",
+    source:"manual", source_reference:null, merchant:"Conflict version E2E",
+    description:"Choose between 100k and 150k",
+    transaction_at:"2026-11-04T08:00:00+07:00",
+  }).select("*").single(),"create amount version fixture");
+  assert.equal((await context.request.post("/api/settings/backup")).status(),200);
+  must(await admin.from("transactions")
+    .update({amount:150000,updated_at:new Date().toISOString()})
+    .eq("user_id",userId).eq("id",amountFixture.id),
+    "edit 100000 to 150000 in same transaction");
+  const amountScan=await context.request.post("/api/settings/restore/search",{
+    data:{offset:0,anchor:null},
+  });
+  assert.equal(amountScan.status(),200);
+  const amountPage=await amountScan.json();
+  const editVersion=amountPage.conflicts.find(row=>row.id===amountFixture.id&&row.journalEventId);
+  const backupVersion=amountPage.conflicts.find(row=>row.id===amountFixture.id&&row.snapshot);
+  assert.ok(editVersion,"edited nominal must appear as a journal conflict");
+  assert.ok(backupVersion,"verified cloud backup must also provide older amount");
+  assert.equal(editVersion.savedAmount,100000);
+  assert.equal(editVersion.currentAmount,150000);
+  assert.equal(backupVersion.savedAmount,100000);
+  await page.goto("/transactions/recover",{waitUntil:"domcontentloaded"});
+  await page.getByRole("heading",{name:"Versi transaksi berbeda"})
+    .waitFor({state:"visible",timeout:30000});
+  assert.ok(await page.getByRole("radio",{name:/Pertahankan data sekarang/}).count()>=1);
+  assert.ok(await page.getByRole("radio",{name:/Gunakan versi cadangan/}).count()>=1);
+  const changeRequest={
+    id:amountFixture.id,
+    source:{journalEventId:editVersion.journalEventId},
+    expectedCurrentSha256:amountPage.currentSha256,
+    confirmation:"GUNAKAN VERSI CADANGAN",
+  };
+  const noConsent=await context.request.post("/api/transactions/recovery/conflict",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:{...changeRequest,confirmation:""},
+  });
+  assert.equal(noConsent.status(),400,"no implicit overwrite without user confirmation");
+  const unchangedAfterRefusal=must(await admin.from("transactions").select("amount")
+    .eq("id",amountFixture.id).single(),"verify default keep-current option");
+  assert.equal(Number(unchangedAfterRefusal.amount),150000);
+  const chosen=await context.request.post("/api/transactions/recovery/conflict",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:changeRequest,
+  });
+  assert.equal(chosen.status(),200,
+    "explicit choice must update the same transaction without duplicating it");
+  const afterChoice=must(await admin.from("transactions").select("id,amount,merchant")
+    .eq("id",amountFixture.id).single(),"verify selected older amount");
+  assert.equal(Number(afterChoice.amount),100000);
+  assert.equal(afterChoice.merchant,"Conflict version E2E");
+  const replayChoice=await context.request.post("/api/transactions/recovery/conflict",{
+    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
+    data:changeRequest,
+  });
+  assert.equal(replayChoice.status(),409,"stale conflict choice must not silently overwrite");
+  const amountEvents=must(await userClient.from("transaction_change_history")
+    .select("operation,after_row").eq("transaction_id",amountFixture.id)
+    .order("id",{ascending:true}),"validate conflict update remains in 30-day history");
+  assert.ok(amountEvents.some(entry=>entry.operation==="edit"&&
+    Number(entry.after_row?.amount)===100000));
+  console.log("PASS: 100k vs 150k conflict asks for an explicit choice, defaults to current, verifies backup and journal, rejects stale replay");
+
+
 
 
 
