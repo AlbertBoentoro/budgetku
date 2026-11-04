@@ -10,6 +10,8 @@ export const maxDuration = 60;
 
 const PAGE_SIZE = 10;
 const MAX_OFFSET = 490;
+const MAX_JOURNAL_EVENTS = 500;
+const DAYS = 30;
 const HEADERS = { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
 function fail(error: string, status: number) {
   return Response.json({ error }, { status, headers: HEADERS });
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
   try {
     const storage = supabase.storage.from("budgetku-backups");
     const folder = user.id + "/snapshots";
-    const [page, top, current] = await Promise.all([
+    const [page, top, current, journal] = await Promise.all([
       storage.list(folder, {
         limit: PAGE_SIZE + 1, offset, sortBy: { column: "name", order: "desc" },
       }),
@@ -76,9 +78,67 @@ export async function POST(request: Request) {
         limit: 1, sortBy: { column: "name", order: "desc" },
       }),
       buildUserBackup(supabase, user.id),
+      offset === 0
+        ? supabase.from("transaction_change_history")
+            .select("id,transaction_id,before_row,changed_at")
+            .eq("user_id", user.id).eq("operation", "delete")
+            .gte("changed_at", new Date(Date.now() - DAYS * 86_400_000).toISOString())
+            .order("changed_at", { ascending: false }).limit(MAX_JOURNAL_EVENTS + 1)
+        : Promise.resolve(null),
     ]);
-    if (page.error || (top && top.error)) {
-      return fail("Tidak bisa memuat riwayat cadangan.", 503);
+    if (page.error || (top && top.error) || (journal && journal.error)) {
+      return fail("Tidak bisa memuat riwayat pemulihan.", 503);
+    }
+
+    // De-duplicate repeated deletions: most recent verified version wins.
+    // Transaction journal entries are written atomically with ledger changes
+    // and do not depend on the nightly full-account backup.
+    const journalEvents = journal?.data ?? [];
+    const journalTruncated = journalEvents.length > MAX_JOURNAL_EVENTS;
+    const latestDeleted = new Map<string, (typeof journalEvents)[number]>();
+    for (const event of journalEvents.slice(0, MAX_JOURNAL_EVENTS)) {
+      if (!latestDeleted.has(event.transaction_id)) latestDeleted.set(event.transaction_id, event);
+    }
+    const deletedRows = [...latestDeleted.values()];
+    const journalCandidates: Array<{
+      id: string; snapshot: string; backupSha256: string; fingerprint: string;
+      journalEventId?: number;
+      createdAt: string | null; transactionAt: string; amount: number;
+      transactionType: string; merchant: string | null; description: string | null;
+      accountId: string; accountName: string;
+      destinationAccountId: string | null; destinationAccountName: string | null;
+      categoryName: string | null; eligible: boolean; reason: string | null;
+    }> = [];
+    if (deletedRows.length > 0) {
+      const incoming = {
+        format: "budgetku-backup", version: 1,
+        data: {
+          transactions: deletedRows.map(e => e.before_row),
+          accounts: current.data.accounts,
+          categories: current.data.categories,
+        },
+      };
+      const plan = createSmartRestorePlan({ incoming, current, userId: user.id });
+      const eventByTransactionId = new Map(deletedRows.map(e => [e.transaction_id, e]));
+      for (const candidate of plan.candidates) {
+        const event = eventByTransactionId.get(candidate.id);
+        if (!event || !event.before_row || typeof event.before_row !== "object" ||
+          Array.isArray(event.before_row)) {
+          throw new Error("Invalid transaction journal entry");
+        }
+        const saved = event.before_row as Record<string, unknown>;
+        journalCandidates.push({
+          ...candidate,
+          snapshot: "", backupSha256: "", journalEventId: event.id,
+          fingerprint: sha256(JSON.stringify([
+            saved.user_id, saved.account_id, saved.destination_account_id,
+            saved.category_id, saved.transaction_type, saved.amount,
+            saved.transaction_at, saved.created_at, saved.updated_at,
+            saved.currency, saved.source, saved.source_reference,
+            saved.merchant, saved.description,
+          ])),
+        });
+      }
     }
     // Snapshot names start with ISO timestamps and a UUID. Sorting by
     // unique name is stable even when multiple backup files share created_at.
@@ -86,9 +146,10 @@ export async function POST(request: Request) {
     if (!newest || !isBackupSnapshotFilename(newest)) {
       if (offset > 0) return fail("Riwayat cadangan berubah, ulangi pencarian.", 409);
       return Response.json({
-        matches: [], coverage: [], candidates: [], currentTransactionCount: current.data.transactions.length,
+        matches: [], coverage: [], candidates: journalCandidates,
+        currentTransactionCount: current.data.transactions.length,
         scanned: 0, skipped: 0, currentSha256: sha256(JSON.stringify(current.data)),
-        anchor: null, nextOffset: null, truncated: false,
+        anchor: null, nextOffset: null, truncated: journalTruncated,
       }, { headers: HEADERS });
     }
     if (anchor !== null && newest !== anchor) {
@@ -106,6 +167,7 @@ export async function POST(request: Request) {
     }> = [];
     const candidates: Array<{
       id: string; snapshot: string; backupSha256: string; fingerprint: string;
+      journalEventId?: number;
       createdAt: string | null; transactionAt: string;
       amount: number; transactionType: string;
       merchant: string | null; description: string | null;
@@ -173,15 +235,15 @@ export async function POST(request: Request) {
     const hasMore = (page.data?.length ?? 0) > PAGE_SIZE;
     const nextOffset = hasMore && offset < MAX_OFFSET ? offset + PAGE_SIZE : null;
     return Response.json({
-      matches: results, coverage, candidates,
+      matches: results, coverage, candidates: [...journalCandidates, ...candidates],
       currentTransactionCount: current.data.transactions.length,
       scanned: entries.length - skipped, skipped,
       currentSha256: sha256(JSON.stringify(current.data)),
       anchor: newest, nextOffset,
-      truncated: hasMore && nextOffset === null,
+      truncated: journalTruncated || (hasMore && nextOffset === null),
     }, { headers: HEADERS });
   } catch (error) {
-    console.error("Read-only backup search failed:", error instanceof Error ? error.message : "unknown");
+    console.error("Read-only recovery search failed:", error instanceof Error ? error.message : "unknown");
     return fail("Pencarian belum berhasil. Tidak ada transaksi yang diubah.", 422);
   }
 }
