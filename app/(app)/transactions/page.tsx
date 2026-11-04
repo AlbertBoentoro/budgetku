@@ -45,7 +45,6 @@ export default function TransactionsPage({
         <div className="flex justify-end pb-4">
           <Button asChild variant="outline" className="min-h-11">
             <Link href="/transactions/recover">
-              <Icon name="history" size={18} />
               Pulihkan transaksi
             </Link>
           </Button>
