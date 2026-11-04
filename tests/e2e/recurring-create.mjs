@@ -511,12 +511,33 @@ try {
   });
   assert.ok([307,401].includes(anonResult.status()));
   await anonymousRestore.close();
-  const deletedApply=await context.request.post("/api/transactions/recovery/apply",{
-    headers:{"X-Budgetku-Smart-Restore-Intent":"budgetku-smart-restore-v1"},
-    data:attempt,
+  // The actual user journey must be one deliberate click after checking
+  // the desired row; no intermediate review panel or typed magic phrase.
+  await page.goto("/transactions/recover",{waitUntil:"domcontentloaded"});
+  await page.getByRole("heading",{name:"Transaksi terdeteksi hilang"})
+    .waitFor({state:"visible",timeout:25000});
+  const restoreToggle=page.getByRole("checkbox",{
+    name:/Pulihkan Delete only recovery test.*Rp33\.000/,
   });
-  assert.equal(deletedApply.status(),200,"restore a deleted row from deletion journal");
-  assert.equal((await deletedApply.json()).restoredCount,1);
+  await restoreToggle.check({timeout:40000});
+  assert.equal(await page.getByText("Periksa dampak pemulihan").count(),0,
+    "old review panel must be removed");
+  assert.equal(await page.getByText("Ketik PULIHKAN TRANSAKSI untuk mengonfirmasi").count(),0,
+    "users must not type a restore phrase");
+  assert.equal(await page.getByRole("textbox",{name:/recovery-confirm/i}).count(),0);
+  const oneClick=page.getByRole("button",{name:"Pulihkan 1 transaksi"});
+  assert.equal(await oneClick.isEnabled(),true);
+  await oneClick.click();
+  // Restored rows disappear automatically after a fresh scan; no success
+  // paragraph or secondary "Periksa kembali" action is shown.
+  await restoreToggle.waitFor({state:"detached",timeout:40000});
+  await page.getByText("Pencarian selesai").waitFor({state:"visible",timeout:40000});
+  assert.equal(await restoreToggle.count(),0,
+    "the restored transaction should no longer appear in recovery inbox");
+  assert.equal(await page.getByText(/transaksi berhasil dipulihkan/).count(),0,
+    "no extra success paragraph after one-click restore");
+  assert.equal(await page.getByRole("button",{name:"Periksa kembali"}).count(),0,
+    "no extra post-recovery action");
   const recovered=must(await admin.from("transactions").select("id,amount")
     .eq("user_id",userId).eq("id",deletedAfterBackup.id).single(),
     "check recovered transaction has the same original ID and nominal");
@@ -526,12 +547,9 @@ try {
     data:attempt,
   });
   assert.equal(replay.status(),409,"prevent duplicate recovery");
-  await page.goto("/transactions/recover",{waitUntil:"domcontentloaded"});
-  await page.getByRole("heading",{name:"Transaksi terdeteksi hilang"})
-    .waitFor({state:"visible",timeout:25000});
   assert.equal(await page.getByRole("heading",{name:"Versi transaksi berbeda"}).count(),0,
     "edit-version selection must NOT ship in deleted-only release");
-  console.log("PASS: deleted-only recovery from journal without daily backup, explicit consent, original ID, replay and anonymous denied");
+  console.log("PASS: one-click deleted-only recovery without typing, no full review, original ID, replay and anonymous denied");
 
   await context.close();
 } finally {

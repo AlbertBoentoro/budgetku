@@ -11,6 +11,7 @@ on:
       - fix/p0-backup-history-auto-refresh-*
       - fix/p0-smart-restore-system-category-*
       - release/deleted-transaction-recovery-*
+      - fix/one-click-deleted-transaction-recovery-*
   workflow_dispatch:
 
 permissions:
