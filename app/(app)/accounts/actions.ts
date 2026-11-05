@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
-import { isAccountType } from "@/lib/accounts";
+import { validateAccountInput } from "@/lib/account-types";
 
 export interface AccountFormInput {
   name: string;
@@ -17,29 +17,9 @@ export type ActionResult =
   | { ok: true }
   | { ok: false; message: string; fieldErrors?: Record<string, string> };
 
-// Shared server-side validation. Mirrors the client-side checks in AccountForm
-// so a tampered or scripted request is still rejected before touching the DB.
-function validate(input: AccountFormInput): Record<string, string> {
-  const fieldErrors: Record<string, string> = {};
-
-  if (!input.name || input.name.trim().length === 0) {
-    fieldErrors.name = "Nama rekening wajib diisi.";
-  }
-
-  if (!input.account_type || !isAccountType(input.account_type)) {
-    fieldErrors.account_type = "Pilih jenis rekening yang tersedia.";
-  }
-
-  if (
-    typeof input.initial_balance !== "number" ||
-    !Number.isFinite(input.initial_balance) ||
-    input.initial_balance < 0
-  ) {
-    fieldErrors.initial_balance = "Saldo awal harus berupa angka yang valid.";
-  }
-
-  return fieldErrors;
-}
+// Server-side validation (lib/account-types.ts) mirrors the client checks in
+// AccountForm, so a tampered or scripted request is still rejected before
+// touching the DB. It also returns the canonical account type to write.
 
 export async function createAccount(
   input: AccountFormInput,
@@ -53,7 +33,7 @@ export async function createAccount(
     return { ok: false, message: "Sesi berakhir. Silakan masuk kembali." };
   }
 
-  const fieldErrors = validate(input);
+  const { fieldErrors, accountType } = validateAccountInput(input);
   if (Object.keys(fieldErrors).length > 0) {
     return { ok: false, message: "Periksa kembali isian formulir.", fieldErrors };
   }
@@ -61,7 +41,7 @@ export async function createAccount(
   const { error } = await supabase.from("accounts").insert({
     user_id: user.id,
     name: input.name.trim(),
-    account_type: input.account_type,
+    account_type: accountType,
     initial_balance: input.initial_balance,
     // Keep the legacy database field consistent with the all-accounts rule.
     include_in_total: true,
@@ -96,7 +76,7 @@ export async function updateAccount(
     return { ok: false, message: "Sesi berakhir. Silakan masuk kembali." };
   }
 
-  const fieldErrors = validate(input);
+  const { fieldErrors, accountType } = validateAccountInput(input);
   if (Object.keys(fieldErrors).length > 0) {
     return { ok: false, message: "Periksa kembali isian formulir.", fieldErrors };
   }
@@ -105,7 +85,7 @@ export async function updateAccount(
     .from("accounts")
     .update({
       name: input.name.trim(),
-      account_type: input.account_type,
+      account_type: accountType,
       initial_balance: input.initial_balance,
       // Keep the legacy database field consistent with the all-accounts rule.
       include_in_total: true,

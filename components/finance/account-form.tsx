@@ -1,15 +1,16 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
+import { useId, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
+import { ACCOUNT_TYPES, isAccountType } from "@/lib/accounts";
 import {
-  ACCOUNT_TYPES,
-  isAccountType,
-  parseIdrInput,
-} from "@/lib/accounts";
+  applyOpeningBalanceEdit,
+  openingBalanceInputFromValue,
+  parseOpeningBalanceInput,
+} from "@/lib/opening-balance-input";
 import type { AccountFormInput, ActionResult } from "@/app/(app)/accounts/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,12 +32,6 @@ type FieldErrors = Partial<
   Record<"name" | "account_type" | "initial_balance", string>
 >;
 
-const idrPreview = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
-
 export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -45,10 +40,38 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
   const [accountType, setAccountType] = useState(
     initialValues?.account_type ?? ACCOUNT_TYPES[0].value,
   );
-  // Keep the raw string so the user can type freely; parse on submit/preview.
+  // The field shows formatted Rupiah ("Rp 123.133"); it is parsed on submit.
   const [balanceInput, setBalanceInput] = useState(
-    initialValues ? String(initialValues.initial_balance) : "",
+    initialValues ? openingBalanceInputFromValue(initialValues.initial_balance) : "",
   );
+  const balanceRef = useRef<HTMLInputElement>(null);
+  // Where the caret goes after the next render. A new object per edit, so the
+  // effect also runs when formatting leaves the value unchanged (for example a
+  // typed letter), in which case React restores the old value and the browser
+  // would otherwise put the caret at the end.
+  const [balanceCaret, setBalanceCaret] = useState<{ position: number } | null>(
+    null,
+  );
+
+  useLayoutEffect(() => {
+    const input = balanceRef.current;
+    if (!input || !balanceCaret) return;
+    // Only move the caret of the field the user is typing in; never focus it.
+    if (document.activeElement !== input) return;
+    input.setSelectionRange(balanceCaret.position, balanceCaret.position);
+  }, [balanceCaret]);
+
+  function handleBalanceChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.currentTarget;
+    const edit = applyOpeningBalanceEdit(
+      balanceInput,
+      input.value,
+      input.selectionEnd ?? input.value.length,
+      (e.nativeEvent as InputEvent).inputType,
+    );
+    setBalanceInput(edit.value);
+    setBalanceCaret({ position: edit.caret });
+  }
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -59,16 +82,6 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
   const nameErrId = useId();
   const typeErrId = useId();
   const balanceErrId = useId();
-
-  const parsedBalance = useMemo(
-    () => parseIdrInput(balanceInput),
-    [balanceInput],
-  );
-
-  const balancePreview =
-    balanceInput.trim() === "" || parsedBalance === null
-      ? null
-      : idrPreview.format(parsedBalance);
 
   function validateClient(): {
     errors: FieldErrors;
@@ -83,7 +96,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
     if (!isAccountType(accountType)) {
       errors.account_type = "Pilih jenis rekening yang tersedia.";
     }
-    const balance = parseIdrInput(balanceInput || "0");
+    const balance = parseOpeningBalanceInput(balanceInput);
     if (balance === null) {
       errors.initial_balance = "Saldo awal harus berupa angka yang valid.";
     }
@@ -176,21 +189,18 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
         <Label htmlFor={balanceId}>Saldo awal</Label>
         <Input
           id={balanceId}
+          ref={balanceRef}
           value={balanceInput}
-          onChange={(e) => setBalanceInput(e.target.value)}
+          onChange={handleBalanceChange}
           inputMode="numeric"
+          autoComplete="off"
           className="h-11 tabular-nums"
-          placeholder="0"
+          placeholder="Rp 0"
           aria-invalid={fieldErrors.initial_balance ? true : undefined}
           aria-describedby={
             fieldErrors.initial_balance ? balanceErrId : undefined
           }
         />
-        {balancePreview ? (
-          <p className="text-sm text-muted-foreground tabular-nums">
-            {balancePreview}
-          </p>
-        ) : null}
         {fieldErrors.initial_balance ? (
           <p id={balanceErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.initial_balance}
