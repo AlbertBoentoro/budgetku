@@ -13,12 +13,7 @@ export async function saveSettings(
   _previousState: SettingsActionState,
   formData: FormData,
 ): Promise<SettingsActionState> {
-  const firstDayOfWeek = formData.get("firstDayOfWeek");
   const reminderEnabled = formData.get("dailyReminderEnabled") === "on";
-
-  if (firstDayOfWeek !== "monday" && firstDayOfWeek !== "sunday") {
-    return { ok: false, message: "Pilih hari pertama minggu yang valid." };
-  }
 
   const supabase = await createClient();
   const {
@@ -63,7 +58,9 @@ export async function saveSettings(
   const { error } = await supabase.from("user_settings").upsert(
     {
       user_id: user.id,
-      first_day_of_week: firstDayOfWeek,
+      first_day_of_week: "monday",
+      locale: "id-ID",
+      currency: "IDR",
       daily_reminder_enabled: reminderEnabled,
       daily_reminder_time: "20:00",
       updated_at: new Date().toISOString(),
