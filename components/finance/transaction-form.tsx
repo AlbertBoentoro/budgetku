@@ -13,6 +13,7 @@ import type {
   ActionResult,
 } from "@/app/(app)/transactions/actions";
 import { FREQUENCIES } from "@/lib/recurring";
+import { createUserCategory } from "@/app/(app)/transactions/category-actions";
 import {
   formatTransactionAmountInput,
   parseTransactionAmountInput,
@@ -124,6 +125,13 @@ export function TransactionForm({
   const [categoryId, setCategoryId] = useState(
     initialValues?.category_id ?? "",
   );
+  const [createdCategories, setCreatedCategories] = useState<
+    Array<Pick<CategoryRow, "id" | "name" | "category_type">>
+  >([]);
+  const [showCategoryCreator, setShowCategoryCreator] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryCreateError, setCategoryCreateError] = useState<string | null>(null);
+  const [categoryCreating, setCategoryCreating] = useState(false);
   const [destinationAccountId, setDestinationAccountId] = useState(
     initialValues?.destination_account_id ?? "",
   );
@@ -156,6 +164,7 @@ export function TransactionForm({
   const typeLabelId = useId();
   const accountFieldId = useId();
   const categoryFieldId = useId();
+  const newCategoryNameId = useId();
   const destinationFieldId = useId();
   const dateId = useId();
   const descriptionId = useId();
@@ -177,7 +186,12 @@ export function TransactionForm({
   const isIncome = transactionType === "income";
 
   // Category options follow the selected direction. Transfers have no category.
-  const categoryOptions = isIncome ? incomeCategories : expenseCategories;
+  const categoryOptions = [
+    ...(isIncome ? incomeCategories : expenseCategories),
+    ...createdCategories.filter((category) =>
+      category.category_type === (isIncome ? "income" : "expense"),
+    ),
+  ];
 
   // Destination excludes the chosen source so a transfer cannot target itself.
   const destinationOptions = useMemo(
@@ -225,6 +239,9 @@ export function TransactionForm({
   // never submitted (mirrors the server, which nulls them anyway).
   function handleTypeChange(nextType: string) {
     setTransactionType(nextType);
+    setShowCategoryCreator(false);
+    setNewCategoryName("");
+    setCategoryCreateError(null);
     setFieldErrors((prev) => ({
       ...prev,
       category_id: undefined,
@@ -235,6 +252,39 @@ export function TransactionForm({
       setCategoryId("");
     } else {
       setDestinationAccountId("");
+    }
+  }
+
+  async function handleCreateCategory() {
+    const name = newCategoryName.trim();
+    if (!name) {
+      setCategoryCreateError("Nama kategori wajib diisi.");
+      return;
+    }
+    if (categoryCreating || isTransfer) return;
+    const direction = isIncome ? "income" : "expense";
+    setCategoryCreateError(null);
+    setCategoryCreating(true);
+    try {
+      const result = await createUserCategory({ name, category_type: direction });
+      if (!result.ok) {
+        setCategoryCreateError(result.message);
+        return;
+      }
+      setCreatedCategories((current) =>
+        current.some((category) => category.id === result.category.id)
+          ? current
+          : [...current, result.category],
+      );
+      setCategoryId(result.category.id);
+      setFieldErrors((current) => ({ ...current, category_id: undefined }));
+      setShowCategoryCreator(false);
+      setNewCategoryName("");
+      router.refresh();
+    } catch {
+      setCategoryCreateError("Kategori belum tersimpan. Coba lagi.");
+    } finally {
+      setCategoryCreating(false);
     }
   }
 
@@ -532,22 +582,65 @@ export function TransactionForm({
               ) : null
             }
           >
-            <TransactionSelect
-              id={categoryFieldId}
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              aria-invalid={fieldErrors.category_id ? true : undefined}
-              aria-describedby={
-                fieldErrors.category_id ? categoryErrId : undefined
-              }
+            <div className="flex flex-col gap-2">
+              <TransactionSelect
+                id={categoryFieldId}
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                aria-invalid={fieldErrors.category_id ? true : undefined}
+                aria-describedby={fieldErrors.category_id ? categoryErrId : undefined}
               >
-              <option value="">Pilih kategori</option>
-              {categoryOptions.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </TransactionSelect>
+                <option value="">Pilih kategori</option>
+                {categoryOptions.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </TransactionSelect>
+              {showCategoryCreator ? (
+                <div className="flex flex-col gap-2 rounded-lg border border-outline-variant p-3">
+                  <Label htmlFor={newCategoryNameId}>Nama kategori baru</Label>
+                  <Input
+                    id={newCategoryNameId}
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder={isIncome ? "Misal: Freelance" : "Misal: Laundry"}
+                    maxLength={60}
+                    autoComplete="off"
+                    disabled={categoryCreating}
+                  />
+                  {categoryCreateError ? (
+                    <p role="alert" className="text-body-sm text-expense">
+                      {categoryCreateError}
+                    </p>
+                  ) : null}
+                  <div className="flex gap-2">
+                    <Button type="button" onClick={handleCreateCategory} disabled={categoryCreating || !newCategoryName.trim()}>
+                      {categoryCreating ? "Menyimpan..." : "Simpan kategori"}
+                    </Button>
+                    <Button type="button" variant="outline" disabled={categoryCreating} onClick={() => {
+                      setShowCategoryCreator(false);
+                      setNewCategoryName("");
+                      setCategoryCreateError(null);
+                    }}>
+                      Batal
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="self-start"
+                  onClick={() => {
+                    setCategoryCreateError(null);
+                    setShowCategoryCreator(true);
+                  }}
+                >
+                  + Buat kategori baru
+                </Button>
+              )}
+            </div>
           </TransactionFieldRow>
         )}
 
