@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { validateAccountInput } from "@/lib/account-types";
-import { normalizeAccountName } from "@/lib/account-name";
+import { accountNameChanged, normalizeAccountName } from "@/lib/account-name";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 
 export interface AccountFormInput {
@@ -118,12 +118,26 @@ export async function updateAccount(
     return { ok: false, message: "Periksa kembali isian formulir.", fieldErrors };
   }
 
-  try {
-    if (await isAccountNameTaken(supabase, user.id, input.name, id)) {
-      return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
+  // Grandfather existing duplicate names. Editing a balance or account type
+  // must not force the user to rename an unrelated historic account.
+  const { data: currentAccount, error: currentError } = await supabase
+    .from("accounts")
+    .select("name")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (currentError || !currentAccount) {
+    return { ok: false, message: "Rekening tidak ditemukan atau tidak dapat dibaca." };
+  }
+
+  if (accountNameChanged(currentAccount.name, input.name)) {
+    try {
+      if (await isAccountNameTaken(supabase, user.id, input.name, id)) {
+        return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
+      }
+    } catch {
+      return { ok: false, message: "Tidak dapat memeriksa nama rekening. Coba lagi." };
     }
-  } catch {
-    return { ok: false, message: "Tidak dapat memeriksa nama rekening. Coba lagi." };
   }
 
 
