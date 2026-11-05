@@ -213,7 +213,8 @@ test("an existing balance opens formatted; a legacy decimal is not rounded", () 
 
 test("the form uses the formatter, parses on submit, and has no separate preview", () => {
   const form = read("components/finance/account-form.tsx");
-  assert.match(form, /setBalanceInput\(formatOpeningBalanceInput\(e\.target\.value\)\)/);
+  assert.match(form, /applyOpeningBalanceEdit\(\s*balanceInput,\s*input\.value,/);
+  assert.match(form, /setBalanceInput\(edit\.value\)/);
   assert.match(form, /const balance = parseOpeningBalanceInput\(balanceInput\);/);
   assert.match(form, /openingBalanceInputFromValue\(initialValues\.initial_balance\)/);
   assert.doesNotMatch(form, /balancePreview|idrPreview|parseIdrInput/);

@@ -1,13 +1,13 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useId, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { ACCOUNT_TYPES, isAccountType } from "@/lib/accounts";
 import {
-  formatOpeningBalanceInput,
+  applyOpeningBalanceEdit,
   openingBalanceInputFromValue,
   parseOpeningBalanceInput,
 } from "@/lib/opening-balance-input";
@@ -44,6 +44,34 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
   const [balanceInput, setBalanceInput] = useState(
     initialValues ? openingBalanceInputFromValue(initialValues.initial_balance) : "",
   );
+  const balanceRef = useRef<HTMLInputElement>(null);
+  // Where the caret goes after the next render. A new object per edit, so the
+  // effect also runs when formatting leaves the value unchanged (for example a
+  // typed letter), in which case React restores the old value and the browser
+  // would otherwise put the caret at the end.
+  const [balanceCaret, setBalanceCaret] = useState<{ position: number } | null>(
+    null,
+  );
+
+  useLayoutEffect(() => {
+    const input = balanceRef.current;
+    if (!input || !balanceCaret) return;
+    // Only move the caret of the field the user is typing in; never focus it.
+    if (document.activeElement !== input) return;
+    input.setSelectionRange(balanceCaret.position, balanceCaret.position);
+  }, [balanceCaret]);
+
+  function handleBalanceChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.currentTarget;
+    const edit = applyOpeningBalanceEdit(
+      balanceInput,
+      input.value,
+      input.selectionEnd ?? input.value.length,
+      (e.nativeEvent as InputEvent).inputType,
+    );
+    setBalanceInput(edit.value);
+    setBalanceCaret({ position: edit.caret });
+  }
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -161,10 +189,9 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
         <Label htmlFor={balanceId}>Saldo awal</Label>
         <Input
           id={balanceId}
+          ref={balanceRef}
           value={balanceInput}
-          onChange={(e) =>
-            setBalanceInput(formatOpeningBalanceInput(e.target.value))
-          }
+          onChange={handleBalanceChange}
           inputMode="numeric"
           autoComplete="off"
           className="h-11 tabular-nums"

@@ -6,12 +6,87 @@
 
 const PREFIX = "Rp ";
 
+const onlyDigits = (text: string) => text.replace(/[^0-9]/g, "");
+
+function formatDigits(digits: string): string {
+  if (!digits) return "";
+  return PREFIX + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 // Formats whatever the user typed: keeps the digits, drops leading zeros,
 // groups thousands with ".", and adds the "Rp " prefix. No digits -> "".
 export function formatOpeningBalanceInput(raw: string): string {
-  const digits = raw.replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");
-  if (!digits) return "";
-  return PREFIX + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return formatDigits(onlyDigits(raw).replace(/^0+(?=\d)/, ""));
+}
+
+// Caret position in `formatted` just after its `digitCount`-th digit. With no
+// digits before the caret it sits right after "Rp ".
+export function caretAfterDigits(formatted: string, digitCount: number): number {
+  if (!formatted) return 0;
+  if (digitCount <= 0) return formatted.startsWith(PREFIX) ? PREFIX.length : 0;
+  let seen = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (formatted[i] >= "0" && formatted[i] <= "9" && ++seen === digitCount) {
+      return i + 1;
+    }
+  }
+  return formatted.length;
+}
+
+export interface OpeningBalanceEdit {
+  value: string;
+  caret: number;
+}
+
+// Applies one browser edit to the field and says where the caret goes.
+//
+// `previous` is the formatted value before the edit; `raw` and `caret` are the
+// input's value and selectionEnd right after the browser applied the edit
+// (typing, paste, cut, Backspace, Delete, or replacing a selection), and
+// `inputType` is InputEvent.inputType when available.
+//
+// The caret is kept by digit count, not by string index: the number of digits
+// left of the caret is the same before and after formatting, while the index
+// moves whenever a "." separator is added or removed.
+//
+// Backspace or Delete next to a "." would only remove the separator, which
+// formatting puts straight back. In that case the neighbouring digit is
+// removed instead, so the key always deletes a digit.
+export function applyOpeningBalanceEdit(
+  previous: string,
+  raw: string,
+  caret: number,
+  inputType?: string,
+): OpeningBalanceEdit {
+  const at = Math.max(0, Math.min(caret, raw.length));
+  let digits = onlyDigits(raw);
+  let before = onlyDigits(raw.slice(0, at)).length;
+
+  // Exactly one "." was removed at the caret (Backspace and Delete both leave
+  // the caret at the removed character's index). Removing a character of the
+  // "Rp " prefix is not upgraded; formatting simply restores the prefix.
+  const removedOnlyFormatting =
+    previous.length - raw.length === 1 &&
+    previous[at] === "." &&
+    digits === onlyDigits(previous);
+  if (removedOnlyFormatting && inputType === "deleteContentBackward" && before > 0) {
+    digits = digits.slice(0, before - 1) + digits.slice(before);
+    before -= 1;
+  } else if (
+    removedOnlyFormatting &&
+    inputType === "deleteContentForward" &&
+    before < digits.length
+  ) {
+    digits = digits.slice(0, before) + digits.slice(before + 1);
+  }
+
+  // Leading zeros are dropped; those left of the caret no longer count.
+  const leadingZeros = digits.length - digits.replace(/^0+(?=\d)/, "").length;
+  digits = digits.slice(leadingZeros);
+  before = Math.max(0, before - leadingZeros);
+
+  const value = formatDigits(digits);
+  return { value, caret: caretAfterDigits(value, before) };
 }
 
 // The initial text for an existing balance. A legacy non-integer value is
