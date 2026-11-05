@@ -1,10 +1,10 @@
-import { csvNumber, csvText, toCsv } from "@/lib/csv";
+import { createTransactionXlsx, MAX_EXPORT_TRANSACTIONS } from "@/lib/export/transactions-xlsx";
 import { createClient } from "@/lib/supabase/server";
 import { formatTransactionTypeLabel } from "@/lib/transactions";
 
 /**
  * GET /api/export/transactions: download the signed-in user's transactions
- * as CSV (read-only). Uses the anon-key server client, so RLS plus the
+ * as Excel XLSX (read-only). Uses the anon-key server client, so RLS plus the
  * explicit user_id filter scope every row to the user. createClient() reads
  * cookies(), which makes this handler request-time under Cache Components;
  * no route segment config is needed.
@@ -47,17 +47,6 @@ const SOURCE_LABELS: Record<string, string> = {
   email: "Gmail",
 };
 
-const HEADER = [
-  "tanggal",
-  "tipe",
-  "jumlah",
-  "kategori",
-  "rekening",
-  "rekening_tujuan",
-  "catatan",
-  "merchant",
-  "sumber",
-];
 
 // Filename date labels the download day for an Indonesian user (WIB).
 const filenameDateFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -124,7 +113,7 @@ export async function GET() {
   // Any failure returns an error, never a partial file that looks complete.
   const failure = accounts.error ?? categories.error ?? transactions.error;
   if (failure) {
-    console.error("CSV export failed:", failure);
+    console.error("Excel export failed:", failure);
     return textResponse("Gagal mengekspor transaksi. Coba lagi.", 500);
   }
 
@@ -133,30 +122,48 @@ export async function GET() {
     categories.rows.map((c) => [c.id, c.name]),
   );
 
-  const rows = transactions.rows.map((t) => [
-    csvText(toDateOnly(t.transaction_at)),
-    csvText(formatTransactionTypeLabel(t.transaction_type)),
-    csvNumber(t.amount),
-    csvText(t.category_id ? categoryNameById.get(t.category_id) : null),
-    csvText(accountNameById.get(t.account_id)),
-    csvText(
-      t.destination_account_id
-        ? accountNameById.get(t.destination_account_id)
-        : null,
-    ),
-    csvText(t.description),
-    csvText(t.merchant),
-    csvText(SOURCE_LABELS[t.source] ?? t.source),
-  ]);
+  if (transactions.rows.length > MAX_EXPORT_TRANSACTIONS) {
+    return textResponse("Terlalu banyak transaksi untuk satu berkas Excel.", 413);
+  }
 
-  const csv = toCsv(HEADER.map(csvText), rows);
-  const filename = `budgetku-transaksi-${filenameDateFormatter.format(new Date())}.csv`;
+  // Numeric cells remain numeric (safe for Excel sums), and date cells are
+  // real dates. User-supplied text is written as inline XML strings, not formulas.
+  const rows = transactions.rows.map((t) => ({
+    tanggal: toDateOnly(t.transaction_at),
+    tipe: formatTransactionTypeLabel(t.transaction_type),
+    jumlah: t.amount,
+    kategori: t.category_id ? (categoryNameById.get(t.category_id) ?? null) : null,
+    rekening: accountNameById.get(t.account_id) ?? null,
+    rekening_tujuan: t.destination_account_id
+      ? (accountNameById.get(t.destination_account_id) ?? null)
+      : null,
+    catatan: t.description,
+    merchant: t.merchant,
+    sumber: SOURCE_LABELS[t.source] ?? t.source,
+  }));
 
-  return new Response(csv, {
+  let workbook: Uint8Array;
+  try {
+    workbook = createTransactionXlsx(rows);
+  } catch (error) {
+    console.error("Excel generation failed:", error);
+    return textResponse("Berkas Excel gagal dibuat. Coba lagi.", 500);
+  }
+
+  const filename = "budgetku-transaksi-" +
+    filenameDateFormatter.format(new Date()) + ".xlsx";
+
+  // Response requires an ArrayBuffer-backed BodyInit under Next.js DOM typings.
+  // Copy into a standalone ArrayBuffer so Node Buffer/SharedArrayBuffer typing
+  // never leaks into the web response API.
+  const body = new ArrayBuffer(workbook.byteLength);
+  new Uint8Array(body).set(workbook);
+
+  return new Response(body, {
     status: 200,
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="' + filename + '"',
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },

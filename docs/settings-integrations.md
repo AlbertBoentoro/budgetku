@@ -114,10 +114,7 @@ Fitur passkey/Face ID sudah dihapus dari aplikasi. Untuk membersihkan sisa
 tabel dan fungsinya di Supabase, jalankan opsional
 [2026-10-remove-passkeys.sql](./sql/2026-10-remove-passkeys.sql).
 
-Pengaturan menyediakan pilihan Senin atau Minggu sebagai awal minggu. Nilainya
-disimpan di `user_settings.first_day_of_week`. Laporan Budgetku yang tersedia
-saat ini masih berbasis bulanan, jadi pilihan ini belum mengubah rentang
-laporan lain.
+Hari pertama minggu ditetapkan Senin (`monday`) dan tidak ditampilkan sebagai opsi. Locale dibatasi Indonesia (`id-ID`) dan mata uang Rupiah (`IDR`). Pengaturan pengingat tetap dapat diubah pengguna. Backup harian dijadwalkan sekitar 00.00 WIB pada endpoint cron terpisah, sementara pengingat tetap dijalankan sekitar pukul 20.00 WIB. Informasi otomatis dan panel pemulihan cadangan lama tidak ditampilkan; cadangan manual dan pemulihan transaksi terhapus tetap tersedia.
 
 ## Catatan verifikasi historis implementasi
 
