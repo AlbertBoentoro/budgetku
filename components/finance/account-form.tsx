@@ -148,7 +148,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="h-11"
-          placeholder="Misal: BCA utama"
+          placeholder="Misal: BCA"
           aria-invalid={fieldErrors.name ? true : undefined}
           aria-describedby={fieldErrors.name ? nameErrId : undefined}
           autoComplete="off"
