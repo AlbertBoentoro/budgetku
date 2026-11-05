@@ -11,7 +11,6 @@ import { Icon } from "@/components/ui/icon";
 import { LogoutConfirm } from "@/components/settings/logout-confirm";
 import { ThemeSettingRow } from "@/components/settings/theme-setting-row";
 import { PreferencesForm } from "@/components/settings/preferences-form";
-import { BackupControls } from "@/components/settings/backup-controls";
 import { PushSetup } from "@/components/settings/push-setup";
 import { SettingsLoading } from "@/app/(app)/settings/loading";
 
@@ -62,7 +61,7 @@ async function SettingsContent() {
   const email = user.email?.trim() ?? "";
   const { data: settings, error: settingsError } = await supabase
     .from("user_settings")
-    .select("daily_reminder_enabled, last_backup_at")
+    .select("daily_reminder_enabled")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -185,23 +184,13 @@ async function SettingsContent() {
         />
       </section>
 
-      <section aria-labelledby="settings-backup" className="flex flex-col gap-3">
+      <section aria-labelledby="settings-export" className="flex flex-col gap-3">
         <h2
-          id="settings-backup"
+          id="settings-export"
           className="px-1 text-label-md font-semibold text-on-surface-variant"
         >
-          Data dan cadangan
+          Ekspor
         </h2>
-        {settingsError ? (
-          <p
-            role="alert"
-            className="rounded-xl border border-expense/30 bg-surface-container-lowest p-4 text-body-sm text-expense"
-          >
-            Status cadangan gagal dimuat. Muat ulang halaman untuk mencoba lagi.
-          </p>
-        ) : (
-          <BackupControls hasBackup={Boolean(settings?.last_backup_at)} />
-        )}
         <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           <DownloadLinkRow
             href="/api/export/transactions"
