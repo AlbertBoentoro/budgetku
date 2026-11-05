@@ -185,11 +185,6 @@ export function TransactionForm({
     [accounts, accountId],
   );
 
-  const parsedAmount = useMemo(
-    () => parseTransactionAmountInput(amountInput),
-    [amountInput],
-  );
-
   // Type-dependent hero label. Transfer has no income/expense direction.
   const amountLabel = isIncome
     ? "Nominal Pemasukan"
@@ -473,7 +468,7 @@ export function TransactionForm({
             onChange={(e) => handleAccountChange(e.target.value)}
             aria-invalid={fieldErrors.account_id ? true : undefined}
             aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
-                      >
+            >
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
@@ -511,7 +506,7 @@ export function TransactionForm({
                   ? destinationErrId
                   : undefined
               }
-                          >
+              >
               <option value="">Pilih rekening tujuan</option>
               {destinationOptions.map((account) => (
                 <option key={account.id} value={account.id}>
@@ -545,7 +540,7 @@ export function TransactionForm({
               aria-describedby={
                 fieldErrors.category_id ? categoryErrId : undefined
               }
-                          >
+              >
               <option value="">Pilih kategori</option>
               {categoryOptions.map((category) => (
                 <option key={category.id} value={category.id}>
