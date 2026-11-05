@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { isTransactionType } from "@/lib/transactions";
+import {
+  buildTransactionInsertPayload,
+  buildTransactionUpdatePayload,
+} from "@/lib/transactions/payload";
 import { isFrequency } from "@/lib/recurring";
 
 export interface TransactionFormInput {
@@ -243,30 +247,6 @@ async function fetchCategoryName(
   return data.name;
 }
 
-// Builds the insert/update payload. Transfers carry a destination and no
-// category; income/expense carry a category and no destination. Money is stored
-// unscaled and currency is always IDR.
-function buildPayload(userId: string, input: TransactionFormInput) {
-  const isTransfer = input.transaction_type === "transfer";
-
-  return {
-    user_id: userId,
-    account_id: input.account_id,
-    destination_account_id: isTransfer
-      ? input.destination_account_id ?? null
-      : null,
-    category_id: isTransfer ? null : input.category_id ?? null,
-    transaction_type: input.transaction_type,
-    amount: input.amount,
-    currency: "IDR",
-    transaction_at: input.transaction_at,
-    description: input.description ?? null,
-    merchant: input.merchant ?? null,
-    source: "manual",
-    source_reference: null,
-  };
-}
-
 export async function createTransaction(
   input: TransactionFormInput,
 ): Promise<ActionResult> {
@@ -333,7 +313,7 @@ export async function createTransaction(
 
   const { error } = await supabase
     .from("transactions")
-    .insert(buildPayload(user.id, input));
+    .insert(buildTransactionInsertPayload(user.id, input));
 
   if (error) {
     return {
@@ -364,7 +344,8 @@ export async function updateTransaction(
 
   const { error } = await supabase
     .from("transactions")
-    .update(buildPayload(user.id, input))
+    // Provenance and owner stay as stored; see lib/transactions/payload.ts.
+    .update(buildTransactionUpdatePayload(input))
     .eq("id", id)
     .eq("user_id", user.id);
 
