@@ -64,14 +64,6 @@ export async function createAccount(
   }
 
   try {
-    if (await isAccountNameTaken(supabase, user.id, input.name, id)) {
-      return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
-    }
-  } catch {
-    return { ok: false, message: "Tidak dapat memeriksa nama rekening. Coba lagi." };
-  }
-
-  try {
     if (await isAccountNameTaken(supabase, user.id, input.name)) {
       return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
     }
@@ -125,6 +117,15 @@ export async function updateAccount(
   if (Object.keys(fieldErrors).length > 0) {
     return { ok: false, message: "Periksa kembali isian formulir.", fieldErrors };
   }
+
+  try {
+    if (await isAccountNameTaken(supabase, user.id, input.name, id)) {
+      return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
+    }
+  } catch {
+    return { ok: false, message: "Tidak dapat memeriksa nama rekening. Coba lagi." };
+  }
+
 
   const { error } = await supabase
     .from("accounts")
