@@ -3,8 +3,6 @@ import webpush from "web-push";
 import type { PushSubscription } from "web-push";
 
 import type { Database, Json } from "@/lib/supabase/database.types";
-import { buildUserBackup } from "@/lib/settings/backup";
-import { storeVerifiedBackup } from "@/lib/settings/backup-storage";
 import { isAllowedPushEndpoint } from "@/lib/settings/push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -96,50 +94,8 @@ export async function GET(request: Request) {
   }
 
   const today = jakartaDate();
-  let backupsCreated = 0;
   let remindersSent = 0;
   let failures = 0;
-
-  const backupUserIds = new Set<string>();
-  for (let page = 1; ; page += 1) {
-    const { data, error } = await supabase.auth.admin.listUsers({
-      page,
-      perPage: 1000,
-    });
-    if (error) {
-      console.error("Settings cron could not list accounts:", error.message);
-      return Response.json(
-        { error: "Scheduled backups could not load accounts." },
-        { status: 500, headers: { "Cache-Control": "no-store" } },
-      );
-    }
-
-    for (const user of data.users) backupUserIds.add(user.id);
-    if (data.users.length < 1000) break;
-  }
-
-  for (const userId of backupUserIds) {
-    try {
-      const backup = await buildUserBackup(supabase, userId);
-      await storeVerifiedBackup(supabase, userId, backup);
-
-      const { error: updateError } = await supabase
-        .from("user_settings")
-        .upsert(
-          {
-            user_id: userId,
-            last_backup_at: backup.generatedAt,
-            updated_at: backup.generatedAt,
-          },
-          { onConflict: "user_id" },
-        );
-      if (updateError) throw new Error(updateError.message);
-      backupsCreated += 1;
-    } catch (error) {
-      console.error("Scheduled backup failed for one account.", error);
-      failures += 1;
-    }
-  }
 
   const settings: ScheduledSetting[] = [];
   for (let from = 0; ; from += 1000) {
@@ -154,7 +110,6 @@ export async function GET(request: Request) {
       console.error("Settings cron could not load reminder schedules:", error.message);
       return Response.json(
         {
-          backupsCreated,
           remindersSent,
           failures: failures + 1,
           error: "Scheduled reminders could not be loaded.",
@@ -249,7 +204,7 @@ export async function GET(request: Request) {
   }
 
   return Response.json(
-    { backupsCreated, remindersSent, failures },
+    { remindersSent, failures },
     {
       status: failures ? 500 : 200,
       headers: { "Cache-Control": "no-store" },

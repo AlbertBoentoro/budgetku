@@ -12,8 +12,6 @@ import { LogoutConfirm } from "@/components/settings/logout-confirm";
 import { ThemeSettingRow } from "@/components/settings/theme-setting-row";
 import { PreferencesForm } from "@/components/settings/preferences-form";
 import { BackupControls } from "@/components/settings/backup-controls";
-import { RestorePreviewControls } from "@/components/settings/restore-preview-controls";
-import { isSmartRestoreAllowed } from "@/lib/settings/smart-restore-guard";
 import { PushSetup } from "@/components/settings/push-setup";
 import { SettingsLoading } from "@/app/(app)/settings/loading";
 
@@ -64,7 +62,7 @@ async function SettingsContent() {
   const email = user.email?.trim() ?? "";
   const { data: settings, error: settingsError } = await supabase
     .from("user_settings")
-    .select("first_day_of_week, daily_reminder_enabled, last_backup_at")
+    .select("daily_reminder_enabled, last_backup_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -156,9 +154,6 @@ async function SettingsContent() {
           </p>
         ) : (
           <PreferencesForm
-            firstDayOfWeek={
-              settings?.first_day_of_week === "sunday" ? "sunday" : "monday"
-            }
             dailyReminderEnabled={settings?.daily_reminder_enabled ?? false}
             reminderConfigured={Boolean(
                 process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY &&
@@ -205,16 +200,8 @@ async function SettingsContent() {
             Status cadangan gagal dimuat. Muat ulang halaman untuk mencoba lagi.
           </p>
         ) : (
-          <BackupControls
-            lastBackupAt={settings?.last_backup_at ?? null}
-            hasBackup={Boolean(settings?.last_backup_at)}
-            configured={Boolean(
-              process.env.SUPABASE_SERVICE_ROLE_KEY &&
-                process.env.CRON_SECRET,
-            )}
-          />
+          <BackupControls hasBackup={Boolean(settings?.last_backup_at)} />
         )}
-        <RestorePreviewControls smartRestoreMode={isSmartRestoreAllowed()} />
         <ul className="flex flex-col divide-y divide-outline-variant overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
           <DownloadLinkRow
             href="/api/export/data"

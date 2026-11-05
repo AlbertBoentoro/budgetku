@@ -1,9 +1,15 @@
 {
-  "regions": ["syd1"],
+  "regions": [
+    "syd1"
+  ],
   "crons": [
     {
       "path": "/api/cron/settings",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/backup",
+      "schedule": "0 17 * * *"
     }
   ]
 }
