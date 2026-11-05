@@ -186,10 +186,12 @@ export function TransactionForm({
   const isIncome = transactionType === "income";
 
   // Category options follow the selected direction. Transfers have no category.
+  const baseCategoryOptions = isIncome ? incomeCategories : expenseCategories;
   const categoryOptions = [
-    ...(isIncome ? incomeCategories : expenseCategories),
+    ...baseCategoryOptions,
     ...createdCategories.filter((category) =>
-      category.category_type === (isIncome ? "income" : "expense"),
+      category.category_type === (isIncome ? "income" : "expense") &&
+      !baseCategoryOptions.some((existing) => existing.id === category.id),
     ),
   ];
 
@@ -238,6 +240,7 @@ export function TransactionForm({
   // Switching type clears the fields that no longer apply so a hidden value is
   // never submitted (mirrors the server, which nulls them anyway).
   function handleTypeChange(nextType: string) {
+    if (categoryCreating) return;
     setTransactionType(nextType);
     setShowCategoryCreator(false);
     setNewCategoryName("");
@@ -252,6 +255,7 @@ export function TransactionForm({
       setCategoryId("");
     } else {
       setDestinationAccountId("");
+      if (nextType !== transactionType) setCategoryId("");
     }
   }
 
@@ -280,7 +284,6 @@ export function TransactionForm({
       setFieldErrors((current) => ({ ...current, category_id: undefined }));
       setShowCategoryCreator(false);
       setNewCategoryName("");
-      router.refresh();
     } catch {
       setCategoryCreateError("Kategori belum tersimpan. Coba lagi.");
     } finally {
