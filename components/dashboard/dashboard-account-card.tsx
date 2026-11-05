@@ -1,5 +1,6 @@
 import { AmountText } from "@/components/finance/amount-text";
 import { Icon } from "@/components/ui/icon";
+import { canonicalAccountType } from "@/lib/account-types";
 
 // Account type -> Material Symbol glyph, local to the dashboard. The shared
 // getAccountTypeMeta returns a lucide icon, but this screen renders Material
@@ -8,14 +9,14 @@ import { Icon } from "@/components/ui/icon";
 const ACCOUNT_TYPE_GLYPH: Record<string, string> = {
   cash: "payments",
   bank: "account_balance",
-  e_wallet: "account_balance_wallet",
+  ewallet: "account_balance_wallet",
   credit_card: "credit_card",
   savings: "savings",
   investment: "trending_up",
 };
 
 export function accountTypeGlyph(type: string): string {
-  return ACCOUNT_TYPE_GLYPH[type] ?? "account_balance_wallet";
+  return ACCOUNT_TYPE_GLYPH[canonicalAccountType(type)] ?? "account_balance_wallet";
 }
 
 interface DashboardAccountCardProps {

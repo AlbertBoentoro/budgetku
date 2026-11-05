@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import type { AccountRow } from "@/lib/accounts";
+import { canonicalAccountType } from "@/lib/account-types";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import {
@@ -72,7 +73,8 @@ async function EditAccountContent({ params }: EditAccountPageProps) {
 
   const initialValues: AccountFormInitialValues = {
     name: account.name,
-    account_type: account.account_type,
+    // An old "e_wallet" spelling opens as the E-wallet option.
+    account_type: canonicalAccountType(account.account_type),
     initial_balance: account.initial_balance,
   };
 

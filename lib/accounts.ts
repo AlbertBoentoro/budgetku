@@ -2,6 +2,10 @@ import { computeTransactionEffects } from "@/lib/account-balance-math";
 export { sumRunningAccountBalances } from "@/lib/account-balance-math";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import {
+  canonicalAccountType,
+  type AccountTypeValue,
+} from "@/lib/account-types";
+import {
   Banknote,
   CreditCard,
   Landmark,
@@ -81,13 +85,13 @@ export type AccountAccent =
   | "rose"
   | "slate";
 
-// The curated set of account types we offer in the UI. account_type is plain
-// text in the DB (not an enum), so the DB may hold other/legacy values; those
-// still render via the fallback in getAccountTypeMeta.
+// The curated set of account types we offer in the UI. The values must match
+// ACCOUNT_TYPE_VALUES in lib/account-types.ts, which the database CHECK
+// accepts. Legacy values (e.g. "other") still render via getAccountTypeMeta.
 export const ACCOUNT_TYPES = [
   { value: "cash", label: "Tunai", icon: Banknote, accent: "amber" },
   { value: "bank", label: "Rekening bank", icon: Landmark, accent: "blue" },
-  { value: "e_wallet", label: "E-wallet", icon: Wallet, accent: "violet" },
+  { value: "ewallet", label: "E-wallet", icon: Wallet, accent: "violet" },
   {
     value: "credit_card",
     label: "Kartu kredit",
@@ -102,7 +106,7 @@ export const ACCOUNT_TYPES = [
     accent: "slate",
   },
 ] as const satisfies ReadonlyArray<{
-  value: string;
+  value: AccountTypeValue;
   label: string;
   icon: LucideIcon;
   accent: AccountAccent;
@@ -121,12 +125,23 @@ export function isAccountType(value: string): value is AccountType {
   return ACCOUNT_TYPES.some((t) => t.value === value);
 }
 
+// Labels for values the database may hold but the app no longer offers.
+const LEGACY_ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  other: "Lainnya",
+};
+
 // Returns the curated entry, or a safe fallback for unknown/legacy values so
 // an unexpected account_type never crashes the list.
 export function getAccountTypeMeta(value: string): AccountTypeMeta {
-  const match = ACCOUNT_TYPES.find((t) => t.value === value);
+  const canonical = canonicalAccountType(value);
+  const match = ACCOUNT_TYPES.find((t) => t.value === canonical);
   if (match) return match;
-  return { value, label: value, icon: Wallet, accent: "slate" };
+  return {
+    value,
+    label: LEGACY_ACCOUNT_TYPE_LABELS[value] ?? value,
+    icon: Wallet,
+    accent: "slate",
+  };
 }
 
 export function formatAccountTypeLabel(value: string): string {
