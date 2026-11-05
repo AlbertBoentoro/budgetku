@@ -3,3 +3,9 @@
 export function normalizeAccountName(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
+
+// Existing legacy duplicate names remain editable without forced renaming.
+// Only a new normalized name needs a uniqueness lookup.
+export function accountNameChanged(stored: string, next: string): boolean {
+  return normalizeAccountName(stored) !== normalizeAccountName(next);
+}
