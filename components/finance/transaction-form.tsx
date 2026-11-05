@@ -3,10 +3,8 @@
 import { useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { cn } from "@/lib/utils";
 import {
   isTransactionType,
-  parseIdrInput,
   type AccountRow,
   type CategoryRow,
 } from "@/lib/transactions";
@@ -15,12 +13,17 @@ import type {
   ActionResult,
 } from "@/app/(app)/transactions/actions";
 import { FREQUENCIES } from "@/lib/recurring";
+import {
+  formatTransactionAmountInput,
+  parseTransactionAmountInput,
+} from "@/lib/transaction-amount-input";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TransactionTypeSwitcher } from "@/components/transactions/transaction-type-switcher";
 import { TransactionFieldRow } from "@/components/transactions/transaction-field-row";
+import { TransactionSelect } from "@/components/transactions/transaction-select";
 import { ToggleSwitch } from "@/components/transactions/toggle-switch";
 
 export interface TransactionFormInitialValues {
@@ -58,17 +61,6 @@ type FieldErrors = Partial<
     string
   >
 >;
-
-// Same native-select styling the account form and filters use, kept identical
-// so every select in the app matches.
-const selectClassName =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
-
-const idrPreview = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
 
 // Today as YYYY-MM-DD in the user's local time, matching the <input type=date>
 // value format so the field defaults to today.
@@ -116,10 +108,12 @@ export function TransactionForm({
       : "expense";
 
   const [transactionType, setTransactionType] = useState<string>(initialType);
-  // Keep the raw string so the user can type freely; parse on submit/preview.
+  // Show grouped integer rupiah, but never silently rescale legacy decimals.
   const [amountInput, setAmountInput] = useState(
     initialValues
-      ? String(initialValues.amount)
+      ? Number.isSafeInteger(initialValues.amount)
+        ? formatTransactionAmountInput(String(initialValues.amount))
+        : String(initialValues.amount)
       : mode === "create"
         ? "0"
         : "",
@@ -191,16 +185,6 @@ export function TransactionForm({
     [accounts, accountId],
   );
 
-  const parsedAmount = useMemo(
-    () => parseIdrInput(amountInput),
-    [amountInput],
-  );
-
-  const amountPreview =
-    amountInput.trim() === "" || parsedAmount === null
-      ? null
-      : idrPreview.format(parsedAmount);
-
   // Type-dependent hero label. Transfer has no income/expense direction.
   const amountLabel = isIncome
     ? "Nominal Pemasukan"
@@ -208,14 +192,22 @@ export function TransactionForm({
       ? "Nominal Transfer"
       : "Nominal Pengeluaran";
 
-  // Preset chips add a round figure to the current amount by parsing what is
-  // there, adding the delta, and writing back a plain digit string so the
-  // existing parseIdrInput/preview keep working. Reset clears the field. This
-  // mutates the single source of truth (amountInput); it never fakes a value.
+  // Presets change only the displayed value, never the unit or scale.
   function addPreset(delta: number) {
-    const current = parseIdrInput(amountInput) ?? 0;
+    const current = parseTransactionAmountInput(amountInput) ?? 0;
     const next = current + delta;
-    setAmountInput(String(next));
+    if (!Number.isSafeInteger(next)) {
+      setFieldErrors((prev) => ({ ...prev, amount: "Nominal terlalu besar." }));
+      return;
+    }
+    setAmountInput(formatTransactionAmountInput(String(next)));
+    setFieldErrors((prev) => ({ ...prev, amount: undefined }));
+  }
+
+  function handleAmountChange(raw: string) {
+    // Block letters, commas and non-numeric symbols; dots are separators.
+    if (!/^[0-9.]*$/.test(raw)) return;
+    setAmountInput(formatTransactionAmountInput(raw));
     setFieldErrors((prev) => ({ ...prev, amount: undefined }));
   }
 
@@ -263,7 +255,7 @@ export function TransactionForm({
   } {
     const errors: FieldErrors = {};
 
-    const amount = parseIdrInput(amountInput);
+    const amount = parseTransactionAmountInput(amountInput);
     if (amount === null || amount <= 0) {
       errors.amount = "Nominal harus berupa angka lebih dari nol.";
     }
@@ -395,29 +387,32 @@ export function TransactionForm({
         >
           {amountLabel}
         </Label>
-        <div className="flex items-baseline justify-center gap-1">
+        <div className="flex w-full min-w-0 items-baseline justify-center gap-2">
           <span
             aria-hidden
-            className="text-currency-display font-semibold text-on-surface-variant"
+            className="shrink-0 text-currency-display font-semibold text-on-surface-variant"
           >
             Rp
           </span>
           <Input
             id={amountId}
+            type="text"
             value={amountInput}
-            onChange={(e) => setAmountInput(e.target.value)}
+            onChange={(e) => handleAmountChange(e.target.value)}
+            onFocus={(e) => {
+              if (amountInput === "0") e.currentTarget.select();
+            }}
             inputMode="numeric"
-            className="h-auto border-0 bg-transparent p-0 text-center text-[2.75rem] font-bold leading-[1.1] tracking-tight tabular-nums shadow-none focus-visible:ring-0 md:text-[2.75rem]"
+            enterKeyHint="done"
+            autoComplete="off"
+            pattern="[0-9.]*"
+            style={{ width: `${Math.max(1, amountInput.length) + 0.5}ch` }}
+            className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(1.875rem,8vw,2.75rem)] md:text-[2.75rem] font-bold leading-[1.1] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
             placeholder="0"
             aria-invalid={fieldErrors.amount ? true : undefined}
             aria-describedby={fieldErrors.amount ? amountErrId : undefined}
           />
         </div>
-        {amountPreview ? (
-          <p className="text-center text-body-sm text-on-surface-variant tabular-nums">
-            {amountPreview}
-          </p>
-        ) : null}
         <div className="flex flex-wrap items-center justify-center gap-2">
           {PRESETS.map((preset) => (
             <button
@@ -467,20 +462,19 @@ export function TransactionForm({
             ) : null
           }
         >
-          <select
+          <TransactionSelect
             id={accountFieldId}
             value={accountId}
             onChange={(e) => handleAccountChange(e.target.value)}
             aria-invalid={fieldErrors.account_id ? true : undefined}
             aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
-            className={cn(selectClassName)}
-          >
+            >
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
               </option>
             ))}
-          </select>
+          </TransactionSelect>
         </TransactionFieldRow>
 
         {isTransfer ? (
@@ -500,7 +494,7 @@ export function TransactionForm({
               ) : null
             }
           >
-            <select
+            <TransactionSelect
               id={destinationFieldId}
               value={destinationAccountId}
               onChange={(e) => setDestinationAccountId(e.target.value)}
@@ -512,15 +506,14 @@ export function TransactionForm({
                   ? destinationErrId
                   : undefined
               }
-              className={cn(selectClassName)}
-            >
+              >
               <option value="">Pilih rekening tujuan</option>
               {destinationOptions.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
                 </option>
               ))}
-            </select>
+            </TransactionSelect>
           </TransactionFieldRow>
         ) : (
           <TransactionFieldRow
@@ -539,7 +532,7 @@ export function TransactionForm({
               ) : null
             }
           >
-            <select
+            <TransactionSelect
               id={categoryFieldId}
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -547,15 +540,14 @@ export function TransactionForm({
               aria-describedby={
                 fieldErrors.category_id ? categoryErrId : undefined
               }
-              className={cn(selectClassName)}
-            >
+              >
               <option value="">Pilih kategori</option>
               {categoryOptions.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
               ))}
-            </select>
+            </TransactionSelect>
           </TransactionFieldRow>
         )}
 
@@ -640,7 +632,7 @@ export function TransactionForm({
             <div className="flex flex-col gap-4 p-lg">
               <div className="flex flex-col gap-2">
                 <Label htmlFor={frequencyId}>Frekuensi</Label>
-                <select
+                <TransactionSelect
                   id={frequencyId}
                   value={frequency}
                   onChange={(e) => setFrequency(e.target.value)}
@@ -648,14 +640,13 @@ export function TransactionForm({
                   aria-describedby={
                     fieldErrors.frequency ? frequencyErrId : undefined
                   }
-                  className={cn(selectClassName)}
-                >
+                                  >
                   {FREQUENCIES.map((f) => (
                     <option key={f.value} value={f.value}>
                       {f.label}
                     </option>
                   ))}
-                </select>
+                </TransactionSelect>
                 {fieldErrors.frequency ? (
                   <p
                     id={frequencyErrId}
