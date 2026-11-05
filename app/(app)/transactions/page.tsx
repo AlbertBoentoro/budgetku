@@ -42,7 +42,7 @@ export default function TransactionsPage({
         title="Transaksi"
         className="flex-col items-stretch gap-3 sm:flex-row sm:items-center"
         action={
-          <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto">
+          <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto sm:translate-y-3">
             <Link href="/transactions/recover">Pulihkan transaksi terhapus</Link>
           </Button>
         }
