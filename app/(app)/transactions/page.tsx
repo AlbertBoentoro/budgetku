@@ -40,9 +40,9 @@ export default function TransactionsPage({
     <>
       <AppHeader
         title="Transaksi"
-        className="flex-col items-stretch gap-3 sm:flex-row sm:items-center"
+        className="mb-3 flex-col items-stretch gap-3 sm:mb-4 sm:flex-row sm:items-center"
         action={
-          <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto sm:translate-y-3">
+          <Button asChild variant="outline" className="min-h-11 w-full sm:mt-3 sm:w-auto">
             <Link href="/transactions/recover">Pulihkan transaksi terhapus</Link>
           </Button>
         }
