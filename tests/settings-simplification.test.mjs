@@ -27,15 +27,14 @@ test("hidden settings cannot persist Sunday or another region", () => {
   const page = file("app/(app)/settings/page.tsx");
   const pref = file("components/settings/preferences-form.tsx");
   const action = file("app/(app)/settings/actions.ts");
-  const backupControls = file("components/settings/backup-controls.tsx");
   assert.doesNotMatch(page, /RestorePreviewControls|isSmartRestoreAllowed/);
   assert.doesNotMatch(pref, /firstDayOfWeek|Format wilayah|Minggu dimulai pada/);
   assert.match(action, /first_day_of_week: "monday"/);
   assert.match(action, /locale: "id-ID"/);
   assert.match(action, /currency: "IDR"/);
-  assert.doesNotMatch(backupControls, /Cadangan cloud otomatis|20\.00 WIB/);
-  assert.match(backupControls, /Cadangkan sekarang/);
-  assert.match(backupControls, /Unduh cadangan/);
+  assert.doesNotMatch(page, /Data dan cadangan|BackupControls|Cadangkan sekarang|Unduh cadangan/);
+  assert.match(page, /settings-export/);
+  assert.match(page, /title="Ekspor transaksi"/);
   assert.doesNotMatch(page, /href="\/api\/export\/data"|Ekspor semua data/);
   assert.match(page, /Excel \(\.xlsx\)/);
 });
