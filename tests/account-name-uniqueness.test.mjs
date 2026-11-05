@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { normalizeAccountName } from "../lib/account-name.ts";
+import { normalizeAccountName, accountNameChanged } from "../lib/account-name.ts";
 
 const read = (p) => readFileSync(new URL("../" + p, import.meta.url), "utf8");
 
@@ -11,6 +11,16 @@ test("account names compare case-insensitively across whitespace", () => {
   assert.equal(normalizeAccountName(" BCA   Utama"), normalizeAccountName("bca utama"));
   assert.equal(normalizeAccountName(" BCA\tUtama\n"), "bca utama");
   assert.notEqual(normalizeAccountName("BCA"), normalizeAccountName("GoPay"));
+});
+
+test("legacy duplicate accounts can edit non-name fields", () => {
+  assert.equal(accountNameChanged("BCA", " bca "), false);
+  assert.equal(accountNameChanged(" BCA   Utama ", "bca utama"), false);
+  assert.equal(accountNameChanged("BCA", "GoPay"), true);
+  const source = read("app/(app)/accounts/actions.ts");
+  assert.match(source, /accountNameChanged\(currentAccount\.name, input\.name\)/);
+  assert.match(source, /\.eq\("id", id\)/);
+  assert.match(source, /\.eq\("user_id", user\.id\)/);
 });
 
 test("account server checks duplicate names in both create and edit", () => {
