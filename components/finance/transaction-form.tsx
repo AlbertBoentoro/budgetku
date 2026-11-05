@@ -407,7 +407,7 @@ export function TransactionForm({
             autoComplete="off"
             pattern="[0-9.]*"
             style={{ width: `${Math.max(1, amountInput.length) + 0.5}ch` }}
-            className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(1.875rem,8vw,2.75rem)] font-bold leading-[1.1] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
+            className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(1.875rem,8vw,2.75rem)] md:text-[2.75rem] font-bold leading-[1.1] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
             placeholder="0"
             aria-invalid={fieldErrors.amount ? true : undefined}
             aria-describedby={fieldErrors.amount ? amountErrId : undefined}
