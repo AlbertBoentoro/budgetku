@@ -3,7 +3,6 @@
 import { useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { cn } from "@/lib/utils";
 import {
   isTransactionType,
   type AccountRow,
@@ -24,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TransactionTypeSwitcher } from "@/components/transactions/transaction-type-switcher";
 import { TransactionFieldRow } from "@/components/transactions/transaction-field-row";
+import { TransactionSelect } from "@/components/transactions/transaction-select";
 import { ToggleSwitch } from "@/components/transactions/toggle-switch";
 
 export interface TransactionFormInitialValues {
@@ -61,11 +61,6 @@ type FieldErrors = Partial<
     string
   >
 >;
-
-// Same native-select styling the account form and filters use, kept identical
-// so every select in the app matches.
-const selectClassName =
-  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
 // Today as YYYY-MM-DD in the user's local time, matching the <input type=date>
 // value format so the field defaults to today.
@@ -472,20 +467,19 @@ export function TransactionForm({
             ) : null
           }
         >
-          <select
+          <TransactionSelect
             id={accountFieldId}
             value={accountId}
             onChange={(e) => handleAccountChange(e.target.value)}
             aria-invalid={fieldErrors.account_id ? true : undefined}
             aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
-            className={cn(selectClassName)}
-          >
+                      >
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
               </option>
             ))}
-          </select>
+          </TransactionSelect>
         </TransactionFieldRow>
 
         {isTransfer ? (
@@ -505,7 +499,7 @@ export function TransactionForm({
               ) : null
             }
           >
-            <select
+            <TransactionSelect
               id={destinationFieldId}
               value={destinationAccountId}
               onChange={(e) => setDestinationAccountId(e.target.value)}
@@ -517,15 +511,14 @@ export function TransactionForm({
                   ? destinationErrId
                   : undefined
               }
-              className={cn(selectClassName)}
-            >
+                          >
               <option value="">Pilih rekening tujuan</option>
               {destinationOptions.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name}
                 </option>
               ))}
-            </select>
+            </TransactionSelect>
           </TransactionFieldRow>
         ) : (
           <TransactionFieldRow
@@ -544,7 +537,7 @@ export function TransactionForm({
               ) : null
             }
           >
-            <select
+            <TransactionSelect
               id={categoryFieldId}
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -552,15 +545,14 @@ export function TransactionForm({
               aria-describedby={
                 fieldErrors.category_id ? categoryErrId : undefined
               }
-              className={cn(selectClassName)}
-            >
+                          >
               <option value="">Pilih kategori</option>
               {categoryOptions.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
               ))}
-            </select>
+            </TransactionSelect>
           </TransactionFieldRow>
         )}
 
@@ -645,7 +637,7 @@ export function TransactionForm({
             <div className="flex flex-col gap-4 p-lg">
               <div className="flex flex-col gap-2">
                 <Label htmlFor={frequencyId}>Frekuensi</Label>
-                <select
+                <TransactionSelect
                   id={frequencyId}
                   value={frequency}
                   onChange={(e) => setFrequency(e.target.value)}
@@ -653,14 +645,13 @@ export function TransactionForm({
                   aria-describedby={
                     fieldErrors.frequency ? frequencyErrId : undefined
                   }
-                  className={cn(selectClassName)}
-                >
+                                  >
                   {FREQUENCIES.map((f) => (
                     <option key={f.value} value={f.value}>
                       {f.label}
                     </option>
                   ))}
-                </select>
+                </TransactionSelect>
                 {fieldErrors.frequency ? (
                   <p
                     id={frequencyErrId}
