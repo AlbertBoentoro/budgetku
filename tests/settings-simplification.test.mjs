@@ -36,6 +36,8 @@ test("hidden settings cannot persist Sunday or another region", () => {
   assert.doesNotMatch(backupControls, /Cadangan cloud otomatis|20\.00 WIB/);
   assert.match(backupControls, /Cadangkan sekarang/);
   assert.match(backupControls, /Unduh cadangan/);
+  assert.doesNotMatch(page, /href="\/api\/export\/data"|Ekspor semua data/);
+  assert.match(page, /Excel \(\.xlsx\)/);
 });
 
 test("default native dropdown spacing does not duplicate custom dropdown arrows", () => {
