@@ -46,3 +46,9 @@ test("unique index scopes to user, type and nonarchived categories", () => {
   assert.match(sql,/WHERE user_id IS NOT NULL AND is_archived = false/);
   assert.doesNotMatch(sql,/DELETE FROM public\.categories|UPDATE public\.categories/i);
 });
+
+test("switching transaction direction clears a category selected for another direction", () => {
+  const source = read("components/finance/transaction-form.tsx");
+  assert.ok(source.includes('if (nextType !== transactionType) setCategoryId("");'));
+  assert.ok(source.includes("!baseCategoryOptions.some"));
+});
