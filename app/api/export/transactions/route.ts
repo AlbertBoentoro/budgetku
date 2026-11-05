@@ -153,7 +153,13 @@ export async function GET() {
   const filename = "budgetku-transaksi-" +
     filenameDateFormatter.format(new Date()) + ".xlsx";
 
-  return new Response(workbook, {
+  // Response requires an ArrayBuffer-backed BodyInit under Next.js DOM typings.
+  // Copy into a standalone ArrayBuffer so Node Buffer/SharedArrayBuffer typing
+  // never leaks into the web response API.
+  const body = new ArrayBuffer(workbook.byteLength);
+  new Uint8Array(body).set(workbook);
+
+  return new Response(body, {
     status: 200,
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
