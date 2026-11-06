@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import {
   ALL_MONTHS_PARAM,
   buildTransactionListQuery,
@@ -128,19 +129,22 @@ async function TransactionsContent({
   const otherFilters = withoutMonth(filters);
   const hasOtherFilter = Object.keys(otherFilters).length > 0;
 
-  const { data, error } = await buildTransactionListQuery(
-    supabase,
-    user.id,
-    listMonth ? { ...otherFilters, month: listMonth } : otherFilters,
-  );
-
-  if (error) {
+  let transactions: TransactionRow[];
+  try {
+    // Read every page with a unique, stable sort. Never show only the first
+    // PostgREST page as if it were the complete all-months ledger.
+    transactions = await fetchAllPages((from, to) =>
+      buildTransactionListQuery(
+        supabase,
+        user.id,
+        listMonth ? { ...otherFilters, month: listMonth } : otherFilters,
+      ).range(from, to),
+    );
+  } catch {
     return (
-      <TransactionsError message="Transaksi gagal dimuat. Periksa koneksi lalu coba lagi." />
+      <TransactionsError message="Transaksi gagal dimuat lengkap. Periksa koneksi lalu coba lagi." />
     );
   }
-
-  const transactions = (data ?? []) as TransactionRow[];
 
   // Nothing listed and no filter besides the month. A user without any
   // transaction gets the first-run state; a user with transactions in other

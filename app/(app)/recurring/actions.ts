@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { isValidTransactionAmount, TRANSACTION_AMOUNT_ERROR } from "@/lib/transactions/amount-limits";
 import {
   isFrequency,
   isTransactionType,
@@ -51,12 +52,8 @@ function validate(input: RecurringFormInput): Record<string, string> {
     fieldErrors.name = "Nama transaksi berulang wajib diisi.";
   }
 
-  if (
-    typeof input.amount !== "number" ||
-    !Number.isFinite(input.amount) ||
-    input.amount <= 0
-  ) {
-    fieldErrors.amount = "Nominal harus berupa angka lebih dari nol.";
+  if (!isValidTransactionAmount(input.amount)) {
+    fieldErrors.amount = TRANSACTION_AMOUNT_ERROR;
   }
 
   if (!input.account_id || input.account_id.trim().length === 0) {

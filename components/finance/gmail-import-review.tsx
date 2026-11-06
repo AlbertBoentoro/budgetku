@@ -14,6 +14,7 @@ import {
   importDraft,
   type ActionResult,
 } from "@/app/(app)/settings/gmail/actions";
+import { isValidTransactionAmount, TRANSACTION_AMOUNT_ERROR } from "@/lib/transactions/amount-limits";
 import { AmountText } from "@/components/finance/amount-text";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -142,8 +143,8 @@ export function GmailImportReview({
     // EXACT shared copy; the server re-checks everything.
     const errors: FieldErrors = {};
     const amount = parseIdrInput(amountInput);
-    if (amount === null || amount <= 0) {
-      errors.amount = "Nominal harus berupa angka lebih dari nol.";
+    if (!isValidTransactionAmount(amount)) {
+      errors.amount = TRANSACTION_AMOUNT_ERROR;
     }
     if (!accountId) {
       errors.account_id = "Pilih rekening sumber.";

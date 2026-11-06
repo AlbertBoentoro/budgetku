@@ -9,6 +9,7 @@ import {
   buildTransactionUpdatePayload,
 } from "@/lib/transactions/payload";
 import { isFrequency } from "@/lib/recurring";
+import { isValidTransactionAmount, TRANSACTION_AMOUNT_ERROR } from "@/lib/transactions/amount-limits";
 
 export interface TransactionFormInput {
   transaction_type: string;
@@ -62,12 +63,8 @@ export type ActionResult =
 function validate(input: TransactionFormInput): Record<string, string> {
   const fieldErrors: Record<string, string> = {};
 
-  if (
-    typeof input.amount !== "number" ||
-    !Number.isFinite(input.amount) ||
-    input.amount <= 0
-  ) {
-    fieldErrors.amount = "Nominal harus berupa angka lebih dari nol.";
+  if (!isValidTransactionAmount(input.amount)) {
+    fieldErrors.amount = TRANSACTION_AMOUNT_ERROR;
   }
 
   if (!input.account_id || input.account_id.trim().length === 0) {
@@ -342,18 +339,24 @@ export async function updateTransaction(
   const guard = await guardTransaction(supabase, user.id, input);
   if (guard) return guard;
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("transactions")
     // Provenance and owner stay as stored; see lib/transactions/payload.ts.
     .update(buildTransactionUpdatePayload(input))
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return {
       ok: false,
       message: "Perubahan gagal disimpan. Silakan coba lagi.",
     };
+  }
+
+  if (!updated) {
+    return { ok: false, message: "Transaksi tidak ditemukan atau sudah dihapus." };
   }
 
   revalidatePath("/transactions");
@@ -370,17 +373,23 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
     return { ok: false, message: "Sesi berakhir. Silakan masuk kembali." };
   }
 
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from("transactions")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return {
       ok: false,
       message: "Transaksi gagal dihapus. Silakan coba lagi.",
     };
+  }
+
+  if (!deleted) {
+    return { ok: false, message: "Transaksi tidak ditemukan atau sudah dihapus." };
   }
 
   revalidatePath("/transactions");

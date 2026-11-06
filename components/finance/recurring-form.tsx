@@ -18,6 +18,7 @@ import type {
   RecurringFormInput,
   ActionResult,
 } from "@/app/(app)/recurring/actions";
+import { isValidTransactionAmount, TRANSACTION_AMOUNT_ERROR } from "@/lib/transactions/amount-limits";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -252,8 +253,8 @@ export function RecurringForm({
     }
 
     const amount = parseIdrInput(amountInput);
-    if (amount === null || amount <= 0) {
-      errors.amount = "Nominal harus berupa angka lebih dari nol.";
+    if (!isValidTransactionAmount(amount)) {
+      errors.amount = TRANSACTION_AMOUNT_ERROR;
     }
 
     if (!accountId) {

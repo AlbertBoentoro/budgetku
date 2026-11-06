@@ -1,5 +1,7 @@
 "use server";
 
+import { isValidTransactionAmount, TRANSACTION_AMOUNT_ERROR } from "@/lib/transactions/amount-limits";
+
 import { revalidatePath } from "next/cache";
 
 import { createOAuthClient } from "@/lib/gmail/oauth";
@@ -49,12 +51,8 @@ function isValidDateString(value: string): boolean {
 function validateDraft(input: ImportDraftInput): Record<string, string> {
   const fieldErrors: Record<string, string> = {};
 
-  if (
-    typeof input.amount !== "number" ||
-    !Number.isFinite(input.amount) ||
-    input.amount <= 0
-  ) {
-    fieldErrors.amount = "Nominal harus berupa angka lebih dari nol.";
+  if (!isValidTransactionAmount(input.amount)) {
+    fieldErrors.amount = TRANSACTION_AMOUNT_ERROR;
   }
 
   if (!input.account_id || input.account_id.trim().length === 0) {
