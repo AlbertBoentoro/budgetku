@@ -36,7 +36,7 @@ export function RowActionsMenu({ id, label, onError }: RowActionsMenuProps) {
     // Plain confirmation, no Dialog dependency; the server re-checks ownership
     // before deleting.
     const confirmed = window.confirm(
-      `Hapus transaksi "${label}"? Tindakan ini tidak bisa dibatalkan.`,
+      `Hapus transaksi "${label}"? Transaksi yang terhapus dapat dipulihkan selama masih tersedia di riwayat pemulihan.`,
     );
     if (!confirmed) return;
     startTransition(async () => {
