@@ -5,7 +5,7 @@ SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111
 
 -- F-01: a February clamp must not permanently move a 31st-day schedule.
 SELECT public.generate_recurring_now(
-  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1', '2022-02-28');
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1', '2026-02-28');
 DO $$
 BEGIN
   IF (SELECT next_due_date FROM public.recurring_transactions
@@ -32,7 +32,7 @@ VALUES
 SELECT public.generate_recurring_now(
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8', '2021-02-28');
 SELECT public.generate_recurring_now(
-  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8', '2026-02-28');
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8', '2022-02-28');
 SELECT public.generate_recurring_now(
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8', '2023-02-28');
 DO $$
