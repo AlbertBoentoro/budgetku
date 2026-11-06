@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
 import { buildUserBackup } from "@/lib/settings/backup";
+import { hasBackupForWibDay } from "@/lib/settings/backup-day";
 import { storeVerifiedBackup } from "@/lib/settings/backup-storage";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -44,6 +45,7 @@ export async function GET(request: Request) {
   }
 
   let backupsCreated = 0;
+  let backupsSkipped = 0;
   let failures = 0;
 
   const backupUserIds = new Set<string>();
@@ -66,6 +68,21 @@ export async function GET(request: Request) {
 
   for (const userId of backupUserIds) {
     try {
+      // A cron retry after an already verified backup should not create another
+      // full immutable snapshot on the same WIB day. Manual backups also count.
+      // This is a retry guard, not a cross-process lock: two parallel cron
+      // requests can still race, so never delete snapshots automatically.
+      const { data: settings, error: readError } = await supabase
+        .from("user_settings")
+        .select("last_backup_at")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (readError) throw new Error(readError.message);
+      if (hasBackupForWibDay(settings?.last_backup_at ?? null, new Date().toISOString())) {
+        backupsSkipped += 1;
+        continue;
+      }
+
       const backup = await buildUserBackup(supabase, userId);
       await storeVerifiedBackup(supabase, userId, backup);
 
@@ -88,7 +105,7 @@ export async function GET(request: Request) {
   }
 
   return Response.json(
-    { backupsCreated, failures },
+    { backupsCreated, backupsSkipped, failures },
     { status: failures ? 500 : 200, headers: { "Cache-Control": "no-store" } },
   );
 }
