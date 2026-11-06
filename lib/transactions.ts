@@ -206,7 +206,8 @@ export function buildTransactionListQuery(
   // time that breaks the tie so the most recently added row sorts on top.
   return query
     .order("transaction_at", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
 }
 
 // Only the columns the income/expense fold needs, from the generated type.
