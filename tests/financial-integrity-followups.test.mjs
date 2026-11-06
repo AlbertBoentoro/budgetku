@@ -20,12 +20,14 @@ test("F-04: only positive exact whole IDR up to selective restore limit", () => 
   }
 });
 
-test("F-04: both server actions and client forms use the exact shared validator", () => {
+test("F-04: manual, recurring, and Gmail flows share the exact amount validator", () => {
   const paths = [
     "app/(app)/transactions/actions.ts",
     "app/(app)/recurring/actions.ts",
     "components/finance/transaction-form.tsx",
     "components/finance/recurring-form.tsx",
+    "app/(app)/settings/gmail/actions.ts",
+    "components/finance/gmail-import-review.tsx",
   ];
   for (const path of paths) {
     const source = readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
