@@ -319,10 +319,6 @@ export async function createTransaction(
     };
   }
 
-  if (!deleted) {
-    return { ok: false, message: "Transaksi tidak ditemukan atau sudah dihapus." };
-  }
-
   revalidatePath("/transactions");
   return { ok: true };
 }
