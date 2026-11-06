@@ -1,8 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildUserBackup } from "@/lib/settings/backup";
-import { fetchVerifiedBackup, storeVerifiedBackup } from "@/lib/settings/backup-storage";
-
-const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
+import { fetchVerifiedBackup, storeVerifiedBackup, MAX_BACKUP_BYTES } from "@/lib/settings/backup-storage";
 
 function textResponse(message: string, status: number) {
   return new Response(message, {
@@ -30,7 +28,8 @@ export async function POST() {
     return textResponse("Cadangan gagal dibuat. Coba lagi.", 500);
   }
 
-  const body = JSON.stringify(backup, null, 2);
+  // Match the compact JSON bytes that storeVerifiedBackup actually uploads.
+  const body = JSON.stringify(backup);
   if (new TextEncoder().encode(body).byteLength > MAX_BACKUP_BYTES) {
     return textResponse(
       "Data cadangan melebihi batas 10 MB. Unduh file JSON sebagai gantinya.",
