@@ -9,6 +9,7 @@ import {
   buildTransactionUpdatePayload,
 } from "@/lib/transactions/payload";
 import { isFrequency } from "@/lib/recurring";
+import { isValidTransactionAmount, TRANSACTION_AMOUNT_ERROR } from "@/lib/transactions/amount-limits";
 
 export interface TransactionFormInput {
   transaction_type: string;
@@ -62,12 +63,8 @@ export type ActionResult =
 function validate(input: TransactionFormInput): Record<string, string> {
   const fieldErrors: Record<string, string> = {};
 
-  if (
-    typeof input.amount !== "number" ||
-    !Number.isFinite(input.amount) ||
-    input.amount <= 0
-  ) {
-    fieldErrors.amount = "Nominal harus berupa angka lebih dari nol.";
+  if (!isValidTransactionAmount(input.amount)) {
+    fieldErrors.amount = TRANSACTION_AMOUNT_ERROR;
   }
 
   if (!input.account_id || input.account_id.trim().length === 0) {
