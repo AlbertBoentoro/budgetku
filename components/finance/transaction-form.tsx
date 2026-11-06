@@ -18,6 +18,7 @@ import {
   formatTransactionAmountInput,
   parseTransactionAmountInput,
 } from "@/lib/transaction-amount-input";
+import { isValidTransactionAmount, TRANSACTION_AMOUNT_ERROR } from "@/lib/transactions/amount-limits";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -212,7 +213,7 @@ export function TransactionForm({
   function addPreset(delta: number) {
     const current = parseTransactionAmountInput(amountInput) ?? 0;
     const next = current + delta;
-    if (!Number.isSafeInteger(next)) {
+    if (!isValidTransactionAmount(next)) {
       setFieldErrors((prev) => ({ ...prev, amount: "Nominal terlalu besar." }));
       return;
     }
@@ -309,8 +310,8 @@ export function TransactionForm({
     const errors: FieldErrors = {};
 
     const amount = parseTransactionAmountInput(amountInput);
-    if (amount === null || amount <= 0) {
-      errors.amount = "Nominal harus berupa angka lebih dari nol.";
+    if (!isValidTransactionAmount(amount)) {
+      errors.amount = TRANSACTION_AMOUNT_ERROR;
     }
 
     if (!accountId) {
