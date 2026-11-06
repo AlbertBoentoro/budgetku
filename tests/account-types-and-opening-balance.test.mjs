@@ -134,10 +134,14 @@ test("unknown or tampered types are rejected by validation", () => {
   }
 });
 
-test("opening balance validation is unchanged: 0 and positive pass, negative and NaN fail", () => {
+test("F-10: only credit-card accounts may start with debt (negative balance)", () => {
   assert.deepEqual(validateAccountInput({ ...validInput("cash"), initial_balance: 0 }).fieldErrors, {});
-  for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
-    assert.ok(validateAccountInput({ ...validInput("cash"), initial_balance: bad }).fieldErrors.initial_balance);
+  assert.deepEqual(validateAccountInput({ ...validInput("credit_card"), initial_balance: -500000 }).fieldErrors, {});
+  for (const account_type of ["cash", "bank", "ewallet", "savings", "investment"]) {
+    assert.ok(validateAccountInput({ ...validInput(account_type), initial_balance: -1 }).fieldErrors.initial_balance);
+  }
+  for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.ok(validateAccountInput({ ...validInput("credit_card"), initial_balance: bad }).fieldErrors.initial_balance);
   }
 });
 
@@ -216,6 +220,8 @@ test("the form uses the formatter, parses on submit, and has no separate preview
   assert.match(form, /applyOpeningBalanceEdit\(\s*balanceInput,\s*input\.value,/);
   assert.match(form, /setBalanceInput\(edit\.value\)/);
   assert.match(form, /const balance = parseOpeningBalanceInput\(balanceInput\);/);
-  assert.match(form, /openingBalanceInputFromValue\(initialValues\.initial_balance\)/);
+  assert.match(form, /openingBalanceInputFromValue\(Math\.abs\(initialValues\.initial_balance\)\)/);
+  assert.match(form, /balanceAsDebt/);
+  assert.match(form, /accountType === "credit_card" && balanceAsDebt \? -balance : balance/);
   assert.doesNotMatch(form, /balancePreview|idrPreview|parseIdrInput/);
 });

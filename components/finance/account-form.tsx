@@ -40,9 +40,16 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
   const [accountType, setAccountType] = useState(
     initialValues?.account_type ?? ACCOUNT_TYPES[0].value,
   );
-  // The field shows formatted Rupiah ("Rp 123.133"); it is parsed on submit.
+  // Credit-card liabilities use a visible debt toggle. Keep the numeric
+  // input positive to preserve the tested Rupiah formatting and caret behavior.
+  const [balanceAsDebt, setBalanceAsDebt] = useState(
+    initialValues?.account_type === "credit_card" &&
+      initialValues.initial_balance < 0,
+  );
   const [balanceInput, setBalanceInput] = useState(
-    initialValues ? openingBalanceInputFromValue(initialValues.initial_balance) : "",
+    initialValues
+      ? openingBalanceInputFromValue(Math.abs(initialValues.initial_balance))
+      : "",
   );
   const balanceRef = useRef<HTMLInputElement>(null);
   // Where the caret goes after the next render. A new object per edit, so the
@@ -110,7 +117,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
       input: {
         name: trimmedName,
         account_type: accountType,
-        initial_balance: balance,
+        initial_balance: accountType === "credit_card" && balanceAsDebt ? -balance : balance,
       },
     };
   }
@@ -201,6 +208,22 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
             fieldErrors.initial_balance ? balanceErrId : undefined
           }
         />
+        {accountType === "credit_card" ? (
+          <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <input
+              type="checkbox"
+              checked={balanceAsDebt}
+              onChange={(e) => setBalanceAsDebt(e.target.checked)}
+              className="size-4"
+            />
+            Saldo awal merupakan tagihan kartu kredit (utang)
+          </label>
+        ) : null}
+        {accountType === "credit_card" && balanceAsDebt ? (
+          <p className="text-sm text-on-surface-variant">
+            Nilai akan disimpan sebagai saldo negatif untuk mencerminkan utang.
+          </p>
+        ) : null}
         {fieldErrors.initial_balance ? (
           <p id={balanceErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.initial_balance}

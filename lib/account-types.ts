@@ -69,7 +69,7 @@ export function validateAccountInput(input: AccountInputFields): {
   if (
     typeof input.initial_balance !== "number" ||
     !Number.isFinite(input.initial_balance) ||
-    input.initial_balance < 0
+    (input.initial_balance < 0 && accountType !== "credit_card")
   ) {
     fieldErrors.initial_balance = "Saldo awal harus berupa angka yang valid.";
   }
