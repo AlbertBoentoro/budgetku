@@ -392,6 +392,10 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
     };
   }
 
+  if (!deleted) {
+    return { ok: false, message: "Transaksi tidak ditemukan atau sudah dihapus." };
+  }
+
   revalidatePath("/transactions");
   return { ok: true };
 }
