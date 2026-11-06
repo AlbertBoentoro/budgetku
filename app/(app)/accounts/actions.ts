@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { validateAccountInput } from "@/lib/account-types";
+import { accountNameChanged, normalizeAccountName } from "@/lib/account-name";
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 
 export interface AccountFormInput {
   name: string;
@@ -20,6 +22,29 @@ export type ActionResult =
 // Server-side validation (lib/account-types.ts) mirrors the client checks in
 // AccountForm, so a tampered or scripted request is still rejected before
 // touching the DB. It also returns the canonical account type to write.
+
+const DUPLICATE_NAME_MESSAGE = "Nama rekening sudah digunakan. Gunakan nama lain.";
+
+async function isAccountNameTaken(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  name: string,
+  excludingId?: string,
+): Promise<boolean> {
+  // Paginate by unique id: never miss a match beyond PostgREST's row limit.
+  const accounts = await fetchAllPages((from, to) =>
+    supabase
+      .from("accounts")
+      .select("id, name")
+      .eq("user_id", userId)
+      .order("id")
+      .range(from, to),
+  );
+  const normalized = normalizeAccountName(name);
+  return accounts.some(
+    (row) => row.id !== excludingId && normalizeAccountName(row.name) === normalized,
+  );
+}
 
 export async function createAccount(
   input: AccountFormInput,
@@ -38,9 +63,17 @@ export async function createAccount(
     return { ok: false, message: "Periksa kembali isian formulir.", fieldErrors };
   }
 
+  try {
+    if (await isAccountNameTaken(supabase, user.id, input.name)) {
+      return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
+    }
+  } catch {
+    return { ok: false, message: "Tidak dapat memeriksa nama rekening. Coba lagi." };
+  }
+
   const { error } = await supabase.from("accounts").insert({
     user_id: user.id,
-    name: input.name.trim(),
+    name: input.name.trim().replace(/\s+/g, " "),
     account_type: accountType,
     initial_balance: input.initial_balance,
     // Keep the legacy database field consistent with the all-accounts rule.
@@ -49,6 +82,10 @@ export async function createAccount(
     color: input.color ?? null,
     icon: input.icon ?? null,
   });
+
+  if (error?.code === "23505") {
+    return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
+  }
 
   if (error) {
     // Surface the DB error gracefully (e.g. an unexpected CHECK constraint on
@@ -81,10 +118,33 @@ export async function updateAccount(
     return { ok: false, message: "Periksa kembali isian formulir.", fieldErrors };
   }
 
+  // Grandfather existing duplicate names. Editing a balance or account type
+  // must not force the user to rename an unrelated historic account.
+  const { data: currentAccount, error: currentError } = await supabase
+    .from("accounts")
+    .select("name")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (currentError || !currentAccount) {
+    return { ok: false, message: "Rekening tidak ditemukan atau tidak dapat dibaca." };
+  }
+
+  if (accountNameChanged(currentAccount.name, input.name)) {
+    try {
+      if (await isAccountNameTaken(supabase, user.id, input.name, id)) {
+        return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
+      }
+    } catch {
+      return { ok: false, message: "Tidak dapat memeriksa nama rekening. Coba lagi." };
+    }
+  }
+
+
   const { error } = await supabase
     .from("accounts")
     .update({
-      name: input.name.trim(),
+      name: input.name.trim().replace(/\s+/g, " "),
       account_type: accountType,
       initial_balance: input.initial_balance,
       // Keep the legacy database field consistent with the all-accounts rule.
@@ -94,6 +154,10 @@ export async function updateAccount(
     })
     .eq("id", id)
     .eq("user_id", user.id);
+
+  if (error?.code === "23505") {
+    return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
+  }
 
   if (error) {
     return {
