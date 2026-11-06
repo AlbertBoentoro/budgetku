@@ -1,4 +1,5 @@
--- NOT APPLIED TO PRODUCTION. Requires explicit owner approval before rollout.
+-- HISTORICAL MIGRATION: already applied to production (verified 2026-11-05).
+-- Do not blindly re-run this file; inspect live constraints/triggers/cron first.
 -- Scope: record DELETED transactions only; do not archive edits or restores here.
 -- Existing balances, cloud backups and active transactions are not touched.
 -- This file is designed for production where transaction_change_history does not exist.
