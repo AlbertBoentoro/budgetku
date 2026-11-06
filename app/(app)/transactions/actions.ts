@@ -319,6 +319,10 @@ export async function createTransaction(
     };
   }
 
+  if (!deleted) {
+    return { ok: false, message: "Transaksi tidak ditemukan atau sudah dihapus." };
+  }
+
   revalidatePath("/transactions");
   return { ok: true };
 }
@@ -339,18 +343,24 @@ export async function updateTransaction(
   const guard = await guardTransaction(supabase, user.id, input);
   if (guard) return guard;
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("transactions")
     // Provenance and owner stay as stored; see lib/transactions/payload.ts.
     .update(buildTransactionUpdatePayload(input))
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return {
       ok: false,
       message: "Perubahan gagal disimpan. Silakan coba lagi.",
     };
+  }
+
+  if (!updated) {
+    return { ok: false, message: "Transaksi tidak ditemukan atau sudah dihapus." };
   }
 
   revalidatePath("/transactions");
@@ -367,11 +377,13 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
     return { ok: false, message: "Sesi berakhir. Silakan masuk kembali." };
   }
 
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from("transactions")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return {
