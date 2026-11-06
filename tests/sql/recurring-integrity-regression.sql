@@ -5,7 +5,7 @@ SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111
 
 -- F-01: a February clamp must not permanently move a 31st-day schedule.
 SELECT public.generate_recurring_now(
-  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1', '2026-02-28');
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1', '2022-02-28');
 DO $$
 BEGIN
   IF (SELECT next_due_date FROM public.recurring_transactions
@@ -28,18 +28,18 @@ INSERT INTO public.recurring_transactions
 VALUES
  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8','11111111-1111-4111-8111-111111111111',
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1',
-  'expense','Leap-year anchor',12345,'yearly',1,'2024-02-29','2025-02-28');
+  'expense','Leap-year anchor',12345,'yearly',1,'2020-02-29','2021-02-28');
 SELECT public.generate_recurring_now(
-  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8', '2025-02-28');
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8', '2021-02-28');
 SELECT public.generate_recurring_now(
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8', '2026-02-28');
 SELECT public.generate_recurring_now(
-  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8', '2027-02-28');
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8', '2023-02-28');
 DO $$
 BEGIN
   IF (SELECT next_due_date FROM public.recurring_transactions
-      WHERE id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8') <> '2028-02-29'::date
-  THEN RAISE EXCEPTION 'F-01: leap day was not restored in 2028'; END IF;
+      WHERE id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8') <> '2024-02-29'::date
+  THEN RAISE EXCEPTION 'F-01: leap day was not restored in 2024'; END IF;
 END $$;
 
 -- F-05: editing a schedule back to the already-recorded initial date must
