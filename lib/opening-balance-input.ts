@@ -1,7 +1,7 @@
 // Opening-balance ("Saldo awal") input with Indonesian grouping and sen,
 // e.g. "Rp 261.157,41". Values are stored as real IDR, never rescaled.
 //
-import { isValidIdrAmount } from "./idr-money";
+import { isValidIdrAmount } from "./idr-money.ts";
 
 const PREFIX = "Rp ";
 
