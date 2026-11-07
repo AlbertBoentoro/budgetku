@@ -1,4 +1,4 @@
-import { isValidIdrAmount } from "./idr-money";
+import { isValidIdrAmount } from "./idr-money.ts";
 
 // Editable Indonesian amount: dot separates thousands, comma separates sen.
 // Keep an unfinished trailing comma so users can type "0," then "0,41".
