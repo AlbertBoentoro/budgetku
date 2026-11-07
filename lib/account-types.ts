@@ -9,7 +9,7 @@
 // send "e_wallet" (rejected by the database), so that spelling is accepted as
 // an alias on input and stored as "ewallet".
 //
-import { isValidIdrAmount } from "./idr-money";
+import { isValidIdrAmount } from "./idr-money.ts";
 
 export const ACCOUNT_TYPE_VALUES = [
   "cash",
