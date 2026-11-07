@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import Link from "next/link";
 
 import type { BudgetItemView } from "@/lib/budgets";
+import { getBudgetLimitStatus } from "@/lib/budget-limit-status";
 import {
   deleteBudgetItem,
   type ActionResult,
@@ -25,16 +26,12 @@ interface BudgetItemRowProps {
   onError: (message: string) => void;
 }
 
-// Near-budget threshold: flag "Mendekati batas" once real usage reaches 90% of
-// the plan and is not yet over. Presentation constant, not money logic.
-const NEAR_BUDGET_RATIO = 0.9;
-
 export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps) {
   const [isPending, startTransition] = useTransition();
   const { usage } = item;
   const label = item.categoryName ?? "Kategori";
   const pct = Math.round(usage.barPercent);
-  const isNear = !usage.isOverBudget && usage.ratio >= NEAR_BUDGET_RATIO;
+  const budgetStatus = getBudgetLimitStatus(usage.planned, usage.spent);
 
   function handleDelete() {
     const confirmed = window.confirm(
@@ -157,12 +154,17 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
 
       <div className="flex items-center justify-between gap-2 text-body-sm">
         <span className="text-on-surface-variant">{pct}% terpakai</span>
-        {usage.isOverBudget ? (
+        {budgetStatus === "over" ? (
           <span className="flex items-center gap-1 text-expense">
             <Icon name="error" size={16} />
             Melebihi batas
           </span>
-        ) : isNear ? (
+        ) : budgetStatus === "at_limit" ? (
+          <span className="flex items-center gap-1 text-on-surface-variant">
+            <Icon name="warning" size={16} />
+            Di batas
+          </span>
+        ) : budgetStatus === "near" ? (
           <span className="flex items-center gap-1 text-on-surface-variant">
             <Icon name="warning" size={16} />
             Mendekati batas
