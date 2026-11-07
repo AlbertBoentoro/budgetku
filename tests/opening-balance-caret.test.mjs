@@ -231,7 +231,7 @@ test("the form restores the selection after render without stealing focus", () =
   assert.match(form, /ref=\{balanceRef\}\s*\n\s*value=\{balanceInput\}\s*\n\s*onChange=\{handleBalanceChange\}/);
   assert.match(form, /setBalanceCaret\(\{ position: edit\.caret \}\)/);
   assert.doesNotMatch(form, /setBalanceInput\(formatOpeningBalanceInput\(/);
-  assert.match(form, /inputMode="numeric"/);
+  assert.match(form, /inputMode="decimal"/);
   assert.match(form, /useLayoutEffect\(/);
   assert.match(form, /document\.activeElement !== input/);
   assert.match(form, /input\.setSelectionRange\(balanceCaret\.position, balanceCaret\.position\)/);
