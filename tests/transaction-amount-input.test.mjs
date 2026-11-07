@@ -40,9 +40,11 @@ test("presets use the same formatted input and preserve whole rupiah", () => {
 
 test("Indonesian sen input formats 0,41 and grouped thousands", () => {
   assert.equal(formatTransactionAmountInput("0,41"), "0,41");
+  assert.equal(formatTransactionAmountInput("0.41"), "0,41");
   assert.equal(formatTransactionAmountInput("1234,41"), "1.234,41");
   assert.equal(formatTransactionAmountInput("261157,41"), "261.157,41");
   assert.equal(formatTransactionAmountInput("1.234,41"), "1.234,41");
+  assert.equal(formatTransactionAmountInput("1234.41"), "1.234,41");
   assert.equal(formatTransactionAmountInput("0,"), "0,");
   assert.equal(parseTransactionAmountInput("0,"), null);
   assert.equal(parseTransactionAmountInput("0,41"), 0.41);
