@@ -239,3 +239,21 @@ test("the form restores the selection after render without stealing focus", () =
   assert.match(form, /\(e\.nativeEvent as InputEvent\)\.inputType/);
   assert.doesNotMatch(form, /\.focus\(\)/);
 });
+
+test("typing a comma keeps caret after decimal separator, then the sen", () => {
+  const withComma = applyOpeningBalanceEdit("Rp 0", "Rp 0,", 5, "insertText");
+  assert.deepEqual(withComma, { value: "Rp 0,", caret: 5 });
+  const withSen = applyOpeningBalanceEdit(withComma.value, "Rp 0,4", 6, "insertText");
+  assert.deepEqual(withSen, { value: "Rp 0,4", caret: 6 });
+  const completed = applyOpeningBalanceEdit(withSen.value, "Rp 0,41", 7, "insertText");
+  assert.deepEqual(completed, { value: "Rp 0,41", caret: 7 });
+  assert.equal(parseOpeningBalanceInput(completed.value), 0.41);
+});
+
+test("pasting a grouped decimal opening balance preserves value and caret", () => {
+  const text = "Rp 261.157,41";
+  assert.deepEqual(applyOpeningBalanceEdit("", text, text.length, "insertFromPaste"), {
+    value: text, caret: text.length,
+  });
+  assert.equal(parseOpeningBalanceInput(text), 261157.41);
+});
