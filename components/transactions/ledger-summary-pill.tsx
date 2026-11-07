@@ -75,7 +75,7 @@ function summaryAmountSize(value: number): string {
   const formattedLength = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value).length;
   const displayLength = formattedLength + (value > 0 ? 1 : 0);
 
