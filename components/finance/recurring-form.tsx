@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { transactionAmountInputFromValue, formatTransactionAmountInput } from "@/lib/transaction-amount-input";
-import { isValidIdrAmount, normalizeIdrDecimalKey } from "@/lib/idr-money";
+import { isValidTransactionIdrAmount, normalizeIdrDecimalKey } from "@/lib/idr-money";
 import {
   FREQUENCIES,
   TRANSACTION_TYPES,
@@ -254,8 +254,8 @@ export function RecurringForm({
     }
 
     const amount = parseIdrInput(amountInput);
-    if (!isValidIdrAmount(amount)) {
-      errors.amount = "Nominal harus positif dengan maksimal 2 angka desimal.";
+    if (!isValidTransactionIdrAmount(amount)) {
+      errors.amount = "Nominal harus positif, maksimal Rp1 triliun dan 2 angka desimal.";
     }
 
     if (!accountId) {
