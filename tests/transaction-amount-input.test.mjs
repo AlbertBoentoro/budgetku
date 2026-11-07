@@ -11,6 +11,7 @@ test("integer IDR input groups four digits and keeps Rp separate", () => {
   assert.equal(formatTransactionAmountInput("1234"), "1.234");
   assert.equal(formatTransactionAmountInput("123456789"), "123.456.789");
   assert.equal(formatTransactionAmountInput("1.2345"), "12.345");
+  assert.equal(formatTransactionAmountInput("12.50", "12.500"), "1.250");
   assert.equal(formatTransactionAmountInput("0001234"), "1.234");
   assert.equal(formatTransactionAmountInput("000"), "0");
   assert.equal(formatTransactionAmountInput(""), "");
