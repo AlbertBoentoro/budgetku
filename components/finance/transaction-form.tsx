@@ -224,7 +224,7 @@ export function TransactionForm({
     // Indonesian separators: dot for thousands, comma for at most two sen.
     if (!/^[0-9.,]*$/.test(raw) ||
         (raw.match(/,/g) ?? []).length > 1 ||
-        /,\d{3,}/.test(raw)) return;
+        (raw.includes(",") && raw.split(",")[1].replace(/\D/g, "").length > 2)) return;
     setAmountInput(formatTransactionAmountInput(raw));
     setFieldErrors((prev) => ({ ...prev, amount: undefined }));
   }
