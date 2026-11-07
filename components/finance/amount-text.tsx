@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { formatIdrCurrency } from "@/lib/idr-money";
 
 type AmountTone = "default" | "income" | "expense";
 // "none" emits no font-size/weight class, so callers can supply a custom size
@@ -40,13 +41,16 @@ export function AmountText({
   signed = false,
   className,
 }: AmountTextProps) {
-  // Presentation only: Indonesian locale, no decimals (e.g. "Rp12.345.670").
+  // Keep sen visible whenever nonzero; whole Rupiah remain compact.
   // The numeric `value` is never scaled or converted here.
-  const formatted = new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
+  const formatted = currency === "IDR"
+    ? formatIdrCurrency(value)
+    : new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(value);
 
   // Prefix "+" only for positive values when signed; the formatter already
   // renders a leading "-" for negatives, so expenses stay distinct without color.
