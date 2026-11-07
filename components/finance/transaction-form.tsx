@@ -226,7 +226,7 @@ export function TransactionForm({
     if (!/^[0-9.,]*$/.test(raw) ||
         (raw.match(/,/g) ?? []).length > 1 ||
         (raw.includes(",") && raw.split(",")[1].replace(/\D/g, "").length > 2)) return;
-    setAmountInput(formatTransactionAmountInput(raw));
+    setAmountInput(formatTransactionAmountInput(raw, amountInput));
     setFieldErrors((prev) => ({ ...prev, amount: undefined }));
   }
 
