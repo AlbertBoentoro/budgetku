@@ -15,7 +15,8 @@ function formatDigits(digits: string): string {
 // Formats whatever the user typed: keeps the digits, drops leading zeros,
 // groups thousands with ".", and adds the "Rp " prefix. No digits -> "".
 export function formatOpeningBalanceInput(raw: string): string {
-  const cleaned = raw.replace(/[^0-9,]/g, "");
+  // Conventional pasted "Rp 1.000,-" means whole Rupiah, not pending sen.
+  const cleaned = raw.replace(/,\s*-\s*$/, "").replace(/[^0-9,]/g, "");
   const comma = cleaned.indexOf(",");
   const integer = (comma < 0 ? cleaned : cleaned.slice(0, comma))
     .replace(/^0+(?=\d)/, "");
@@ -64,11 +65,17 @@ export function applyOpeningBalanceEdit(
   inputType?: string,
 ): OpeningBalanceEdit {
   const at = Math.max(0, Math.min(caret, raw.length));
-  let digits = onlyDigits(raw);
-  let before = onlyDigits(raw.slice(0, at)).length;
-  const commaAt = raw.indexOf(",");
+  const edited = raw.replace(/,\s*-\s*$/, "");
+  const commaAt = edited.indexOf(",");
+  // Never silently truncate existing digits when a comma is inserted inside
+  // an integer with more than two digits to its right.
+  if (commaAt >= 0 && onlyDigits(edited.slice(commaAt + 1)).length > 2) {
+    return { value: previous, caret: Math.max(0, at - 1) };
+  }
+  let digits = onlyDigits(edited);
+  let before = onlyDigits(edited.slice(0, at)).length;
   const hasComma = commaAt >= 0;
-  let integerLength = hasComma ? onlyDigits(raw.slice(0, commaAt)).length : digits.length;
+  let integerLength = hasComma ? onlyDigits(edited.slice(0, commaAt)).length : digits.length;
 
   // Exactly one "." was removed at the caret (Backspace and Delete both leave
   // the caret at the removed character's index). Removing a character of the
