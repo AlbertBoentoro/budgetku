@@ -17,7 +17,9 @@ import { createUserCategory } from "@/app/(app)/transactions/category-actions";
 import {
   formatTransactionAmountInput,
   parseTransactionAmountInput,
+  transactionAmountInputFromValue,
 } from "@/lib/transaction-amount-input";
+import { addIdrAmounts, isValidIdrAmount } from "@/lib/idr-money";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -109,12 +111,10 @@ export function TransactionForm({
       : "expense";
 
   const [transactionType, setTransactionType] = useState<string>(initialType);
-  // Show grouped integer rupiah, but never silently rescale legacy decimals.
+  // Round-trip sen from an existing transaction (e.g. 0.41 -> "0,41").
   const [amountInput, setAmountInput] = useState(
     initialValues
-      ? Number.isSafeInteger(initialValues.amount)
-        ? formatTransactionAmountInput(String(initialValues.amount))
-        : String(initialValues.amount)
+      ? transactionAmountInputFromValue(initialValues.amount)
       : mode === "create"
         ? "0"
         : "",
@@ -211,18 +211,20 @@ export function TransactionForm({
   // Presets change only the displayed value, never the unit or scale.
   function addPreset(delta: number) {
     const current = parseTransactionAmountInput(amountInput) ?? 0;
-    const next = current + delta;
-    if (!Number.isSafeInteger(next)) {
+    const next = addIdrAmounts(current, delta);
+    if (!isValidIdrAmount(next)) {
       setFieldErrors((prev) => ({ ...prev, amount: "Nominal terlalu besar." }));
       return;
     }
-    setAmountInput(formatTransactionAmountInput(String(next)));
+    setAmountInput(transactionAmountInputFromValue(next));
     setFieldErrors((prev) => ({ ...prev, amount: undefined }));
   }
 
   function handleAmountChange(raw: string) {
-    // Block letters, commas and non-numeric symbols; dots are separators.
-    if (!/^[0-9.]*$/.test(raw)) return;
+    // Indonesian separators: dot for thousands, comma for at most two sen.
+    if (!/^[0-9.,]*$/.test(raw) ||
+        (raw.match(/,/g) ?? []).length > 1 ||
+        /,\d{3,}/.test(raw)) return;
     setAmountInput(formatTransactionAmountInput(raw));
     setFieldErrors((prev) => ({ ...prev, amount: undefined }));
   }
@@ -309,8 +311,8 @@ export function TransactionForm({
     const errors: FieldErrors = {};
 
     const amount = parseTransactionAmountInput(amountInput);
-    if (amount === null || amount <= 0) {
-      errors.amount = "Nominal harus berupa angka lebih dari nol.";
+    if (!isValidIdrAmount(amount)) {
+      errors.amount = "Nominal harus positif dengan maksimal 2 angka desimal.";
     }
 
     if (!accountId) {
@@ -455,10 +457,10 @@ export function TransactionForm({
             onFocus={(e) => {
               if (amountInput === "0") e.currentTarget.select();
             }}
-            inputMode="numeric"
+            inputMode="decimal"
             enterKeyHint="done"
             autoComplete="off"
-            pattern="[0-9.]*"
+            pattern="[0-9.,]*"
             style={{ width: `${Math.max(1, amountInput.length) + 0.5}ch` }}
             className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(1.875rem,8vw,2.75rem)] md:text-[2.75rem] font-bold leading-[1.1] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
             placeholder="0"
