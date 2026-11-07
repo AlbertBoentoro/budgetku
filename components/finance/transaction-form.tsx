@@ -19,7 +19,7 @@ import {
   parseTransactionAmountInput,
   transactionAmountInputFromValue,
 } from "@/lib/transaction-amount-input";
-import { addIdrAmounts, isValidIdrAmount, normalizeIdrDecimalKey } from "@/lib/idr-money";
+import { addIdrAmounts, isValidTransactionIdrAmount, normalizeIdrDecimalKey } from "@/lib/idr-money";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -212,7 +212,7 @@ export function TransactionForm({
   function addPreset(delta: number) {
     const current = parseTransactionAmountInput(amountInput) ?? 0;
     const next = addIdrAmounts(current, delta);
-    if (!isValidIdrAmount(next)) {
+    if (!isValidTransactionIdrAmount(next)) {
       setFieldErrors((prev) => ({ ...prev, amount: "Nominal terlalu besar." }));
       return;
     }
@@ -312,8 +312,8 @@ export function TransactionForm({
     const errors: FieldErrors = {};
 
     const amount = parseTransactionAmountInput(amountInput);
-    if (!isValidIdrAmount(amount)) {
-      errors.amount = "Nominal harus positif dengan maksimal 2 angka desimal.";
+    if (!isValidTransactionIdrAmount(amount)) {
+      errors.amount = "Nominal harus positif, maksimal Rp1 triliun dan 2 angka desimal.";
     }
 
     if (!accountId) {
