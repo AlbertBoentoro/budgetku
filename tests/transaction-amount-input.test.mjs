@@ -5,7 +5,7 @@ import {
   parseTransactionAmountInput,
   transactionAmountInputFromValue,
 } from "../lib/transaction-amount-input.ts";
-import { addIdrAmounts, formatIdrCurrency, isValidIdrAmount } from "../lib/idr-money.ts";
+import { addIdrAmounts, formatIdrCurrency, isValidIdrAmount, isValidTransactionIdrAmount } from "../lib/idr-money.ts";
 
 test("integer IDR input groups four digits and keeps Rp separate", () => {
   assert.equal(formatTransactionAmountInput("1234"), "1.234");
@@ -64,6 +64,9 @@ test("fractional server validation, presets and display keep exact sen", () => {
   assert.equal(isValidIdrAmount(1.234), false);
   assert.equal(isValidIdrAmount(-0.41), false);
   assert.equal(isValidIdrAmount(Infinity), false);
+  assert.equal(isValidTransactionIdrAmount(0.41), true);
+  assert.equal(isValidTransactionIdrAmount(1_000_000_000_000), true);
+  assert.equal(isValidTransactionIdrAmount(1_000_000_000_000.01), false);
   assert.equal(addIdrAmounts(0.41, 50000), 50000.41);
   assert.equal(formatIdrCurrency(2321257.41).replace(/\s/g, ""), "Rp2.321.257,41");
   assert.equal(formatIdrCurrency(3000).replace(/\s/g, ""), "Rp3.000");
