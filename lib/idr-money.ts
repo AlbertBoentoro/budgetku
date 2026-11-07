@@ -32,6 +32,13 @@ export function normalizeIdrDecimalKey(raw: string, previous = ""): string {
   return raw.replace(/\.(\d{1,2})$/, ",$1");
 }
 
+// Selective recovery and its database RPC are bounded at Rp 1 trillion.
+export const MAX_RESTORABLE_TRANSACTION_AMOUNT = 1_000_000_000_000;
+export function isValidTransactionIdrAmount(value: unknown): value is number {
+  return isValidIdrAmount(value) &&
+    value <= MAX_RESTORABLE_TRANSACTION_AMOUNT;
+}
+
 export function addIdrAmounts(a: number, b: number): number {
   return Math.round((a + b) * 100) / 100;
 }
