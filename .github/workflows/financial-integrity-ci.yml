@@ -70,6 +70,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-p0-goal-contribution-ownership.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/goals-integration.sql
           psql -v ON_ERROR_STOP=1 -f tests/sql/gmail-recovery.sql
+          psql -v ON_ERROR_STOP=1 -f docs/sql/2026-11-restore-two-decimal-amounts.sql
+          psql -v ON_ERROR_STOP=1 -f tests/sql/restore-two-decimal-amounts.sql
       - name: Run isolated regression tests
         run: npm test
       - name: Lint all source
