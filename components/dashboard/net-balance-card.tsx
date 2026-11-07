@@ -38,7 +38,7 @@ export function NetBalanceCard({
   const balanceLength = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(balance).length;
   const balanceSize =
     balanceLength > 14

@@ -5,6 +5,7 @@ import {
   type TransactionRow,
 } from "@/lib/transactions";
 import { getTransactionDisplayLabel } from "@/lib/transactions/display-label";
+import { transactionTypeIconClass } from "@/lib/transaction-type-tone";
 
 // Transaction type -> Material Symbol glyph, local to the dashboard. income
 // reads as an inbound arrow, expense as outbound, transfer as a swap. The
@@ -74,7 +75,7 @@ export function RecentTransactionRow({
 
   return (
     <li className="flex min-h-[52px] items-center gap-3 px-3 py-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+      <span className={`flex size-9 shrink-0 items-center justify-center rounded-full ${transactionTypeIconClass(transaction.transaction_type)}`}>
         <Icon name={transactionTypeGlyph(transaction.transaction_type)} size={20} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col">

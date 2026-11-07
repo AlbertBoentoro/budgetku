@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
+import { transactionAmountInputFromValue, formatTransactionAmountInput } from "@/lib/transaction-amount-input";
+import { isValidTransactionIdrAmount, normalizeIdrDecimalKey } from "@/lib/idr-money";
 import {
   FREQUENCIES,
   TRANSACTION_TYPES,
@@ -74,7 +76,7 @@ const selectClassName =
 const idrPreview = new Intl.NumberFormat("id-ID", {
   style: "currency",
   currency: "IDR",
-  maximumFractionDigits: 0,
+  maximumFractionDigits: 2,
 });
 
 // Today as YYYY-MM-DD in local time, matching the <input type=date> format so
@@ -129,7 +131,7 @@ export function RecurringForm({
   const [name, setName] = useState(initialValues?.name ?? "");
   const [transactionType, setTransactionType] = useState<string>(initialType);
   const [amountInput, setAmountInput] = useState(
-    initialValues ? String(initialValues.amount) : "",
+    initialValues ? transactionAmountInputFromValue(initialValues.amount) : "",
   );
   const [accountId, setAccountId] = useState(
     initialValues?.account_id ?? accounts[0]?.id ?? "",
@@ -252,8 +254,8 @@ export function RecurringForm({
     }
 
     const amount = parseIdrInput(amountInput);
-    if (amount === null || amount <= 0) {
-      errors.amount = "Nominal harus berupa angka lebih dari nol.";
+    if (!isValidTransactionIdrAmount(amount)) {
+      errors.amount = "Nominal harus positif, maksimal Rp1 triliun dan 2 angka desimal.";
     }
 
     if (!accountId) {
@@ -409,10 +411,17 @@ export function RecurringForm({
         <Input
           id={amountId}
           value={amountInput}
-          onChange={(e) => setAmountInput(e.target.value)}
-          inputMode="numeric"
+          onChange={(e) => {
+            const raw = normalizeIdrDecimalKey(e.target.value, amountInput);
+            if (/^[0-9.,]*$/.test(raw) &&
+                (raw.match(/,/g) ?? []).length <= 1 &&
+                !(raw.includes(",") && raw.split(",")[1].replace(/\D/g, "").length > 2)) {
+              setAmountInput(formatTransactionAmountInput(raw, amountInput));
+            }
+          }}
+          inputMode="decimal"
           className="h-11 tabular-nums"
-          placeholder="0"
+          placeholder="0 atau 0,41"
           aria-invalid={fieldErrors.amount ? true : undefined}
           aria-describedby={fieldErrors.amount ? amountErrId : undefined}
         />

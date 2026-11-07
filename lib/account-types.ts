@@ -9,7 +9,7 @@
 // send "e_wallet" (rejected by the database), so that spelling is accepted as
 // an alias on input and stored as "ewallet".
 //
-// No imports on purpose, so this can be unit-tested in plain Node.
+import { isValidIdrAmount } from "./idr-money.ts";
 
 export const ACCOUNT_TYPE_VALUES = [
   "cash",
@@ -66,11 +66,7 @@ export function validateAccountInput(input: AccountInputFields): {
     fieldErrors.account_type = "Pilih jenis rekening yang tersedia.";
   }
 
-  if (
-    typeof input.initial_balance !== "number" ||
-    !Number.isFinite(input.initial_balance) ||
-    input.initial_balance < 0
-  ) {
+  if (!isValidIdrAmount(input.initial_balance, true)) {
     fieldErrors.initial_balance = "Saldo awal harus berupa angka yang valid.";
   }
 

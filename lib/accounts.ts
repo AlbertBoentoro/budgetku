@@ -1,4 +1,5 @@
 import { computeTransactionEffects } from "@/lib/account-balance-math";
+import { isValidIdrAmount } from "@/lib/idr-money";
 export { sumRunningAccountBalances } from "@/lib/account-balance-math";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import {
@@ -153,13 +154,10 @@ export function formatAccountTypeLabel(value: string): string {
 // it is not a valid amount. The parsed number is stored unscaled.
 export function parseIdrInput(raw: string): number | null {
   if (typeof raw !== "string") return null;
-  const cleaned = raw
-    .replace(/rp/gi, "")
-    .replace(/\s/g, "")
-    .replace(/\./g, "")
-    .replace(/,/g, ".");
-  if (cleaned === "") return null;
-  const n = Number(cleaned);
-  if (!Number.isFinite(n) || n < 0) return null;
-  return n;
+  const cleaned = raw.replace(/^\s*Rp\s*/i, "").trim();
+  // Accept unformatted digits from simple forms, or grouping in thousands.
+  // A dot is never a decimal separator; comma is the only sen separator.
+  if (!/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(cleaned)) return null;
+  const n = Number(cleaned.replace(/\./g, "").replace(",", "."));
+  return isValidIdrAmount(n, true) ? n : null;
 }

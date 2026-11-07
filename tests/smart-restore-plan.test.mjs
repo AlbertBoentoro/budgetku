@@ -78,3 +78,20 @@ describe("Smart Restore selection safety", () => {
       [{accountId:f.accountId,name:"BCA",delta:-35000},{accountId:target,name:"Cash",delta:35000}]);
   });
 });
+
+describe("Two-decimal IDR recovery compatibility", () => {
+  it("offers a missing manual expense of Rp 0,41 and preserves cents impact", () => {
+    const f = fixture();
+    f.old.amount = 0.41;
+    const plan = createSmartRestorePlan(f);
+    assert.equal(plan.eligibleCount, 1);
+    assert.equal(plan.candidates[0].amount, 0.41);
+    assert.deepEqual(selectedRestoreImpact(plan.candidates, [f.old.id]).accountChanges,
+      [{accountId: f.accountId, name: "BCA", delta: -0.41}]);
+  });
+  it("rejects more than two sen digits", () => {
+    const f = fixture();
+    f.old.amount = 0.415;
+    assert.equal(createSmartRestorePlan(f).eligibleCount, 0);
+  });
+});

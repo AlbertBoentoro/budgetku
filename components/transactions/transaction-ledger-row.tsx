@@ -8,6 +8,7 @@ import { AmountText } from "@/components/finance/amount-text";
 import { Icon } from "@/components/ui/icon";
 import { RowActionsMenu } from "@/components/transactions/row-actions-menu";
 import { getTransactionDisplayLabel } from "@/lib/transactions/display-label";
+import { transactionTypeIconClass } from "@/lib/transaction-type-tone";
 
 // Transaction type -> Material Symbol glyph (same mapping as the dashboard
 // recent row): income inbound, expense outbound, transfer a swap. The type
@@ -75,7 +76,7 @@ export function TransactionLedgerRow({
         href={`/transactions/${transaction.id}/edit`}
         className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+        <span className={`flex size-10 shrink-0 items-center justify-center rounded-full ${transactionTypeIconClass(transaction.transaction_type)}`}>
           <Icon name={transactionTypeGlyph(transaction.transaction_type)} size={20} />
         </span>
         <span className="flex min-w-0 flex-1 flex-col">

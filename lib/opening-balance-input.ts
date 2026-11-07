@@ -1,8 +1,7 @@
-// Opening-balance ("Saldo awal") input: the field itself shows Rupiah, e.g.
-// typing 123133 displays "Rp 123.133". Whole rupiah only, like the
-// transaction amount input; the stored number is never rescaled.
+// Opening-balance ("Saldo awal") input with Indonesian grouping and sen,
+// e.g. "Rp 261.157,41". Values are stored as real IDR, never rescaled.
 //
-// No imports on purpose, so this can be unit-tested in plain Node.
+import { isValidIdrAmount, normalizeIdrDecimalKey } from "./idr-money.ts";
 
 const PREFIX = "Rp ";
 
@@ -16,7 +15,14 @@ function formatDigits(digits: string): string {
 // Formats whatever the user typed: keeps the digits, drops leading zeros,
 // groups thousands with ".", and adds the "Rp " prefix. No digits -> "".
 export function formatOpeningBalanceInput(raw: string): string {
-  return formatDigits(onlyDigits(raw).replace(/^0+(?=\d)/, ""));
+  // Conventional pasted "Rp 1.000,-" means whole Rupiah, not pending sen.
+  const cleaned = normalizeIdrDecimalKey(raw).replace(/,\s*-\s*$/, "").replace(/[^0-9,]/g, "");
+  const comma = cleaned.indexOf(",");
+  const integer = (comma < 0 ? cleaned : cleaned.slice(0, comma))
+    .replace(/^0+(?=\d)/, "");
+  const fraction = comma < 0 ? null : cleaned.slice(comma + 1).replace(/,/g, "").slice(0, 2);
+  if (!integer && fraction === null) return "";
+  return formatDigits(integer || "0") + (fraction === null ? "" : "," + fraction);
 }
 
 // Caret position in `formatted` just after its `digitCount`-th digit. With no
@@ -59,8 +65,17 @@ export function applyOpeningBalanceEdit(
   inputType?: string,
 ): OpeningBalanceEdit {
   const at = Math.max(0, Math.min(caret, raw.length));
-  let digits = onlyDigits(raw);
-  let before = onlyDigits(raw.slice(0, at)).length;
+  const edited = normalizeIdrDecimalKey(raw, previous).replace(/,\s*-\s*$/, "");
+  const commaAt = edited.indexOf(",");
+  // Never silently truncate existing digits when a comma is inserted inside
+  // an integer with more than two digits to its right.
+  if (commaAt >= 0 && onlyDigits(edited.slice(commaAt + 1)).length > 2) {
+    return { value: previous, caret: Math.max(0, at - 1) };
+  }
+  let digits = onlyDigits(edited);
+  let before = onlyDigits(edited.slice(0, at)).length;
+  const hasComma = commaAt >= 0;
+  let integerLength = hasComma ? onlyDigits(edited.slice(0, commaAt)).length : digits.length;
 
   // Exactly one "." was removed at the caret (Backspace and Delete both leave
   // the caret at the removed character's index). Removing a character of the
@@ -71,6 +86,7 @@ export function applyOpeningBalanceEdit(
     digits === onlyDigits(previous);
   if (removedOnlyFormatting && inputType === "deleteContentBackward" && before > 0) {
     digits = digits.slice(0, before - 1) + digits.slice(before);
+    if (before <= integerLength) integerLength -= 1;
     before -= 1;
   } else if (
     removedOnlyFormatting &&
@@ -78,35 +94,44 @@ export function applyOpeningBalanceEdit(
     before < digits.length
   ) {
     digits = digits.slice(0, before) + digits.slice(before + 1);
+    if (before < integerLength) integerLength -= 1;
   }
 
   // Leading zeros are dropped; those left of the caret no longer count.
   const leadingZeros = digits.length - digits.replace(/^0+(?=\d)/, "").length;
   digits = digits.slice(leadingZeros);
   before = Math.max(0, before - leadingZeros);
+  integerLength = Math.max(0, integerLength - leadingZeros);
 
-  const value = formatDigits(digits);
-  return { value, caret: caretAfterDigits(value, before) };
+  const value = hasComma
+    ? formatDigits(digits.slice(0, integerLength) || "0") + "," +
+      digits.slice(integerLength).slice(0, 2)
+    : formatDigits(digits);
+  // When a comma is newly typed, keep the caret *after* the comma. Mapping
+  // by digit count alone would put it back before the comma.
+  const commaImmediatelyBeforeCaret = hasComma && edited.slice(0, at).endsWith(",");
+  return {
+    value,
+    caret: commaImmediatelyBeforeCaret
+      ? value.indexOf(",") + 1
+      : caretAfterDigits(value, before + (hasComma && integerLength === 0 ? 1 : 0)),
+  };
 }
 
-// The initial text for an existing balance. A legacy non-integer value is
-// shown unchanged (not rounded), so parsing fails and the user must retype it
-// instead of the value being changed silently.
+// Existing decimal balances must round-trip without truncating sen.
 export function openingBalanceInputFromValue(value: number): string {
-  if (Number.isSafeInteger(value) && value >= 0) {
-    return formatOpeningBalanceInput(String(value));
+  if (isValidIdrAmount(value, true)) {
+    return formatOpeningBalanceInput(String(value).replace(".", ","));
   }
   return String(value);
 }
 
-// Parses the displayed text back to a number. An empty field means 0, as
-// before. Returns null for anything that is not the format above or not a
-// safe integer.
+// Opening balance may be zero; at most two digits of sen.
 export function parseOpeningBalanceInput(display: string): number | null {
   const text = display.trim();
   if (text === "") return 0;
   const body = text.startsWith("Rp") ? text.slice(2).trim() : text;
-  if (!/^(?:0|[1-9]\d{0,2}(?:\.\d{3})*)$/.test(body)) return null;
-  const value = Number(body.replace(/\./g, ""));
-  return Number.isSafeInteger(value) ? value : null;
+  if (!/^(?:0|[1-9]\d{0,2}(?:\.\d{3})*)(?:,\d{1,2})?$/.test(body)) return null;
+  const value = Number(body.replace(/\./g, "").replace(",", "."));
+  return isValidIdrAmount(value, true) ? value : null;
 }

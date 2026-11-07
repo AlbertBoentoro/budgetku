@@ -198,17 +198,18 @@ test("submission sends the exact numeric value", () => {
 });
 
 test("invalid or unsafe text is rejected instead of guessed", () => {
-  for (const text of ["Rp 12,5", "Rp 1.23", "-100", "Rp -1", "abc", "Rp 9.007.199.254.740.992"]) {
+  for (const text of ["Rp 12,345", "Rp 1.23", "-100", "Rp -1", "abc", "Rp 9.007.199.254.740.992"]) {
     assert.equal(parseOpeningBalanceInput(text), null, text);
   }
 });
 
-test("an existing balance opens formatted; a legacy decimal is not rounded", () => {
+test("an existing balance opens formatted and preserves decimal sen", () => {
   assert.equal(openingBalanceInputFromValue(250000), "Rp 250.000");
   assert.equal(openingBalanceInputFromValue(0), "Rp 0");
-  const legacy = openingBalanceInputFromValue(12.5);
-  assert.equal(legacy, "12.5");
-  assert.equal(parseOpeningBalanceInput(legacy), null, "the user must retype it");
+  assert.equal(openingBalanceInputFromValue(12.5), "Rp 12,5");
+  assert.equal(openingBalanceInputFromValue(261157.41), "Rp 261.157,41");
+  assert.equal(parseOpeningBalanceInput("Rp 261.157,41"), 261157.41);
+  assert.equal(parseOpeningBalanceInput("Rp 0,41"), 0.41);
 });
 
 test("the form uses the formatter, parses on submit, and has no separate preview", () => {
