@@ -63,6 +63,9 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
 
   function handleBalanceChange(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.currentTarget;
+    // Do not silently cut extra sen digits from a paste or mobile edit.
+    if ((input.value.match(/,/g) ?? []).length > 1 ||
+        /,\d{3,}/.test(input.value)) return;
     const edit = applyOpeningBalanceEdit(
       balanceInput,
       input.value,
@@ -192,10 +195,10 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
           ref={balanceRef}
           value={balanceInput}
           onChange={handleBalanceChange}
-          inputMode="numeric"
+          inputMode="decimal"
           autoComplete="off"
           className="h-11 tabular-nums"
-          placeholder="Rp 0"
+          placeholder="Rp 0 atau Rp 0,41"
           aria-invalid={fieldErrors.initial_balance ? true : undefined}
           aria-describedby={
             fieldErrors.initial_balance ? balanceErrId : undefined
