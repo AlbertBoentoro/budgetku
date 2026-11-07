@@ -10,6 +10,20 @@ export function isValidIdrAmount(value: unknown, allowZero = false): value is nu
     Math.abs(cents - Math.round(cents)) < 0.000001;
 }
 
+// Keyboards in different locales may insert a dot. Interpret it as the
+// decimal key only when it is a newly appended dot or an unambiguously
+// non-thousands "1234.56" / "0.41" paste. A dot followed by three
+// digits stays an Indonesian thousands separator.
+export function normalizeIdrDecimalKey(raw: string, previous = ""): string {
+  if (raw === previous + "." && !previous.includes(",")) {
+    return (previous || "0") + ",";
+  }
+  if (/^(?:Rp\s*)?\d+\.\d{1,2}$/i.test(raw)) {
+    return raw.replace(/\.(\d{1,2})$/, ",$1");
+  }
+  return raw;
+}
+
 export function addIdrAmounts(a: number, b: number): number {
   return Math.round((a + b) * 100) / 100;
 }
