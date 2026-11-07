@@ -1,7 +1,7 @@
 // Opening-balance ("Saldo awal") input with Indonesian grouping and sen,
 // e.g. "Rp 261.157,41". Values are stored as real IDR, never rescaled.
 //
-import { isValidIdrAmount } from "./idr-money.ts";
+import { isValidIdrAmount, normalizeIdrDecimalKey } from "./idr-money.ts";
 
 const PREFIX = "Rp ";
 
@@ -16,7 +16,7 @@ function formatDigits(digits: string): string {
 // groups thousands with ".", and adds the "Rp " prefix. No digits -> "".
 export function formatOpeningBalanceInput(raw: string): string {
   // Conventional pasted "Rp 1.000,-" means whole Rupiah, not pending sen.
-  const cleaned = raw.replace(/,\s*-\s*$/, "").replace(/[^0-9,]/g, "");
+  const cleaned = normalizeIdrDecimalKey(raw).replace(/,\s*-\s*$/, "").replace(/[^0-9,]/g, "");
   const comma = cleaned.indexOf(",");
   const integer = (comma < 0 ? cleaned : cleaned.slice(0, comma))
     .replace(/^0+(?=\d)/, "");
@@ -65,7 +65,7 @@ export function applyOpeningBalanceEdit(
   inputType?: string,
 ): OpeningBalanceEdit {
   const at = Math.max(0, Math.min(caret, raw.length));
-  const edited = raw.replace(/,\s*-\s*$/, "");
+  const edited = normalizeIdrDecimalKey(raw, previous).replace(/,\s*-\s*$/, "");
   const commaAt = edited.indexOf(",");
   // Never silently truncate existing digits when a comma is inserted inside
   // an integer with more than two digits to its right.
@@ -109,7 +109,7 @@ export function applyOpeningBalanceEdit(
     : formatDigits(digits);
   // When a comma is newly typed, keep the caret *after* the comma. Mapping
   // by digit count alone would put it back before the comma.
-  const commaImmediatelyBeforeCaret = hasComma && raw.slice(0, at).endsWith(",");
+  const commaImmediatelyBeforeCaret = hasComma && edited.slice(0, at).endsWith(",");
   return {
     value,
     caret: commaImmediatelyBeforeCaret
