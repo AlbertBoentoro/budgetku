@@ -10,13 +10,15 @@ AS $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$
 CREATE TABLE public.accounts (
   id uuid PRIMARY KEY,
   user_id uuid NOT NULL,
-  is_archived boolean NOT NULL DEFAULT false
+  is_archived boolean NOT NULL DEFAULT false,
+  currency text NOT NULL DEFAULT 'IDR'
 );
 CREATE TABLE public.categories (
   id uuid PRIMARY KEY,
   user_id uuid,
   category_type text NOT NULL,
-  is_archived boolean NOT NULL DEFAULT false
+  is_archived boolean NOT NULL DEFAULT false,
+  is_system boolean NOT NULL DEFAULT false
 );
 CREATE TABLE public.recurring_transactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -53,6 +55,8 @@ CREATE TABLE public.transactions (
   merchant text,
   source text NOT NULL DEFAULT 'manual',
   source_reference text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT transactions_source_check
     CHECK (source IN ('manual','email','receipt','screenshot','statement','import','ai'))
 );
