@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   formatTransactionAmountInput,
   parseTransactionAmountInput,
+  transactionAmountInputFromValue,
 } from "../lib/transaction-amount-input.ts";
+import { addIdrAmounts, formatIdrCurrency, isValidIdrAmount } from "../lib/idr-money.ts";
 
 test("integer IDR input groups four digits and keeps Rp separate", () => {
   assert.equal(formatTransactionAmountInput("1234"), "1.234");
@@ -20,7 +22,7 @@ test("formatted IDR is parsed without changing stored amount", () => {
   assert.equal(parseTransactionAmountInput("0"), 0);
   assert.equal(parseTransactionAmountInput(""), null);
   assert.equal(parseTransactionAmountInput("1.23"), null);
-  assert.equal(parseTransactionAmountInput("12,50"), null);
+  assert.equal(parseTransactionAmountInput("12,50"), 12.5);
   assert.equal(parseTransactionAmountInput("abc"), null);
   assert.equal(parseTransactionAmountInput("Rp 1.250"), null);
   assert.equal(parseTransactionAmountInput("-100"), null);
