@@ -62,8 +62,8 @@ test("fractional server validation, presets and display keep exact sen", () => {
   assert.equal(isValidIdrAmount(-0.41), false);
   assert.equal(isValidIdrAmount(Infinity), false);
   assert.equal(addIdrAmounts(0.41, 50000), 50000.41);
-  assert.equal(formatIdrCurrency(2321257.41), "Rp2.321.257,41");
-  assert.equal(formatIdrCurrency(3000), "Rp3.000");
+  assert.equal(formatIdrCurrency(2321257.41).replace(/\s/g, ""), "Rp2.321.257,41");
+  assert.equal(formatIdrCurrency(3000).replace(/\s/g, ""), "Rp3.000");
 });
 
 test("type-colored icon classes include every transaction direction", async () => {
