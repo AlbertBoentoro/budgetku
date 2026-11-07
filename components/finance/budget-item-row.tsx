@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import Link from "next/link";
 
 import type { BudgetItemView } from "@/lib/budgets";
+import { getBudgetLimitStatus } from "@/lib/budget-limit-status";
 import {
   deleteBudgetItem,
   type ActionResult,
@@ -25,16 +26,22 @@ interface BudgetItemRowProps {
   onError: (message: string) => void;
 }
 
-// Near-budget threshold: flag "Mendekati batas" once real usage reaches 90% of
-// the plan and is not yet over. Presentation constant, not money logic.
-const NEAR_BUDGET_RATIO = 0.9;
-
 export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps) {
   const [isPending, startTransition] = useTransition();
   const { usage } = item;
   const label = item.categoryName ?? "Kategori";
   const pct = Math.round(usage.barPercent);
-  const isNear = !usage.isOverBudget && usage.ratio >= NEAR_BUDGET_RATIO;
+  const budgetStatus = getBudgetLimitStatus(usage.planned, usage.spent);
+  // Four distinct, static Tailwind colors. Keep classes in this component so
+  // Tailwind's component scan generates them for both light and dark mode.
+  const barColor =
+    budgetStatus === "over"
+      ? "bg-expense"
+      : budgetStatus === "at_limit"
+        ? "bg-orange-500"
+        : budgetStatus === "near"
+          ? "bg-amber-500"
+          : "bg-income";
 
   function handleDelete() {
     const confirmed = window.confirm(
@@ -150,25 +157,33 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
         aria-label={`${label} ${pct} persen terpakai`}
       >
         <div
-          className={`h-full rounded-full ${usage.isOverBudget ? "bg-expense" : "bg-primary"}`}
+          className={`h-full rounded-full ${barColor}`}
           style={{ width: `${usage.barPercent}%` }}
         />
       </div>
 
       <div className="flex items-center justify-between gap-2 text-body-sm">
         <span className="text-on-surface-variant">{pct}% terpakai</span>
-        {usage.isOverBudget ? (
+        {budgetStatus === "over" ? (
           <span className="flex items-center gap-1 text-expense">
             <Icon name="error" size={16} />
             Melebihi batas
           </span>
-        ) : isNear ? (
-          <span className="flex items-center gap-1 text-on-surface-variant">
+        ) : budgetStatus === "at_limit" ? (
+          <span className="flex items-center gap-1 font-semibold text-orange-700 dark:text-orange-400">
+            <Icon name="warning" size={16} />
+            Di batas
+          </span>
+        ) : budgetStatus === "near" ? (
+          <span className="flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
             <Icon name="warning" size={16} />
             Mendekati batas
           </span>
         ) : (
-          <span className="text-on-surface-variant">Normal</span>
+          <span className="flex items-center gap-1 font-semibold text-income">
+            <Icon name="check_circle" size={16} />
+            Normal
+          </span>
         )}
       </div>
     </li>
