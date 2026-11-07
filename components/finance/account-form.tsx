@@ -65,7 +65,8 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
     const input = e.currentTarget;
     // Do not silently cut extra sen digits from a paste or mobile edit.
     if ((input.value.match(/,/g) ?? []).length > 1 ||
-        /,\d{3,}/.test(input.value)) return;
+        (input.value.includes(",") &&
+          input.value.split(",").slice(1).join("").replace(/\D/g, "").length > 2)) return;
     const edit = applyOpeningBalanceEdit(
       balanceInput,
       input.value,
