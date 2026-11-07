@@ -19,7 +19,7 @@ import {
   parseTransactionAmountInput,
   transactionAmountInputFromValue,
 } from "@/lib/transaction-amount-input";
-import { addIdrAmounts, isValidIdrAmount } from "@/lib/idr-money";
+import { addIdrAmounts, isValidIdrAmount, normalizeIdrDecimalKey } from "@/lib/idr-money";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -222,6 +222,7 @@ export function TransactionForm({
 
   function handleAmountChange(raw: string) {
     // Indonesian separators: dot for thousands, comma for at most two sen.
+    raw = normalizeIdrDecimalKey(raw, amountInput);
     if (!/^[0-9.,]*$/.test(raw) ||
         (raw.match(/,/g) ?? []).length > 1 ||
         (raw.includes(",") && raw.split(",")[1].replace(/\D/g, "").length > 2)) return;
