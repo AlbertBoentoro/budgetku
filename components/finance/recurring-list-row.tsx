@@ -16,6 +16,7 @@ import {
   type ActionResult,
 } from "@/app/(app)/recurring/actions";
 import { cn } from "@/lib/utils";
+import { transactionTypeIconClass } from "@/lib/transaction-type-tone";
 import { AmountText } from "@/components/finance/amount-text";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -95,7 +96,7 @@ export function RecurringListRow({ template, onError }: RecurringListRowProps) {
     >
       <div className="flex items-start gap-3">
         <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant"
+          className={`flex size-10 shrink-0 items-center justify-center rounded-full ${transactionTypeIconClass(template.transaction_type)}`}
           aria-hidden
         >
           <Icon name={transactionTypeGlyph(template.transaction_type)} size={20} />
