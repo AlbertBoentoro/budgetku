@@ -416,7 +416,7 @@ export function RecurringForm({
             if (/^[0-9.,]*$/.test(raw) &&
                 (raw.match(/,/g) ?? []).length <= 1 &&
                 !(raw.includes(",") && raw.split(",")[1].replace(/\D/g, "").length > 2)) {
-              setAmountInput(formatTransactionAmountInput(raw));
+              setAmountInput(formatTransactionAmountInput(raw, amountInput));
             }
           }}
           inputMode="decimal"
