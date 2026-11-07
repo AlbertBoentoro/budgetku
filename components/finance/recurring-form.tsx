@@ -411,10 +411,17 @@ export function RecurringForm({
         <Input
           id={amountId}
           value={amountInput}
-          onChange={(e) => setAmountInput(e.target.value)}
-          inputMode="numeric"
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (/^[0-9.,]*$/.test(raw) &&
+                (raw.match(/,/g) ?? []).length <= 1 &&
+                !/,\d{3,}/.test(raw)) {
+              setAmountInput(formatTransactionAmountInput(raw));
+            }
+          }}
+          inputMode="decimal"
           className="h-11 tabular-nums"
-          placeholder="0"
+          placeholder="0 atau 0,41"
           aria-invalid={fieldErrors.amount ? true : undefined}
           aria-describedby={fieldErrors.amount ? amountErrId : undefined}
         />
