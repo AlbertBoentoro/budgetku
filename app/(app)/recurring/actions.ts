@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { isValidIdrAmount } from "@/lib/idr-money";
 import {
   isFrequency,
   isTransactionType,
@@ -51,12 +52,8 @@ function validate(input: RecurringFormInput): Record<string, string> {
     fieldErrors.name = "Nama transaksi berulang wajib diisi.";
   }
 
-  if (
-    typeof input.amount !== "number" ||
-    !Number.isFinite(input.amount) ||
-    input.amount <= 0
-  ) {
-    fieldErrors.amount = "Nominal harus berupa angka lebih dari nol.";
+  if (!isValidIdrAmount(input.amount)) {
+    fieldErrors.amount = "Nominal harus positif dengan maksimal 2 angka desimal.";
   }
 
   if (!input.account_id || input.account_id.trim().length === 0) {
