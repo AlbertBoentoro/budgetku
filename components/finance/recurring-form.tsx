@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { transactionAmountInputFromValue, formatTransactionAmountInput } from "@/lib/transaction-amount-input";
-import { isValidIdrAmount } from "@/lib/idr-money";
+import { isValidIdrAmount, normalizeIdrDecimalKey } from "@/lib/idr-money";
 import {
   FREQUENCIES,
   TRANSACTION_TYPES,
@@ -412,7 +412,7 @@ export function RecurringForm({
           id={amountId}
           value={amountInput}
           onChange={(e) => {
-            const raw = e.target.value;
+            const raw = normalizeIdrDecimalKey(e.target.value, amountInput);
             if (/^[0-9.,]*$/.test(raw) &&
                 (raw.match(/,/g) ?? []).length <= 1 &&
                 !(raw.includes(",") && raw.split(",")[1].replace(/\D/g, "").length > 2)) {
