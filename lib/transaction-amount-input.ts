@@ -1,9 +1,9 @@
-import { isValidIdrAmount } from "./idr-money.ts";
+import { isValidIdrAmount, normalizeIdrDecimalKey } from "./idr-money.ts";
 
 // Editable Indonesian amount: dot separates thousands, comma separates sen.
 // Keep an unfinished trailing comma so users can type "0," then "0,41".
 export function formatTransactionAmountInput(raw: string): string {
-  const cleaned = raw.replace(/[^0-9,]/g, "");
+  const cleaned = normalizeIdrDecimalKey(raw).replace(/[^0-9,]/g, "");
   const comma = cleaned.indexOf(",");
   const integer = (comma < 0 ? cleaned : cleaned.slice(0, comma))
     .replace(/^0+(?=\d)/, "");
