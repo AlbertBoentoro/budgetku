@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
+import { transactionAmountInputFromValue, formatTransactionAmountInput } from "@/lib/transaction-amount-input";
+import { isValidIdrAmount } from "@/lib/idr-money";
 import {
   FREQUENCIES,
   TRANSACTION_TYPES,
@@ -74,7 +76,7 @@ const selectClassName =
 const idrPreview = new Intl.NumberFormat("id-ID", {
   style: "currency",
   currency: "IDR",
-  maximumFractionDigits: 0,
+  maximumFractionDigits: 2,
 });
 
 // Today as YYYY-MM-DD in local time, matching the <input type=date> format so
@@ -129,7 +131,7 @@ export function RecurringForm({
   const [name, setName] = useState(initialValues?.name ?? "");
   const [transactionType, setTransactionType] = useState<string>(initialType);
   const [amountInput, setAmountInput] = useState(
-    initialValues ? String(initialValues.amount) : "",
+    initialValues ? transactionAmountInputFromValue(initialValues.amount) : "",
   );
   const [accountId, setAccountId] = useState(
     initialValues?.account_id ?? accounts[0]?.id ?? "",
@@ -252,8 +254,8 @@ export function RecurringForm({
     }
 
     const amount = parseIdrInput(amountInput);
-    if (amount === null || amount <= 0) {
-      errors.amount = "Nominal harus berupa angka lebih dari nol.";
+    if (!isValidIdrAmount(amount)) {
+      errors.amount = "Nominal harus positif dengan maksimal 2 angka desimal.";
     }
 
     if (!accountId) {
