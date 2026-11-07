@@ -415,7 +415,7 @@ export function RecurringForm({
             const raw = e.target.value;
             if (/^[0-9.,]*$/.test(raw) &&
                 (raw.match(/,/g) ?? []).length <= 1 &&
-                !/,\d{3,}/.test(raw)) {
+                !(raw.includes(",") && raw.split(",")[1].replace(/\D/g, "").length > 2)) {
               setAmountInput(formatTransactionAmountInput(raw));
             }
           }}
