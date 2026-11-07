@@ -32,6 +32,16 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
   const label = item.categoryName ?? "Kategori";
   const pct = Math.round(usage.barPercent);
   const budgetStatus = getBudgetLimitStatus(usage.planned, usage.spent);
+  // Four distinct, static Tailwind colors. Keep classes in this component so
+  // Tailwind's component scan generates them for both light and dark mode.
+  const barColor =
+    budgetStatus === "over"
+      ? "bg-expense"
+      : budgetStatus === "at_limit"
+        ? "bg-orange-500"
+        : budgetStatus === "near"
+          ? "bg-amber-500"
+          : "bg-income";
 
   function handleDelete() {
     const confirmed = window.confirm(
@@ -147,7 +157,7 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
         aria-label={`${label} ${pct} persen terpakai`}
       >
         <div
-          className={`h-full rounded-full ${usage.isOverBudget ? "bg-expense" : "bg-primary"}`}
+          className={`h-full rounded-full ${barColor}`}
           style={{ width: `${usage.barPercent}%` }}
         />
       </div>
@@ -160,17 +170,20 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
             Melebihi batas
           </span>
         ) : budgetStatus === "at_limit" ? (
-          <span className="flex items-center gap-1 text-on-surface-variant">
+          <span className="flex items-center gap-1 font-semibold text-orange-700 dark:text-orange-400">
             <Icon name="warning" size={16} />
             Di batas
           </span>
         ) : budgetStatus === "near" ? (
-          <span className="flex items-center gap-1 text-on-surface-variant">
+          <span className="flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
             <Icon name="warning" size={16} />
             Mendekati batas
           </span>
         ) : (
-          <span className="text-on-surface-variant">Normal</span>
+          <span className="flex items-center gap-1 font-semibold text-income">
+            <Icon name="check_circle" size={16} />
+            Normal
+          </span>
         )}
       </div>
     </li>
