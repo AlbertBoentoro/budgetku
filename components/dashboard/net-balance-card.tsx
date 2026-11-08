@@ -42,13 +42,14 @@ export function NetBalanceCard({
   }).format(balance).length;
   // Keep the full rupiah-and-sen balance readable without overwhelming a
   // narrow screen. 11vw made 14-character balances huge on mobile.
-  // Long values step down further; ellipsis is the final safety net.
+  // Increased ~2pt from the previous release. Long values still step down;
+  // ellipsis is the final safety net.
   const balanceSize =
     balanceLength > 18
-      ? "text-[clamp(1.125rem,4.4vw,1.625rem)]"
+      ? "text-[clamp(1.25rem,5vw,1.75rem)]"
       : balanceLength > 14
-        ? "text-[clamp(1.25rem,5.4vw,1.875rem)]"
-        : "text-[clamp(1.375rem,6.5vw,2rem)]";
+        ? "text-[clamp(1.375rem,6.1vw,2rem)]"
+        : "text-[clamp(1.5rem,7.2vw,2.125rem)]";
 
   // Default visible so the first client render matches the server output; the
   // stored preference is applied after mount to avoid a hydration mismatch.

@@ -7,7 +7,7 @@ const card = readFileSync(
   "utf8",
 );
 
-test("net balance mobile typography caps at 32px and steps down for long IDR amounts", () => {
+test("net balance mobile typography caps at 34px and steps down for long IDR amounts", () => {
   // Current production example should fit a narrow phone without 11vw text.
   const amount = new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -18,9 +18,9 @@ test("net balance mobile typography caps at 32px and steps down for long IDR amo
   assert.ok(amount.length <= 18);
   assert.match(card, /balanceLength > 18/);
   assert.match(card, /balanceLength > 14/);
-  assert.match(card, /text-\[clamp\(1\.375rem,6\.5vw,2rem\)\]/);
-  assert.match(card, /text-\[clamp\(1\.25rem,5\.4vw,1\.875rem\)\]/);
-  assert.match(card, /text-\[clamp\(1\.125rem,4\.4vw,1\.625rem\)\]/);
+  assert.match(card, /text-\[clamp\(1\.5rem,7\.2vw,2\.125rem\)\]/);
+  assert.match(card, /text-\[clamp\(1\.375rem,6\.1vw,2rem\)\]/);
+  assert.match(card, /text-\[clamp\(1\.25rem,5vw,1\.75rem\)\]/);
   assert.doesNotMatch(card, /text-\[clamp\(1rem,11vw,2\.75rem\)\]/);
 });
 
