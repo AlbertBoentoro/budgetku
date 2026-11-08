@@ -40,10 +40,15 @@ export function NetBalanceCard({
     currency: "IDR",
     maximumFractionDigits: 2,
   }).format(balance).length;
+  // Keep the full rupiah-and-sen balance readable without overwhelming a
+  // narrow screen. 11vw made 14-character balances huge on mobile.
+  // Long values step down further; ellipsis is the final safety net.
   const balanceSize =
-    balanceLength > 14
-      ? "text-[clamp(0.5rem,4vw,2rem)]"
-      : "text-[clamp(1rem,11vw,2.75rem)]";
+    balanceLength > 18
+      ? "text-[clamp(1.125rem,4.4vw,1.625rem)]"
+      : balanceLength > 14
+        ? "text-[clamp(1.25rem,5.4vw,1.875rem)]"
+        : "text-[clamp(1.375rem,6.5vw,2rem)]";
 
   // Default visible so the first client render matches the server output; the
   // stored preference is applied after mount to avoid a hydration mismatch.
@@ -73,31 +78,31 @@ export function NetBalanceCard({
 
   return (
     <section className="relative flex flex-col gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-      <div className="flex min-h-4 items-center justify-between gap-2 pr-12">
-        <span className="text-label-xs uppercase tracking-wide text-on-surface-variant">
+      <div className="flex min-h-11 min-w-0 items-center gap-2">
+        <span className="min-w-0 flex-1 text-label-xs uppercase tracking-wide text-on-surface-variant">
           Total Saldo Bersih
         </span>
         {/* Static honest status label: the account is active. No metric. */}
-        <span className="inline-flex items-center gap-1 text-label-md text-on-surface-variant">
+        <span className="inline-flex shrink-0 items-center gap-1 text-label-md text-on-surface-variant">
           <span className="size-2 rounded-full bg-secondary" aria-hidden />
           Aktif
         </span>
+        {/* Put the eye in the header flow, not over the balance digits. */}
+        <button
+          type="button"
+          onClick={toggleHidden}
+          aria-pressed={hidden}
+          aria-label={hidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
+          className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Icon name={hidden ? "visibility_off" : "visibility"} size={22} />
+        </button>
       </div>
 
-      <button
-        type="button"
-        onClick={toggleHidden}
-        aria-pressed={hidden}
-        aria-label={hidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
-        className="absolute right-2 top-2 flex size-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Icon name={hidden ? "visibility_off" : "visibility"} size={22} />
-      </button>
-
-      <div className="-mt-1 flex min-h-12 items-center">
+      <div className="flex min-h-12 min-w-0 items-center">
         {hidden ? (
           <span
-            className={`max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.1] tabular-nums tracking-tight text-on-surface`}
+            className={`block min-w-0 max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.15] tabular-nums tracking-tight text-on-surface`}
           >
             {BALANCE_MASK}
           </span>
@@ -105,7 +110,7 @@ export function NetBalanceCard({
           <AmountText
             value={balance}
             size="none"
-            className={`max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.1] tracking-tight text-on-surface`}
+            className={`block min-w-0 max-w-full overflow-hidden text-ellipsis ${balanceSize} font-bold leading-[1.15] tracking-tight text-on-surface`}
           />
         )}
       </div>
