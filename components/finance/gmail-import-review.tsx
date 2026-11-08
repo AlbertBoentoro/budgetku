@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import {
+  formatTransactionAmountInput,
+  transactionAmountInputFromValue,
+} from "@/lib/transaction-amount-input";
+import {
   TRANSACTION_TYPES,
   parseIdrInput,
   type AccountRow,
@@ -95,7 +99,9 @@ export function GmailImportReview({
     candidate.direction ?? "expense",
   );
   const [amountInput, setAmountInput] = useState(
-    candidate.amount !== null ? String(candidate.amount) : "",
+    candidate.amount !== null
+      ? transactionAmountInputFromValue(candidate.amount)
+      : "",
   );
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [categoryId, setCategoryId] = useState("");
@@ -238,8 +244,18 @@ export function GmailImportReview({
         <Input
           id={amountId}
           value={amountInput}
-          onChange={(e) => setAmountInput(e.target.value)}
-          inputMode="numeric"
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (
+              /^[0-9.,]*$/.test(raw) &&
+              (raw.match(/,/g) ?? []).length <= 1 &&
+              (!raw.includes(",") ||
+                raw.split(",")[1].replace(/\D/g, "").length <= 2)
+            ) {
+              setAmountInput(formatTransactionAmountInput(raw, amountInput));
+            }
+          }}
+          inputMode="decimal"
           className="h-11 tabular-nums"
           placeholder="0"
           aria-invalid={fieldErrors.amount ? true : undefined}

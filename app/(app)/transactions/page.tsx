@@ -3,6 +3,11 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { readGmailPreview } from "@/lib/gmail/preview";
+import {
+  GmailPendingQueue,
+  type PendingGmailTransaction,
+} from "@/components/transactions/gmail-pending-queue";
 import {
   ALL_MONTHS_PARAM,
   buildTransactionListQuery,
@@ -142,6 +147,44 @@ async function TransactionsContent({
 
   const transactions = (data ?? []) as TransactionRow[];
 
+  // Surface only unapproved Gmail drafts above the current unfiltered ledger.
+  // The preview is read-only: pending email MUST NOT affect account totals or
+  // month summary until the existing importDraft action records it.
+  const showGmailQueue =
+    !hasOtherFilter &&
+    !accountRequested &&
+    (listMonth === null || listMonth === currentMonth);
+
+  const gmailPending = showGmailQueue
+    ? await supabase
+        .from("email_imports")
+        .select("id, subject, received_at, parsed_preview", { count: "exact" })
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .order("received_at", { ascending: false, nullsFirst: false })
+        .limit(3)
+    : null;
+
+  const pendingGmailRows: PendingGmailTransaction[] = (
+    gmailPending?.data ?? []
+  ).map((draft) => ({
+    id: draft.id,
+    subject: draft.subject,
+    receivedAt: draft.received_at,
+    preview: readGmailPreview(draft.parsed_preview),
+  }));
+
+  const gmailQueue = gmailPending?.error ? (
+    <p role="alert" className="text-body-sm text-on-surface-variant">
+      Draft Gmail belum bisa dimuat.{" "}
+      <Link href="/settings/gmail" className="underline">
+        Buka impor Gmail
+      </Link>
+    </p>
+  ) : gmailPending?.count ? (
+    <GmailPendingQueue drafts={pendingGmailRows} total={gmailPending.count} />
+  ) : null;
+
   // Nothing listed and no filter besides the month. A user without any
   // transaction gets the first-run state; a user with transactions in other
   // months gets the empty-month state below, next to the month picker.
@@ -155,6 +198,7 @@ async function TransactionsContent({
     return (
       <div className="flex flex-col gap-6">
         {accountNotFound ? <AccountNotFoundNotice /> : null}
+        {gmailQueue}
         <LedgerEmptyState
           glyph="receipt_long"
           title="Belum ada transaksi"
@@ -307,6 +351,8 @@ async function TransactionsContent({
         monthLabel={formatMonthLabel(summaryMonth)}
         incomplete={monthIncomplete}
       />
+
+      {gmailQueue}
 
       {rows.length === 0 && !hasOtherFilter && monthLabel ? (
         // Empty month: the user has transactions, just not in this month.
