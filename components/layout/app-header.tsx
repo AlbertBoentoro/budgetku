@@ -19,6 +19,12 @@ export function AppHeader({
     <header
       className={cn(
         "mx-auto flex w-full max-w-3xl items-start justify-between gap-4 px-4",
+        // Every detail/settings page supplies AppBackLink as titleAction.
+        // Keep the back button and title accessible as the document scrolls.
+        // Use the document scroller and safe-area inset, not a nested
+        // overflow container that would break sticky on iOS PWA.
+        titleAction &&
+          "sticky top-[env(safe-area-inset-top)] z-30 items-center border-b border-outline-variant bg-surface py-2",
         className,
       )}
     >
