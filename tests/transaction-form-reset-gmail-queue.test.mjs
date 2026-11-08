@@ -76,6 +76,9 @@ test("Gmail accept remains scoped, confirm-before-write, and rejected drafts can
   const review = file("components/finance/gmail-import-review.tsx");
   assert.match(review, /Pilih rekening/);
   assert.match(review, /categoryId/);
+  assert.match(review, /transactionAmountInputFromValue\(candidate\.amount\)/);
+  assert.match(review, /inputMode="decimal"/);
+  assert.match(review, /formatTransactionAmountInput\(raw, amountInput\)/);
   const reject = actions.slice(actions.indexOf("export async function ignoreImport"));
   assert.match(reject, /status: "skipped"/);
   assert.match(reject, /revalidatePath\("\/transactions"\)/);
