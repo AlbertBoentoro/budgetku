@@ -68,7 +68,9 @@ test("Gmail accept remains scoped, confirm-before-write, and rejected drafts can
   const accept = actions.slice(actions.indexOf("export async function importDraft"), actions.indexOf("export async function ignoreImport"));
   assert.match(accept, /\.eq\("user_id", user\.id\)/);
   assert.match(accept, /importRow\.status !== "pending"/);
-  assert.match(accept, /isValidTransactionIdrAmount\(input\.amount\)/);
+  // The shared validation helper runs before the accept handler's database write.
+  assert.match(actions, /isValidTransactionIdrAmount\(input\.amount\)/);
+  assert.match(accept, /const fieldErrors = validateDraft\(input\)/);
   assert.match(accept, /ownsActiveAccount/);
   assert.match(accept, /canUseCategory/);
   assert.match(accept, /source: "email"/);
