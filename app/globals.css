@@ -229,6 +229,11 @@
   * {
     @apply border-border;
   }
+  /* The protected app provides its own pull-to-refresh indicator. Prevent
+     the browser's native overscroll reload from firing a second refresh. */
+  html {
+    overscroll-behavior-y: contain;
+  }
   body {
     @apply bg-background text-foreground text-body-md;
   }
