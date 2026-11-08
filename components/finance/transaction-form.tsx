@@ -384,6 +384,30 @@ export function TransactionForm({
     };
   }
 
+  // Next's client-side route cache can reuse this mounted form when Catat is
+  // opened again. Reset ONLY after a confirmed create, never on a failed
+  // request or while editing an existing transaction.
+  function resetAfterSuccessfulCreate() {
+    setTransactionType("expense");
+    setAmountInput("0");
+    setAccountId(accounts[0]?.id ?? "");
+    setCategoryId("");
+    setDestinationAccountId("");
+    setTransactionAt(todayValue());
+    setDescription("");
+    setMerchant("");
+    setRecurring(false);
+    setFrequency("monthly");
+    setIndefinite(true);
+    setEndDate("");
+    recurringRequestId.current = null;
+    setShowCategoryCreator(false);
+    setNewCategoryName("");
+    setCategoryCreateError(null);
+    setFieldErrors({});
+    setFormError(null);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -395,6 +419,7 @@ export function TransactionForm({
     startTransition(async () => {
       const result = await action(input);
       if (result.ok) {
+        if (mode === "create") resetAfterSuccessfulCreate();
         // The ledger lists one month at a time, so open the month of the saved
         // transaction; the current month is the ledger's default view.
         const savedMonth = input.transaction_at.slice(0, 7);
