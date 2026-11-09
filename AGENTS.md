@@ -1,5 +1,9 @@
 # Budgetku agent guidance
 
+**Standing environment/login contract (user instruction 2026-11-09):**
+- Read `docs/testing-login-contract.md` before changing preview, staging, deployment, or auth. Testing uses **email + password**, never Google login. Production remains Google OAuth.
+- Do not tie staging login to Smart Restore feature flags. Do not route preview to production Supabase.
+
 For the active Financial Integrity Phase 0 task, automatically read `docs/phase0-handoff.md` before work. This contains the user's existing approval scope, current PR, test evidence and remaining blockers. Do not ask the user to repeat the task or reproduce chat history.
 
 All agents (orchestrator, planner, coder, reviewer, report writer) must follow `.kiro/steering/budgetku-workflow.md`. It defines the user's standing approval/scope rules, which actions are routine versus approval-gated, no-rework and single-run verification rules, tool-permission limits, workflow coordination, and reporting expectations. Read it before planning or editing.
