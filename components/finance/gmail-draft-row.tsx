@@ -154,7 +154,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
         {!isFailed ? (
           <Button asChild size="sm" className="h-11">
             <Link href={`/transactions/gmail/${encodeURIComponent(draft.id)}`}>
-              Tinjau
+              Terima
             </Link>
           </Button>
         ) : null}
