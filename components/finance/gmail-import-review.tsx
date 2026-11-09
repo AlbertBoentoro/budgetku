@@ -1,49 +1,17 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { cn } from "@/lib/utils";
+import { importDraft } from "@/app/(app)/settings/gmail/actions";
+import type { TransactionFormInput, ActionResult } from "@/app/(app)/transactions/actions";
 import {
-  TRANSACTION_TYPES,
-  parseIdrInput,
-  type AccountRow,
-  type CategoryRow,
-} from "@/lib/transactions";
-import {
-  importDraft,
-  type ActionResult,
-} from "@/app/(app)/settings/gmail/actions";
-import { AmountText } from "@/components/finance/amount-text";
-import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+  TransactionForm,
+  type TransactionFormInitialValues,
+} from "@/components/finance/transaction-form";
+import { isTransactionType, type AccountRow, type CategoryRow } from "@/lib/transactions";
 
-// Re-declared identically to the string in components/finance/transaction-form.tsx
-// (the source of truth for native-select styling), with Calm Ledger tokens
-// swapped for the Stitch surface palette. Kept local to avoid editing the
-// transaction form; if these ever diverge, update both (design §9).
-const selectClassName =
-  "flex h-11 w-full rounded-md border border-border bg-surface-container-lowest px-3 py-1 text-base text-on-surface shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
-
-// Gmail drafts are income/expense only (a transfer needs two owned accounts the
-// email cannot reliably identify). Transfer is filtered out here and rejected
-// server-side. TRANSACTION_TYPES stays the source of truth for the labels; the
-// glyphs come from a local Material Symbols map so this screen carries no lucide.
-const DRAFT_TYPES = TRANSACTION_TYPES.filter(
-  (t) => t.value === "income" || t.value === "expense",
-);
-
-// income reads as an inbound arrow, expense as outbound, mirroring the ledger
-// row's local glyph map (recent-transaction-row.tsx).
-const DRAFT_TYPE_GLYPH: Record<"income" | "expense", string> = {
-  income: "arrow_downward",
-  expense: "arrow_upward",
-};
-
-// The re-parsed, display-only candidate values for one opened draft. Any field
-// may be null (not detected); nothing here is fabricated or persisted.
+// Source metadata from a saved Gmail preview is prefilled, NEVER auto-posted.
+// The user can correct every field, including selecting "Transfer".
 export interface DraftCandidate {
   amount: number | null;
   direction: "income" | "expense" | null;
@@ -59,24 +27,10 @@ interface GmailImportReviewProps {
   accounts: AccountRow[];
   incomeCategories: CategoryRow[];
   expenseCategories: CategoryRow[];
-  // Fallback date (the email's received date, YYYY-MM-DD) when no date was
-  // detected, so the form always starts from an honest, editable default.
   receivedDate: string;
-  onCancel: () => void;
+  onCancel?: () => void;
 }
 
-type FieldErrors = Partial<
-  Record<"amount" | "account_id" | "category_id" | "transaction_at", string>
->;
-
-/**
- * Per-draft review form (design decision option b). Reuses the shared
- * primitives (parseIdrInput, TRANSACTION_TYPES, selectClassName, Input/Label/
- * Button) and the VERBATIM validation copy from transaction-form.tsx. Detected
- * values are labeled as detected and are fully editable; the user picks
- * account/category and may correct amount/type/date before saving. The primary
- * button "Simpan transaksi" calls importDraft.
- */
 export function GmailImportReview({
   importId,
   candidate,
@@ -87,322 +41,79 @@ export function GmailImportReview({
   onCancel,
 }: GmailImportReviewProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const initialValues: TransactionFormInitialValues = {
+    transaction_type: candidate.direction ?? "expense",
+    amount: candidate.amount ?? 0,
+    // Require explicit confirmation of account for emailed financial events.
+    account_id: "",
+    destination_account_id: null,
+    category_id: null,
+    transaction_at: candidate.transactionAt ?? receivedDate,
+    merchant: candidate.merchant,
+    description: candidate.description,
+  };
 
-  // Detected direction pre-fills type; default to expense (the common case) so
-  // the user still consciously confirms it.
-  const [transactionType, setTransactionType] = useState<"income" | "expense">(
-    candidate.direction ?? "expense",
-  );
-  const [amountInput, setAmountInput] = useState(
-    candidate.amount !== null ? String(candidate.amount) : "",
-  );
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
-  const [categoryId, setCategoryId] = useState("");
-  const [transactionAt, setTransactionAt] = useState(
-    candidate.transactionAt ?? receivedDate,
-  );
-  const [merchant, setMerchant] = useState(candidate.merchant ?? "");
-  const [description, setDescription] = useState(candidate.description ?? "");
-
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [formError, setFormError] = useState<string | null>(null);
-
-  const typeLabelId = useId();
-  const amountId = useId();
-  const amountErrId = useId();
-  const accountFieldId = useId();
-  const accountErrId = useId();
-  const categoryFieldId = useId();
-  const categoryErrId = useId();
-  const dateId = useId();
-  const dateErrId = useId();
-  const merchantId = useId();
-  const descriptionId = useId();
-
-  const categoryOptions =
-    transactionType === "income" ? incomeCategories : expenseCategories;
-
-  const parsedAmount = useMemo(() => parseIdrInput(amountInput), [amountInput]);
-  const hasAmountPreview =
-    amountInput.trim() !== "" && parsedAmount !== null && parsedAmount > 0;
-
-  function handleTypeChange(nextType: "income" | "expense") {
-    setTransactionType(nextType);
-    // Category options depend on direction; clear a now-invalid pick.
-    setCategoryId("");
-    setFieldErrors((prev) => ({ ...prev, category_id: undefined }));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setFormError(null);
-
-    // Client-side validation mirroring validateDraft in actions.ts, with the
-    // EXACT shared copy; the server re-checks everything.
-    const errors: FieldErrors = {};
-    const amount = parseIdrInput(amountInput);
-    if (amount === null || amount <= 0) {
-      errors.amount = "Nominal harus berupa angka lebih dari nol.";
+  async function action(input: TransactionFormInput): Promise<ActionResult> {
+    if (!isTransactionType(input.transaction_type)) {
+      return {
+        ok: false,
+        message: "Pilih jenis transaksi yang tersedia.",
+        fieldErrors: { transaction_type: "Jenis transaksi tidak valid." },
+      };
     }
-    if (!accountId) {
-      errors.account_id = "Pilih rekening sumber.";
+    // Gmail approval must never silently create a recurring template.
+    if (input.recurring) {
+      return { ok: false, message: "Impor Gmail belum mendukung transaksi berulang." };
     }
-    if (!categoryId) {
-      errors.category_id = "Pilih kategori transaksi.";
-    }
-    if (!transactionAt) {
-      errors.transaction_at = "Pilih tanggal transaksi yang valid.";
-    }
-
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0 || amount === null) return;
-
-    const trimmedMerchant = merchant.trim();
-    const trimmedDescription = description.trim();
-
-    startTransition(async () => {
-      const result: ActionResult = await importDraft({
-        importId,
-        transaction_type: transactionType,
-        amount,
-        account_id: accountId,
-        category_id: categoryId,
-        transaction_at: transactionAt,
-        description: trimmedDescription.length > 0 ? trimmedDescription : null,
-        merchant: trimmedMerchant.length > 0 ? trimmedMerchant : null,
-      });
-      if (result.ok) {
-        router.refresh();
-        return;
-      }
-      if (result.fieldErrors) {
-        setFieldErrors(result.fieldErrors as FieldErrors);
-      }
-      setFormError(result.message);
+    return importDraft({
+      importId,
+      transaction_type: input.transaction_type,
+      amount: input.amount,
+      account_id: input.account_id,
+      destination_account_id: input.transaction_type === "transfer"
+        ? input.destination_account_id ?? null
+        : null,
+      category_id: input.transaction_type === "transfer" ? null : input.category_id ?? null,
+      transaction_at: input.transaction_at,
+      merchant: input.merchant,
+      description: input.description,
     });
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-5 rounded-xl border border-border bg-surface-container p-4"
-      noValidate
-    >
-      <div className="flex flex-col gap-1">
-        <h3 className="text-title-md text-on-surface">Tinjau transaksi</h3>
-        <p className="text-body-sm text-on-surface-variant">
-          Nilai di bawah terdeteksi dari email dan bisa kamu ubah. Pilih rekening
-          dan kategori sebelum menyimpan.
-          {candidate.confidence === "low"
-            ? " Deteksi untuk email ini kurang yakin, periksa dengan teliti."
-            : ""}
+    <div className="flex min-w-0 w-full flex-col gap-4">
+      <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+        <p className="text-body-md font-medium text-on-surface">
+          Tinjau hasil deteksi Gmail
+        </p>
+        <p className="mt-1 text-body-sm text-on-surface-variant">
+          Isi awal diambil dari email. Pastikan jenis transaksi, nominal,
+          rekening, dan kategori benar sebelum menyimpan. Belum memengaruhi saldo.
+        </p>
+        {candidate.confidence === "low" ? (
+          <p className="mt-2 text-body-sm text-expense">
+            Deteksi belum pasti. Periksa email dan cocokkan nominalnya.
+          </p>
+        ) : null}
+        <p className="mt-2 text-body-sm text-on-surface-variant">
+          Untuk transfer, pilih rekening sumber dan rekening tujuan yang berbeda.
+          Transaksi berulang tetap dibuat lewat menu Catat.
         </p>
       </div>
-
-      <div className="flex flex-col gap-2">
-        <span id={typeLabelId} className="text-label-md text-on-surface">
-          Jenis transaksi
-        </span>
-        <div
-          role="group"
-          aria-labelledby={typeLabelId}
-          className="grid grid-cols-2 gap-2"
-        >
-          {DRAFT_TYPES.map((type) => {
-            const value = type.value as "income" | "expense";
-            const selected = transactionType === value;
-            return (
-              <button
-                key={type.value}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => handleTypeChange(value)}
-                className={cn(
-                  "flex h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-body-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  selected
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-surface-container-lowest text-on-surface-variant hover:text-on-surface",
-                )}
-              >
-                <Icon name={DRAFT_TYPE_GLYPH[value]} size={18} aria-hidden />
-                {type.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={amountId}>Nominal</Label>
-        <Input
-          id={amountId}
-          value={amountInput}
-          onChange={(e) => setAmountInput(e.target.value)}
-          inputMode="numeric"
-          className="h-11 tabular-nums"
-          placeholder="0"
-          aria-invalid={fieldErrors.amount ? true : undefined}
-          aria-describedby={fieldErrors.amount ? amountErrId : undefined}
-        />
-        {hasAmountPreview ? (
-          // Preview the detected amount with sign + tone so expense reads as a
-          // red "-Rp" and income as an emerald "+Rp"; meaning never rests on
-          // color alone. The leading sign comes from AmountText's `signed`.
-          <AmountText
-            value={
-              transactionType === "expense"
-                ? -(parsedAmount as number)
-                : (parsedAmount as number)
-            }
-            tone={transactionType === "expense" ? "expense" : "income"}
-            size="none"
-            signed
-            className="text-currency-body"
-          />
-        ) : (
-          <p className="text-body-sm text-on-surface-variant">
-            Nominal tidak terdeteksi dari email. Isi manual.
-          </p>
-        )}
-        {fieldErrors.amount ? (
-          <p
-            id={amountErrId}
-            role="alert"
-            className="text-body-sm text-expense"
-          >
-            {fieldErrors.amount}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={accountFieldId}>Dari rekening</Label>
-        <select
-          id={accountFieldId}
-          value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
-          aria-invalid={fieldErrors.account_id ? true : undefined}
-          aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
-          className={cn(selectClassName)}
-        >
-          <option value="">Pilih rekening</option>
-          {accounts.map((account) => (
-            <option key={account.id} value={account.id}>
-              {account.name}
-            </option>
-          ))}
-        </select>
-        {fieldErrors.account_id ? (
-          <p
-            id={accountErrId}
-            role="alert"
-            className="text-body-sm text-expense"
-          >
-            {fieldErrors.account_id}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={categoryFieldId}>Kategori</Label>
-        <select
-          id={categoryFieldId}
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          aria-invalid={fieldErrors.category_id ? true : undefined}
-          aria-describedby={fieldErrors.category_id ? categoryErrId : undefined}
-          className={cn(selectClassName)}
-        >
-          <option value="">Pilih kategori</option>
-          {categoryOptions.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        {fieldErrors.category_id ? (
-          <p
-            id={categoryErrId}
-            role="alert"
-            className="text-body-sm text-expense"
-          >
-            {fieldErrors.category_id}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={dateId}>Tanggal</Label>
-        <Input
-          id={dateId}
-          type="date"
-          value={transactionAt}
-          onChange={(e) => setTransactionAt(e.target.value)}
-          className="h-11"
-          aria-invalid={fieldErrors.transaction_at ? true : undefined}
-          aria-describedby={
-            fieldErrors.transaction_at ? dateErrId : undefined
-          }
-        />
-        {fieldErrors.transaction_at ? (
-          <p
-            id={dateErrId}
-            role="alert"
-            className="text-body-sm text-expense"
-          >
-            {fieldErrors.transaction_at}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={merchantId}>Toko</Label>
-        <Input
-          id={merchantId}
-          value={merchant}
-          onChange={(e) => setMerchant(e.target.value)}
-          className="h-11"
-          placeholder="Opsional"
-          autoComplete="off"
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={descriptionId}>Catatan</Label>
-        <Input
-          id={descriptionId}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="h-11"
-          placeholder="Opsional"
-          autoComplete="off"
-        />
-      </div>
-
-      {formError ? (
-        <p
-          role="alert"
-          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-expense"
-        >
-          {formError}
-        </p>
-      ) : null}
-
-      <div className="flex items-center gap-3">
-        <Button type="submit" className="h-11 flex-1" disabled={isPending}>
-          {isPending ? "Menyimpan..." : "Simpan transaksi"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11"
-          onClick={onCancel}
-          disabled={isPending}
-        >
-          Batal
-        </Button>
-      </div>
-    </form>
+      <TransactionForm
+        key={importId}
+        mode="create"
+        action={action}
+        accounts={accounts}
+        incomeCategories={incomeCategories}
+        expenseCategories={expenseCategories}
+        initialValues={initialValues}
+        currentMonth={receivedDate.slice(0, 7)}
+        allowRecurring={false}
+        submitText="Terima dan catat transaksi"
+        onSuccess={() => router.replace("/transactions")}
+        onCancel={onCancel ?? (() => router.push("/transactions"))}
+      />
+    </div>
   );
 }
