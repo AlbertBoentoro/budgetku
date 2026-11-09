@@ -100,7 +100,9 @@ export function LoginForm({
             Masuk
           </h1>
           <CardDescription className="text-slate-600 dark:text-slate-600">
-            {description}
+            {testingEnabled
+              ? "Masuk dengan email dan password akun testing."
+              : description}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-6 pb-6 sm:px-8 sm:pb-8">
@@ -110,18 +112,20 @@ export function LoginForm({
                 {error}
               </p>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 w-full border-slate-500 bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
-              disabled={loading}
-              onClick={handleGoogleLogin}
-              aria-describedby={error ? "auth-error" : undefined}
-            >
-              {loading ? "Menghubungkan..." : "Lanjutkan dengan Google"}
-            </Button>
+            {!testingEnabled ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full border-slate-500 bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                disabled={loading}
+                onClick={handleGoogleLogin}
+                aria-describedby={error ? "auth-error" : undefined}
+              >
+                {loading ? "Menghubungkan..." : "Lanjutkan dengan Google"}
+              </Button>
+            ) : null}
             {testingEnabled ? (
-              <div className="mt-4 border-t border-slate-200 pt-4">
+              <div className="pt-2">
                 <p className="mb-2 text-sm font-semibold text-slate-900">
                   Development / Testing
                 </p>
