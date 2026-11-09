@@ -21,6 +21,7 @@ export interface PendingGmailTransaction {
 interface GmailPendingQueueProps {
   drafts: PendingGmailTransaction[];
   total: number;
+  showAllLink?: boolean;
 }
 
 /**
@@ -28,7 +29,7 @@ interface GmailPendingQueueProps {
  * An email does not alter the balance until its account, category and amount
  * are confirmed via the existing user-scoped Gmail import form.
  */
-export function GmailPendingQueue({ drafts, total }: GmailPendingQueueProps) {
+export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPendingQueueProps) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,12 +72,14 @@ export function GmailPendingQueue({ drafts, total }: GmailPendingQueueProps) {
             {total} draft belum masuk saldo. Terima untuk memeriksa rekening dan kategori, atau Tolak.
           </p>
         </div>
-        <Link
-          href="/settings/gmail"
-          className="inline-flex min-h-11 items-center text-body-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Lihat semua
-        </Link>
+        {showAllLink ? (
+          <Link
+            href="/transactions/gmail"
+            className="inline-flex min-h-11 items-center text-body-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Lihat semua
+          </Link>
+        ) : null}
       </div>
 
       {error ? (
