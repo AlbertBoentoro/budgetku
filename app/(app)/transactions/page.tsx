@@ -162,7 +162,7 @@ async function TransactionsContent({
         .eq("user_id", user.id)
         .eq("status", "pending")
         .order("received_at", { ascending: false, nullsFirst: false })
-        // Render a three-row scroll window without limiting the actual drafts.
+        // Render a three-row scroll window with up to 100 pending drafts available.
         .limit(100)
     : null;
 
