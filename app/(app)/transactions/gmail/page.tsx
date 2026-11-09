@@ -36,7 +36,7 @@ async function AllPendingGmailContent() {
     .eq("user_id", user.id)
     .eq("status", "pending")
     .order("received_at", { ascending: false, nullsFirst: false })
-    .limit(50);
+    .limit(100);
   if (error) return <p role="alert">Draft Gmail tidak bisa dimuat. Coba lagi.</p>;
   if (!count) return (
     <p className="text-body-sm text-on-surface-variant">
@@ -53,9 +53,9 @@ async function AllPendingGmailContent() {
 
   return (
     <div className="flex flex-col gap-3">
-      {count > 50 ? (
+      {count > 100 ? (
         <p className="text-body-sm text-on-surface-variant">
-          Menampilkan 50 draft terbaru dari {count} draft. Setelah diproses, muat ulang untuk melihat sisanya.
+          Menampilkan 100 draft terbaru dari {count} draft. Setelah diproses, muat ulang untuk melihat sisanya.
         </p>
       ) : null}
       <GmailPendingQueue drafts={drafts} total={count} showAllLink={false} />
