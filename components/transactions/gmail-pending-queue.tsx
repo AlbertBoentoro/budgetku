@@ -77,7 +77,6 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
             {total} draft belum masuk saldo. Terima untuk memeriksa rekening dan kategori, atau Tolak.
           </p>
         </div>
-
       </div>
 
       {error ? (
@@ -85,7 +84,6 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
           {error}
         </p>
       ) : null}
-
 
       {hasScroll ? (
         <p id="gmail-queue-scroll-hint" className="flex items-center gap-2 text-body-sm text-on-surface-variant">
@@ -102,7 +100,7 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
         className={cn(
           "divide-y divide-outline-variant",
           hasScroll &&
-            "max-h-[25rem] min-w-0 overflow-y-auto overscroll-contain pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [scrollbar-width:thin]",
+            "max-h-[24rem] min-w-0 overflow-y-auto overscroll-contain pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [scrollbar-width:thin]",
         )}
       >
         {drafts.map((draft) => {
