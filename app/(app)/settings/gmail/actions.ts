@@ -21,15 +21,15 @@ export type ActionResult =
   | { ok: true }
   | { ok: false; message: string; fieldErrors?: Record<string, string> };
 
-// Exactly the contract from design §4.4 — no client-supplied source_reference,
-// user_id, or transaction_id. transfer is rejected (Gmail drafts are
-// income/expense only).
+// Client cannot choose user_id, source_reference, source or transaction_id.
+// User may override email's detected income/expense to a verified transfer.
 export interface ImportDraftInput {
   importId: string;
-  transaction_type: "income" | "expense";
+  transaction_type: "income" | "expense" | "transfer";
   amount: number;
   account_id: string;
-  category_id: string;
+  category_id: string | null;
+  destination_account_id?: string | null;
   transaction_at: string;
   description?: string | null;
   merchant?: string | null;
@@ -44,9 +44,8 @@ function isValidDateString(value: string): boolean {
   return date.toISOString().slice(0, 10) === value;
 }
 
-// Shared server-side validation. Reuses the EXACT rules and Indonesian copy
-// from transactions/actions.ts validate() for the fields a Gmail draft carries.
-// transfer is rejected because a draft is always income/expense.
+// Server-side validation mirrors manual transaction rules. Gmail parsing does
+// not infer transfers: the user must explicitly select one and pick two accounts.
 function validateDraft(input: ImportDraftInput): Record<string, string> {
   const fieldErrors: Record<string, string> = {};
 
@@ -58,18 +57,23 @@ function validateDraft(input: ImportDraftInput): Record<string, string> {
     fieldErrors.account_id = "Pilih rekening sumber.";
   }
 
-  // Treat transaction_type as a raw string so a tampered/scripted request
-  // (e.g. "transfer" or an unknown value) is still rejected at runtime, even
-  // though the typed contract only permits income/expense.
   const rawType: string = input.transaction_type;
-  const isIncomeOrExpense = rawType === "income" || rawType === "expense";
-  if (!rawType || !isTransactionType(rawType) || !isIncomeOrExpense) {
+  if (!rawType || !isTransactionType(rawType)) {
     fieldErrors.transaction_type = "Pilih jenis transaksi yang tersedia.";
   }
 
-  if (isIncomeOrExpense) {
-    if (!input.category_id || input.category_id.trim().length === 0) {
+  if (rawType === "income" || rawType === "expense") {
+    if (!input.category_id?.trim()) {
       fieldErrors.category_id = "Pilih kategori transaksi.";
+    }
+  }
+
+  if (rawType === "transfer") {
+    if (!input.destination_account_id?.trim()) {
+      fieldErrors.destination_account_id = "Pilih rekening tujuan.";
+    } else if (input.destination_account_id === input.account_id) {
+      fieldErrors.destination_account_id =
+        "Rekening tujuan harus berbeda dari rekening sumber.";
     }
   }
 
@@ -286,12 +290,20 @@ export async function importDraft(
     };
   }
 
-  if (
+  const isTransfer = input.transaction_type === "transfer";
+  if (isTransfer) {
+    if (!(await ownsActiveAccount(
+      supabase, user.id, input.destination_account_id ?? "",
+    ))) {
+      return {
+        ok: false,
+        message: "Rekening tujuan tidak tersedia.",
+        fieldErrors: { destination_account_id: "Rekening tujuan tidak tersedia." },
+      };
+    }
+  } else if (
     !(await canUseCategory(
-      supabase,
-      user.id,
-      input.category_id,
-      input.transaction_type,
+      supabase, user.id, input.category_id ?? "", input.transaction_type,
     ))
   ) {
     return {
@@ -308,8 +320,8 @@ export async function importDraft(
     .insert({
       user_id: user.id,
       account_id: input.account_id,
-      destination_account_id: null,
-      category_id: input.category_id,
+      destination_account_id: isTransfer ? input.destination_account_id : null,
+      category_id: isTransfer ? null : input.category_id,
       transaction_type: input.transaction_type,
       amount: input.amount,
       currency: "IDR",
