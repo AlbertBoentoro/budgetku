@@ -303,7 +303,8 @@ export async function importDraft(
     }
   } else if (
     !(await canUseCategory(
-      supabase, user.id, input.category_id ?? "", input.transaction_type,
+      supabase, user.id, input.category_id ?? "",
+      input.transaction_type === "income" ? "income" : "expense",
     ))
   ) {
     return {
