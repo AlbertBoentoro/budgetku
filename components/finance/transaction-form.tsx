@@ -566,6 +566,7 @@ export function TransactionForm({
             aria-invalid={fieldErrors.account_id ? true : undefined}
             aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
             >
+            <option value="">Pilih rekening</option>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
