@@ -64,11 +64,11 @@ test("pending Gmail stays outside the real transaction ledger and has its own in
   assert.match(page, /\.from\("email_imports"\)/);
   assert.match(page, /\.eq\("user_id", user\.id\)/);
   assert.match(page, /\.eq\("status", "pending"\)/);
-  assert.match(page, /\.limit\(3\)/);
+  assert.match(page, /\.limit\(100\)/);
   assert.match(page, /\{gmailQueue\}/);
   assert.match(inbox, /\.eq\("status", "pending"\)/);
   assert.match(inbox, /\.eq\("user_id", user\.id\)/);
-  assert.match(inbox, /\.limit\(50\)/);
+  assert.match(inbox, /\.limit\(100\)/);
   assert.match(inbox, /showAllLink=\{false\}/);
   assert.doesNotMatch(inbox, /\.insert\(/);
 });
