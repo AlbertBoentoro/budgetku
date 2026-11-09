@@ -7,6 +7,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { syncGmail as runSync } from "@/lib/gmail/sync";
 import { createClient } from "@/lib/supabase/server";
 import { isTransactionType } from "@/lib/transactions";
+import { isValidTransactionIdrAmount } from "@/lib/idr-money";
 
 /**
  * Server actions for Gmail import (design §4.3–§4.6). All getUser()-gated and
@@ -49,12 +50,8 @@ function isValidDateString(value: string): boolean {
 function validateDraft(input: ImportDraftInput): Record<string, string> {
   const fieldErrors: Record<string, string> = {};
 
-  if (
-    typeof input.amount !== "number" ||
-    !Number.isFinite(input.amount) ||
-    input.amount <= 0
-  ) {
-    fieldErrors.amount = "Nominal harus berupa angka lebih dari nol.";
+  if (!isValidTransactionIdrAmount(input.amount)) {
+    fieldErrors.amount = "Nominal harus positif, maksimal Rp1 triliun dan 2 angka desimal.";
   }
 
   if (!input.account_id || input.account_id.trim().length === 0) {
@@ -257,12 +254,12 @@ export async function importDraft(
   }
   if (
     !importRow ||
-    importRow.status === "imported" ||
+    importRow.status !== "pending" ||
     importRow.transaction_id !== null
   ) {
     return {
       ok: false,
-      message: "Email ini sudah diimpor sebelumnya.",
+      message: "Draft Gmail sudah diproses atau tidak dapat diterima.",
     };
   }
 
@@ -416,6 +413,7 @@ export async function ignoreImport(importId: string): Promise<ActionResult> {
   }
   if (importRow.status === "skipped") {
     revalidatePath("/settings/gmail");
+    revalidatePath("/transactions");
     return { ok: true };
   }
 
@@ -430,6 +428,7 @@ export async function ignoreImport(importId: string): Promise<ActionResult> {
   }
 
   revalidatePath("/settings/gmail");
+  revalidatePath("/transactions");
   return { ok: true };
 }
 
