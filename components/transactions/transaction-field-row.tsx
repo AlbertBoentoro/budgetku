@@ -26,7 +26,7 @@ export function TransactionFieldRow({
   className,
 }: TransactionFieldRowProps) {
   return (
-    <div className={cn("flex flex-col gap-2 p-lg", className)}>
+    <div className={cn("flex min-w-0 max-w-full flex-col gap-2 p-lg", className)}>
       <div className="flex items-center gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
           <Icon name={icon} size={20} />

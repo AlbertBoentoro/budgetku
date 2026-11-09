@@ -38,7 +38,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     if (
       element instanceof Element &&
       element.closest(
-        "input, textarea, select, button, [role='dialog'], [role='menu'], [contenteditable='true']",
+        "input, textarea, select, button, [role='dialog'], [role='menu'], [contenteditable='true'], [data-pull-refresh-exclude]",
       )
     ) return;
     const touch = event.touches[0];

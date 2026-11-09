@@ -457,7 +457,7 @@ export function TransactionForm({
   const submitLabel = submitText ?? (mode === "create" ? "Submit" : "Simpan perubahan");
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
+    <form onSubmit={handleSubmit} className="flex w-full min-w-0 max-w-full flex-col gap-6" noValidate>
       <div className="flex flex-col gap-2">
         <span id={typeLabelId} className="text-body-md font-medium text-on-surface">
           Jenis transaksi
@@ -542,7 +542,7 @@ export function TransactionForm({
 
       {/* Field rows grouped in one card with dividers. Every control keeps its
           existing value/onChange/id/aria wiring and show-hide conditionals. */}
-      <div className="flex flex-col divide-y divide-border rounded-xl bg-surface-container-lowest shadow-sm">
+      <div className="flex min-w-0 max-w-full flex-col divide-y divide-border rounded-xl bg-surface-container-lowest shadow-sm">
         <TransactionFieldRow
           icon="account_balance_wallet"
           htmlFor={accountFieldId}
@@ -702,7 +702,7 @@ export function TransactionForm({
             type="date"
             value={transactionAt}
             onChange={(e) => setTransactionAt(e.target.value)}
-            className="h-11"
+            className="h-11 w-full min-w-0 max-w-full"
           />
         </TransactionFieldRow>
 
@@ -847,7 +847,7 @@ export function TransactionForm({
                         end_date: undefined,
                       }));
                     }}
-                    className="h-11"
+                    className="h-11 w-full min-w-0 max-w-full"
                     aria-invalid={fieldErrors.end_date ? true : undefined}
                     aria-describedby={
                       fieldErrors.end_date ? endDateErrId : undefined
