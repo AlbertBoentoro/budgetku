@@ -1,11 +1,11 @@
 import { LoginForm } from "@/components/login-form";
 import { AuthPage } from "@/components/auth/auth-page";
-import { isStagingSmartRestoreAllowed } from "@/lib/settings/smart-restore-guard";
+import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
 
 export default function Page() {
   return (
     <AuthPage>
-      <LoginForm testingEnabled={isStagingSmartRestoreAllowed()} />
+      <LoginForm testingEnabled={isStagingEmailLoginAllowed()} />
     </AuthPage>
   );
 }

@@ -50,6 +50,12 @@ interface TransactionFormProps {
   // The current month ("YYYY-MM") from the server render: the month the
   // ledger shows by default.
   currentMonth: string;
+  // Gmail approval reuses this exact responsive form instead of a separate
+  // limited form; only the server action differs. Gmail has no recurring API.
+  allowRecurring?: boolean;
+  submitText?: string;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
 type FieldErrors = Partial<
@@ -98,6 +104,10 @@ export function TransactionForm({
   expenseCategories,
   initialValues,
   currentMonth,
+  allowRecurring = true,
+  submitText,
+  onSuccess,
+  onCancel,
 }: TransactionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -148,6 +158,7 @@ export function TransactionForm({
   // can instead pick a Berakhir date. interval_count is fixed at 1 (no interval
   // field).
   const isCreate = mode === "create";
+  const canCreateRecurring = isCreate && allowRecurring;
   const [recurring, setRecurring] = useState(false);
   const [frequency, setFrequency] = useState<string>("monthly");
   // Indefinite defaults to checked: it preserves today's behaviour (the create
@@ -339,7 +350,7 @@ export function TransactionForm({
       }
     }
 
-    if (isCreate && recurring) {
+    if (canCreateRecurring && recurring) {
       if (!frequency) {
         errors.frequency = "Pilih frekuensi yang tersedia.";
       }
@@ -361,7 +372,7 @@ export function TransactionForm({
 
     const trimmedDescription = description.trim();
     const trimmedMerchant = merchant.trim();
-    const useRecurring = isCreate && recurring;
+    const useRecurring = canCreateRecurring && recurring;
 
     return {
       errors,
@@ -420,6 +431,11 @@ export function TransactionForm({
       const result = await action(input);
       if (result.ok) {
         if (mode === "create") resetAfterSuccessfulCreate();
+        if (onSuccess) {
+          onSuccess();
+          router.refresh();
+          return;
+        }
         // The ledger lists one month at a time, so open the month of the saved
         // transaction; the current month is the ledger's default view.
         const savedMonth = input.transaction_at.slice(0, 7);
@@ -438,7 +454,7 @@ export function TransactionForm({
     });
   }
 
-  const submitLabel = mode === "create" ? "Submit" : "Simpan perubahan";
+  const submitLabel = submitText ?? (mode === "create" ? "Submit" : "Simpan perubahan");
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
@@ -550,6 +566,7 @@ export function TransactionForm({
             aria-invalid={fieldErrors.account_id ? true : undefined}
             aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
             >
+            <option value="">Pilih rekening</option>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.name}
@@ -716,7 +733,7 @@ export function TransactionForm({
         </TransactionFieldRow>
       </div>
 
-      {isCreate ? (
+      {canCreateRecurring ? (
         <div className="flex flex-col divide-y divide-border rounded-xl bg-surface-container-lowest shadow-sm">
           <div className="flex items-center gap-3 p-lg">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
@@ -865,6 +882,11 @@ export function TransactionForm({
         <Button type="submit" className="h-11 w-full" disabled={isPending}>
           {isPending ? "Menyimpan..." : submitLabel}
         </Button>
+        {onCancel ? (
+          <Button type="button" variant="outline" className="h-11 w-full" onClick={onCancel} disabled={isPending}>
+            Batal
+          </Button>
+        ) : null}
       </div>
     </form>
   );

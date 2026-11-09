@@ -153,8 +153,8 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
       <div className="flex items-center gap-2 pl-0 sm:pl-[52px]">
         {!isFailed ? (
           <Button asChild size="sm" className="h-11">
-            <Link href={`/settings/gmail?review=${draft.id}`} scroll={false}>
-              Tinjau
+            <Link href={`/transactions/gmail/${encodeURIComponent(draft.id)}`}>
+              Terima
             </Link>
           </Button>
         ) : null}
