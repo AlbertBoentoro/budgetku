@@ -178,6 +178,7 @@ export function TransactionForm({
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeScreen, setActiveScreen] = useState<"category" | "duplicate" | null>(null);
   const [duplicateSource, setDuplicateSource] = useState<string | null>(null);
 
@@ -343,6 +344,7 @@ export function TransactionForm({
     recurringRequestId.current = null;
     setFieldErrors({});
     setFormError(null);
+    setSuccessMessage(null);
     setDuplicateSource(original.merchant?.trim() || "Transaksi sebelumnya");
     closeSelectionScreen();
   }
@@ -523,9 +525,12 @@ export function TransactionForm({
     setDuplicateSource(null);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const addAnother = mode === "create" && allowRecurring &&
+      (e.nativeEvent as SubmitEvent).submitter?.getAttribute("data-add-another") === "true";
     setFormError(null);
+    setSuccessMessage(null);
 
     const { errors, input } = validateClient();
     setFieldErrors(errors);
@@ -537,6 +542,11 @@ export function TransactionForm({
         if (mode === "create") resetAfterSuccessfulCreate();
         if (onSuccess) {
           onSuccess();
+          router.refresh();
+          return;
+        }
+        if (addAnother) {
+          setSuccessMessage("Transaksi tersimpan. Silakan catat transaksi berikutnya.");
           router.refresh();
           return;
         }
@@ -558,7 +568,7 @@ export function TransactionForm({
     });
   }
 
-  const submitLabel = submitText ?? (mode === "create" ? "Submit" : "Simpan perubahan");
+  const submitLabel = submitText ?? (mode === "create" ? "Simpan & selesai" : "Simpan perubahan");
 
   return (
     <>
@@ -953,6 +963,12 @@ export function TransactionForm({
         </div>
       ) : null}
 
+      {successMessage ? (
+        <p role="status" className="rounded-lg border border-income/40 bg-income/10 px-3 py-3 text-body-sm text-on-surface">
+          {successMessage}
+        </p>
+      ) : null}
+
       {formError ? (
         <p
           role="alert"
@@ -963,9 +979,30 @@ export function TransactionForm({
       ) : null}
 
       <div className="flex flex-col gap-3">
-        <Button type="submit" className="h-11 w-full" disabled={isPending}>
-          {isPending ? "Menyimpan..." : submitLabel}
-        </Button>
+        {isCreate && allowRecurring ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="submit"
+              data-add-another="true"
+              variant="outline"
+              className="min-h-12 whitespace-normal px-2 text-center"
+              disabled={isPending}
+            >
+              {isPending ? "Menyimpan..." : "Simpan & catat lagi"}
+            </Button>
+            <Button
+              type="submit"
+              className="min-h-12 whitespace-normal px-2 text-center"
+              disabled={isPending}
+            >
+              {isPending ? "Menyimpan..." : submitLabel}
+            </Button>
+          </div>
+        ) : (
+          <Button type="submit" className="h-12 w-full" disabled={isPending}>
+            {isPending ? "Menyimpan..." : submitLabel}
+          </Button>
+        )}
         {onCancel ? (
           <Button type="button" variant="outline" className="h-11 w-full" onClick={onCancel} disabled={isPending}>
             Batal
