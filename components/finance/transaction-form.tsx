@@ -146,7 +146,7 @@ export function TransactionForm({
   const [createdCategories, setCreatedCategories] = useState<
     Array<Pick<CategoryRow, "id" | "name" | "category_type">>
   >([]);
-  const [showCategoryCreator, setShowCategoryCreator] = useState(false);
+  const [, setShowCategoryCreator] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryCreateError, setCategoryCreateError] = useState<string | null>(null);
   const [categoryCreating, setCategoryCreating] = useState(false);
@@ -222,7 +222,6 @@ export function TransactionForm({
   const typeLabelId = useId();
   const accountFieldId = useId();
   const categoryFieldId = useId();
-  const newCategoryNameId = useId();
   const destinationFieldId = useId();
   const dateId = useId();
   const descriptionId = useId();
@@ -973,6 +972,39 @@ export function TransactionForm({
           </Button>
         ) : null}
       </div>
-    </form>
+      </form>
+
+      {activeScreen === "category" ? (
+        <TransactionCategoryScreen
+          categories={categoryOptions}
+          selectedId={categoryId}
+          direction={isIncome ? "income" : "expense"}
+          onPick={(id) => {
+            setCategoryId(id);
+            setFieldErrors((errors) => ({ ...errors, category_id: undefined }));
+            closeSelectionScreen();
+          }}
+          onBack={closeSelectionScreen}
+          createName={newCategoryName}
+          onCreateNameChange={(name) => {
+            setNewCategoryName(name);
+            setCategoryCreateError(null);
+          }}
+          onCreate={handleCreateCategory}
+          creating={categoryCreating}
+          createError={categoryCreateError}
+        />
+      ) : null}
+
+      {activeScreen === "duplicate" ? (
+        <TransactionDuplicateScreen
+          transactions={recentTransactions}
+          accountNames={accountNames}
+          categoryNames={categoryNames}
+          onPick={handleDuplicatePick}
+          onBack={closeSelectionScreen}
+        />
+      ) : null}
+    </>
   );
 }
