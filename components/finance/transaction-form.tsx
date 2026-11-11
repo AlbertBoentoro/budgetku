@@ -690,34 +690,40 @@ export function TransactionForm({
       <div className="flex min-w-0 max-w-full flex-col divide-y divide-border rounded-xl bg-surface-container-lowest shadow-sm">
         <TransactionFieldRow
           icon="account_balance_wallet"
-          htmlFor={accountFieldId}
-          label="Rekening sumber"
-          error={
-            fieldErrors.account_id ? (
-              <p
-                id={accountErrId}
-                role="alert"
-                className="text-body-sm text-expense"
-              >
-                {fieldErrors.account_id}
-              </p>
-            ) : null
-          }
+          labelId={accountFieldId}
+          label={isTransfer ? "Dari rekening" : "Rekening"}
+          error={fieldErrors.account_id ? (
+            <p id={accountErrId} role="alert" className="text-body-sm text-expense">
+              {fieldErrors.account_id}
+            </p>
+          ) : null}
         >
-          <TransactionSelect
-            id={accountFieldId}
-            value={accountId}
-            onChange={(e) => handleAccountChange(e.target.value)}
-            aria-invalid={fieldErrors.account_id ? true : undefined}
+          <div
+            role="group"
+            aria-labelledby={accountFieldId}
             aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
-            >
-            <option value="">Pilih rekening</option>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </TransactionSelect>
+            className="-mx-1 flex min-w-0 gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 [scrollbar-width:thin]"
+          >
+            {accounts.map((account) => {
+              const selected = accountId === account.id;
+              return (
+                <button
+                  key={account.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => handleAccountChange(account.id)}
+                  className={`flex min-h-12 shrink-0 items-center gap-2 rounded-full border px-4 text-body-md font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-outline-variant bg-surface-container-low text-on-surface hover:bg-surface-container"
+                  }`}
+                >
+                  <Icon name="account_balance_wallet" size={20} />
+                  {account.name}
+                </button>
+              );
+            })}
+          </div>
         </TransactionFieldRow>
 
         {isTransfer ? (
@@ -761,95 +767,29 @@ export function TransactionForm({
         ) : (
           <TransactionFieldRow
             icon="category"
-            htmlFor={categoryFieldId}
+            labelId={categoryFieldId}
             label="Kategori"
-            error={
-              fieldErrors.category_id ? (
-                <p
-                  id={categoryErrId}
-                  role="alert"
-                  className="text-body-sm text-expense"
-                >
-                  {fieldErrors.category_id}
-                </p>
-              ) : null
-            }
+            error={fieldErrors.category_id ? (
+              <p id={categoryErrId} role="alert" className="text-body-sm text-expense">
+                {fieldErrors.category_id}
+              </p>
+            ) : null}
           >
-            <div className="flex flex-col gap-2">
-              <TransactionSelect
-                id={categoryFieldId}
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                aria-invalid={fieldErrors.category_id ? true : undefined}
-                aria-describedby={fieldErrors.category_id ? categoryErrId : undefined}
-              >
-                <option value="">Pilih kategori</option>
-                {categoryOptions.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </TransactionSelect>
-              {showCategoryCreator ? (
-                <div className="flex flex-col gap-2 rounded-lg border border-outline-variant p-3">
-                  <Label htmlFor={newCategoryNameId}>Nama kategori baru</Label>
-                  <Input
-                    id={newCategoryNameId}
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder={isIncome ? "Misal: Freelance" : "Misal: Laundry"}
-                    maxLength={60}
-                    autoComplete="off"
-                    disabled={categoryCreating}
-                  />
-                  {categoryCreateError ? (
-                    <p role="alert" className="text-body-sm text-expense">
-                      {categoryCreateError}
-                    </p>
-                  ) : null}
-                  <div className="flex gap-2">
-                    <Button type="button" onClick={handleCreateCategory} disabled={categoryCreating || !newCategoryName.trim()}>
-                      {categoryCreating ? "Menyimpan..." : "Simpan kategori"}
-                    </Button>
-                    <Button type="button" variant="outline" disabled={categoryCreating} onClick={() => {
-                      setShowCategoryCreator(false);
-                      setNewCategoryName("");
-                      setCategoryCreateError(null);
-                    }}>
-                      Batal
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="self-start"
-                  onClick={() => {
-                    setCategoryCreateError(null);
-                    setShowCategoryCreator(true);
-                  }}
-                >
-                  + Buat kategori baru
-                </Button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => openSelectionScreen("category")}
+              aria-labelledby={categoryFieldId}
+              aria-invalid={fieldErrors.category_id ? true : undefined}
+              aria-describedby={fieldErrors.category_id ? categoryErrId : undefined}
+              className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-input bg-background px-4 text-left text-body-md text-on-surface hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className={categoryId ? "font-medium" : "text-on-surface-variant"}>
+                {categoryOptions.find((item) => item.id === categoryId)?.name || "Pilih kategori"}
+              </span>
+              <Icon name="chevron_right" size={22} className="shrink-0 text-on-surface-variant" />
+            </button>
           </TransactionFieldRow>
         )}
-
-        <TransactionFieldRow
-          icon="calendar_today"
-          htmlFor={dateId}
-          label="Tanggal"
-        >
-          <Input
-            id={dateId}
-            type="date"
-            value={transactionAt}
-            onChange={(e) => setTransactionAt(e.target.value)}
-            className="h-11 w-full min-w-0 max-w-full"
-          />
-        </TransactionFieldRow>
 
         <TransactionFieldRow icon="store" htmlFor={merchantId} label="Toko">
           <Input
