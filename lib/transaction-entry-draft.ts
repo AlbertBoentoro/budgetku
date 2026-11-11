@@ -1,5 +1,6 @@
 import { isTransactionType, type TransactionRow } from "./transactions";
 import { isValidTransactionIdrAmount } from "./idr-money";
+import { transactionAmountInputFromValue } from "./transaction-amount-input";
 
 /** Temporary, per-tab form state while moving to the category / duplicate pages.
  * Never includes credentials, source_reference, IDs of Gmail drafts, or writes
@@ -8,7 +9,7 @@ export const ENTRY_DRAFT_KEY = "budgetku:transaction-entry-nav:v1";
 
 export interface TransactionEntryDraft {
   transactionType: "expense" | "income" | "transfer";
-  amount: number;
+  amountInput: string;
   accountId: string;
   destinationAccountId: string;
   categoryId: string;
@@ -39,7 +40,7 @@ export function shiftEntryDate(date: string, days: number): string {
 
 export function defaultEntryDraft(accountId = "", now = new Date()): TransactionEntryDraft {
   return {
-    transactionType: "expense", amount: 0, accountId,
+    transactionType: "expense", amountInput: "0", accountId,
     destinationAccountId: "", categoryId: "", categoryName: "",
     transactionAt: todayEntryDate(now), merchant: "", description: "",
     recurring: false, frequency: "monthly", indefinite: true, endDate: "",
@@ -62,8 +63,8 @@ export function draftFromTransaction(
   const draft = defaultEntryDraft("", now);
   draft.transactionType = isTransactionType(row.transaction_type)
     ? row.transaction_type : "expense";
-  draft.amount = isValidTransactionIdrAmount(Number(row.amount))
-    ? Number(row.amount) : 0;
+  draft.amountInput = isValidTransactionIdrAmount(Number(row.amount))
+    ? transactionAmountInputFromValue(Number(row.amount)) : "0";
   draft.accountId = activeAccountIds.includes(row.account_id) ? row.account_id : "";
   draft.destinationAccountId = row.destination_account_id &&
     activeAccountIds.includes(row.destination_account_id) &&
@@ -83,7 +84,7 @@ export function isEntryDraft(value: unknown): value is TransactionEntryDraft {
   const v = value as Partial<TransactionEntryDraft>;
   return (
     isTransactionType(String(v.transactionType ?? "")) &&
-    typeof v.amount === "number" && Number.isFinite(v.amount) &&
+    typeof v.amountInput === "string" && v.amountInput.length <= 30 &&
     typeof v.accountId === "string" &&
     typeof v.destinationAccountId === "string" &&
     typeof v.categoryId === "string" &&
