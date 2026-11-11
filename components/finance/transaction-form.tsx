@@ -631,7 +631,7 @@ export function TransactionForm({
               {amountLabel}
             </Label>
             <div className="flex w-full min-w-0 items-baseline justify-center gap-2">
-              <span aria-hidden className="shrink-0 text-title-lg font-semibold text-on-surface-variant">
+              <span aria-hidden className="shrink-0 text-title-lg md:text-2xl lg:text-3xl font-semibold text-on-surface-variant">
                 Rp
               </span>
               <Input
@@ -647,7 +647,7 @@ export function TransactionForm({
                 autoComplete="off"
                 pattern="[0-9.,]*"
                 style={{ width: `${Math.max(1, amountInput.length) + 0.5}ch` }}
-                className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(2.5rem,13vw,4.25rem)] font-bold leading-[1.05] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
+                className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(2.5rem,13vw,4.25rem)] md:text-5xl lg:text-6xl font-bold leading-[1.05] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
                 placeholder="0"
                 aria-invalid={fieldErrors.amount ? true : undefined}
                 aria-describedby={fieldErrors.amount ? amountErrId : undefined}
