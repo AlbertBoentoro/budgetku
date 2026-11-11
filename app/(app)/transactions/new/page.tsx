@@ -10,12 +10,15 @@ import {
 import { currentMonthParam } from "@/lib/budgets";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
-import { TransactionForm } from "@/components/finance/transaction-form";
-import { createTransaction } from "@/app/(app)/transactions/actions";
+import { NewTransactionComposer } from "@/components/finance/new-transaction-composer";
 import { AppBackLink } from "@/components/layout/app-back-link";
 import { Button } from "@/components/ui/button";
 
-export default function NewTransactionPage() {
+interface NewTransactionPageProps {
+  searchParams: Promise<{ restore?: string }>;
+}
+
+export default function NewTransactionPage({ searchParams }: NewTransactionPageProps) {
   return (
     <>
       <AppHeader
@@ -28,17 +31,20 @@ export default function NewTransactionPage() {
         {/* The dynamic auth + data fetch runs inside Suspense so the shared
             (app) shell can still prerender under PPR. */}
         <Suspense fallback={<NewFormSkeleton />}>
-          <NewTransactionContent />
+          <NewTransactionContent searchParams={searchParams} />
         </Suspense>
       </PageContainer>
     </>
   );
 }
 
-async function NewTransactionContent() {
+async function NewTransactionContent({ searchParams }: NewTransactionPageProps) {
   // Request-time work: creating the Supabase client reads the clock (session
   // expiry), which partialPrefetching rejects before connection().
   await connection();
+  const query = await searchParams;
+  const restore = query.restore === "category" || query.restore === "duplicate" ||
+    query.restore === "back" ? query.restore : null;
 
   const supabase = await createClient();
   const {
@@ -62,9 +68,8 @@ async function NewTransactionContent() {
   }
 
   return (
-    <TransactionForm
-      mode="create"
-      action={createTransaction}
+    <NewTransactionComposer
+      restore={restore}
       accounts={accounts}
       incomeCategories={incomeCategories}
       expenseCategories={expenseCategories}
