@@ -49,10 +49,19 @@ async function NewTransactionContent() {
     return <SessionExpiredState />;
   }
 
-  const [accounts, incomeCategories, expenseCategories] = await Promise.all([
+  const [accounts, incomeCategories, expenseCategories, recent] = await Promise.all([
     fetchActiveAccounts(supabase, user.id),
     fetchUsableCategories(supabase, user.id, "income"),
     fetchUsableCategories(supabase, user.id, "expense"),
+    // Duplicate picker is read-only and user-scoped. Only copy editable form
+    // fields, never the source, original id, or Gmail source_reference.
+    supabase
+      .from("transactions")
+      .select("id, transaction_type, amount, account_id, destination_account_id, category_id, transaction_at, merchant, description")
+      .eq("user_id", user.id)
+      .order("transaction_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   // A transaction needs a source account. Without one, point the user to add a
@@ -69,6 +78,7 @@ async function NewTransactionContent() {
       incomeCategories={incomeCategories}
       expenseCategories={expenseCategories}
       currentMonth={currentMonthParam()}
+      recentTransactions={recent.error ? [] : recent.data ?? []}
     />
   );
 }

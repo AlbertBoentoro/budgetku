@@ -18,7 +18,8 @@ test("Gmail approval uses the exact same mobile Catat form, with all three types
   assert.match(switcher, /value: "income"/);
   assert.match(switcher, /value: "transfer"/);
   assert.match(form, /label="Rekening tujuan"/);
-  assert.match(form, /\+ Buat kategori baru/);
+  assert.match(form, /<TransactionCategoryScreen/);
+  assert.match(read("components/transactions/transaction-selection-screens.tsx"), /Buat kategori baru/);
   assert.match(form, /inputMode="decimal"/);
   assert.match(form, /canCreateRecurring && recurring/);
   assert.match(form, /if \(onSuccess\)/);

@@ -33,8 +33,11 @@ test("transaction form creates, selects, and preserves user categories", () => {
   assert.match(form,/createUserCategory\(\{ name, category_type: direction \}\)/);
   assert.match(form,/setCategoryId\(result\.category\.id\)/);
   assert.match(form,/createdCategories\.filter/);
-  assert.match(form,/\+ Buat kategori baru/);
-  assert.match(form,/Simpan kategori/);
+  const picker=read("components/transactions/transaction-selection-screens.tsx");
+  assert.match(form,/openSelectionScreen\("category"\)/);
+  assert.match(form,/onCreate=\{handleCreateCategory\}/);
+  assert.match(picker,/Buat kategori baru/);
+  assert.match(picker,/Simpan dan pilih kategori/);
   assert.match(form,/type="button"/);
   assert.match(form,/setShowCategoryCreator\(false\)/);
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -28,6 +28,12 @@ import { TransactionTypeSwitcher } from "@/components/transactions/transaction-t
 import { TransactionFieldRow } from "@/components/transactions/transaction-field-row";
 import { TransactionSelect } from "@/components/transactions/transaction-select";
 import { ToggleSwitch } from "@/components/transactions/toggle-switch";
+import {
+  TransactionCategoryScreen,
+  TransactionDuplicateScreen,
+  type DuplicateTransaction,
+} from "@/components/transactions/transaction-selection-screens";
+import { shiftTransactionDate } from "@/lib/transaction-date-navigation";
 
 export interface TransactionFormInitialValues {
   transaction_type: string;
@@ -56,6 +62,7 @@ interface TransactionFormProps {
   submitText?: string;
   onSuccess?: () => void;
   onCancel?: () => void;
+  recentTransactions?: DuplicateTransaction[];
 }
 
 type FieldErrors = Partial<
@@ -108,6 +115,7 @@ export function TransactionForm({
   submitText,
   onSuccess,
   onCancel,
+  recentTransactions = [],
 }: TransactionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -138,7 +146,7 @@ export function TransactionForm({
   const [createdCategories, setCreatedCategories] = useState<
     Array<Pick<CategoryRow, "id" | "name" | "category_type">>
   >([]);
-  const [showCategoryCreator, setShowCategoryCreator] = useState(false);
+  const [, setShowCategoryCreator] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryCreateError, setCategoryCreateError] = useState<string | null>(null);
   const [categoryCreating, setCategoryCreating] = useState(false);
@@ -170,12 +178,51 @@ export function TransactionForm({
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [activeScreen, setActiveScreen] = useState<"category" | "duplicate" | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<string | null>(null);
+
+  // A picker behaves as a separate full-screen page without unmounting the form
+  // or losing the amount, account, merchant and recurrence inputs. Browser Back
+  // closes it as well as the visible back button.
+  useEffect(() => {
+    const onPopState = () => setActiveScreen(null);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!activeScreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSelectionScreen();
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onEscape);
+    };
+  }, [activeScreen]);
+
+  function openSelectionScreen(screen: "category" | "duplicate") {
+    setActiveScreen(screen);
+    window.history.pushState({ budgetkuPicker: screen }, "",
+      screen === "category" ? "#pilih-kategori" : "#duplikat-transaksi");
+  }
+
+  function closeSelectionScreen() {
+    if (!activeScreen) return;
+    setActiveScreen(null);
+    if (window.history.state?.budgetkuPicker) {
+      window.history.back();
+    }
+  }
 
   const amountId = useId();
   const typeLabelId = useId();
   const accountFieldId = useId();
   const categoryFieldId = useId();
-  const newCategoryNameId = useId();
   const destinationFieldId = useId();
   const dateId = useId();
   const descriptionId = useId();
@@ -207,6 +254,18 @@ export function TransactionForm({
   ];
 
   // Destination excludes the chosen source so a transfer cannot target itself.
+  const accountNames = useMemo(
+    () => Object.fromEntries(accounts.map((account) => [account.id, account.name])),
+    [accounts],
+  );
+  const categoryNames = useMemo(
+    () => Object.fromEntries(
+      [...incomeCategories, ...expenseCategories, ...createdCategories]
+        .map((category) => [category.id, category.name]),
+    ),
+    [incomeCategories, expenseCategories, createdCategories],
+  );
+
   const destinationOptions = useMemo(
     () => accounts.filter((a) => a.id !== accountId),
     [accounts, accountId],
@@ -243,6 +302,51 @@ export function TransactionForm({
 
   function resetAmount() {
     setAmountInput("");
+  }
+
+  function handleDuplicatePick(original: DuplicateTransaction) {
+    if (!isTransactionType(original.transaction_type)) return;
+    setTransactionType(original.transaction_type);
+    setAmountInput(transactionAmountInputFromValue(original.amount));
+
+    // Archived/deleted accounts cannot be silently reused.
+    const sourceExists = accounts.some((account) => account.id === original.account_id);
+    setAccountId(sourceExists ? original.account_id : "");
+    const destExists = accounts.some(
+      (account) => account.id === original.destination_account_id,
+    );
+    setDestinationAccountId(
+      original.transaction_type === "transfer" && sourceExists && destExists &&
+        original.destination_account_id !== original.account_id
+        ? original.destination_account_id ?? "" : "",
+    );
+
+    const eligibleCategories =
+      original.transaction_type === "income" ? incomeCategories : expenseCategories;
+    const categoryExists = eligibleCategories.some(
+      (category) => category.id === original.category_id,
+    ) || createdCategories.some(
+      (category) => category.id === original.category_id &&
+        category.category_type === original.transaction_type,
+    );
+    setCategoryId(original.transaction_type !== "transfer" && categoryExists
+      ? original.category_id ?? "" : "");
+    setMerchant(original.merchant ?? "");
+    setDescription(original.description ?? "");
+
+    // A duplicate is a NEW manual entry dated today, not a copy of the date,
+    // recurring template, source reference, or transaction id.
+    setTransactionAt(todayValue());
+    setRecurring(false);
+    setFrequency("monthly");
+    setIndefinite(true);
+    setEndDate("");
+    recurringRequestId.current = null;
+    setFieldErrors({});
+    setFormError(null);
+    setSuccessMessage(null);
+    setDuplicateSource(original.merchant?.trim() || "Transaksi sebelumnya");
+    closeSelectionScreen();
   }
 
   const PRESETS = [
@@ -298,6 +402,7 @@ export function TransactionForm({
       setFieldErrors((current) => ({ ...current, category_id: undefined }));
       setShowCategoryCreator(false);
       setNewCategoryName("");
+      closeSelectionScreen();
     } catch {
       setCategoryCreateError("Kategori belum tersimpan. Coba lagi.");
     } finally {
@@ -417,11 +522,15 @@ export function TransactionForm({
     setCategoryCreateError(null);
     setFieldErrors({});
     setFormError(null);
+    setDuplicateSource(null);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const addAnother = mode === "create" && allowRecurring &&
+      (e.nativeEvent as SubmitEvent).submitter?.getAttribute("data-add-another") === "true";
     setFormError(null);
+    setSuccessMessage(null);
 
     const { errors, input } = validateClient();
     setFieldErrors(errors);
@@ -433,6 +542,11 @@ export function TransactionForm({
         if (mode === "create") resetAfterSuccessfulCreate();
         if (onSuccess) {
           onSuccess();
+          router.refresh();
+          return;
+        }
+        if (addAnother) {
+          setSuccessMessage("Transaksi tersimpan. Silakan catat transaksi berikutnya.");
           router.refresh();
           return;
         }
@@ -454,125 +568,171 @@ export function TransactionForm({
     });
   }
 
-  const submitLabel = submitText ?? (mode === "create" ? "Submit" : "Simpan perubahan");
+  const submitLabel = submitText ?? (mode === "create" ? "Simpan & selesai" : "Simpan perubahan");
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full min-w-0 max-w-full flex-col gap-6" noValidate>
-      <div className="flex flex-col gap-2">
-        <span id={typeLabelId} className="text-body-md font-medium text-on-surface">
-          Jenis transaksi
-        </span>
-        <TransactionTypeSwitcher
-          value={transactionType}
-          onChange={handleTypeChange}
-          labelId={typeLabelId}
-        />
-        {fieldErrors.transaction_type ? (
-          <p role="alert" className="text-body-sm text-expense">
-            {fieldErrors.transaction_type}
-          </p>
-        ) : null}
-      </div>
-
-      {/* Hero amount card: a large "Rp" prefix + the SAME amount input rendered
-          at display size, with functional preset chips. No fake caret, no
-          perpetual animation, no decorative glow. */}
-      <div className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
-        <Label
-          htmlFor={amountId}
-          className="text-label-md uppercase text-on-surface-variant"
-        >
-          {amountLabel}
-        </Label>
-        <div className="flex w-full min-w-0 items-baseline justify-center gap-2">
-          <span
-            aria-hidden
-            className="shrink-0 text-currency-display font-semibold text-on-surface-variant"
-          >
-            Rp
-          </span>
-          <Input
-            id={amountId}
-            type="text"
-            value={amountInput}
-            onChange={(e) => handleAmountChange(e.target.value)}
-            onFocus={(e) => {
-              if (amountInput === "0") e.currentTarget.select();
-            }}
-            inputMode="decimal"
-            enterKeyHint="done"
-            autoComplete="off"
-            pattern="[0-9.,]*"
-            style={{ width: `${Math.max(1, amountInput.length) + 0.5}ch` }}
-            className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(1.875rem,8vw,2.75rem)] md:text-[2.75rem] font-bold leading-[1.1] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
-            placeholder="0"
-            aria-invalid={fieldErrors.amount ? true : undefined}
-            aria-describedby={fieldErrors.amount ? amountErrId : undefined}
+    <>
+      <form
+        onSubmit={handleSubmit}
+        className="flex w-full min-w-0 max-w-full flex-col gap-4"
+        noValidate
+        inert={activeScreen !== null}
+        aria-hidden={activeScreen !== null}
+      >
+        <div className="flex flex-col gap-2">
+          <span id={typeLabelId} className="sr-only">Jenis transaksi</span>
+          <TransactionTypeSwitcher
+            value={transactionType}
+            onChange={handleTypeChange}
+            labelId={typeLabelId}
           />
+          {fieldErrors.transaction_type ? (
+            <p role="alert" className="text-body-sm text-expense">
+              {fieldErrors.transaction_type}
+            </p>
+          ) : null}
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {PRESETS.map((preset) => (
+
+        {/* The amount and date navigator share the prominent primary surface. */}
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
+          <div className="flex min-h-16 items-center justify-between gap-1 border-b border-outline-variant px-2 py-2">
             <button
-              key={preset.label}
               type="button"
-              onClick={() => addPreset(preset.delta)}
-              className="flex h-11 items-center rounded-full bg-surface-container-low px-3 text-body-sm font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setTransactionAt((date) => shiftTransactionDate(date, -1))}
+              aria-label="Tanggal sebelumnya"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {preset.label}
+              <Icon name="chevron_left" size={24} />
             </button>
-          ))}
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
+              <Label htmlFor={dateId} className="text-label-xs text-on-surface-variant">
+                Tanggal transaksi
+              </Label>
+              <Input
+                id={dateId}
+                type="date"
+                value={transactionAt}
+                onChange={(event) => setTransactionAt(event.target.value)}
+                className="h-10 w-full min-w-0 max-w-[13rem] border-0 bg-transparent px-1 text-center text-body-md font-semibold shadow-none focus-visible:ring-1"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setTransactionAt((date) => shiftTransactionDate(date, 1))}
+              aria-label="Tanggal berikutnya"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Icon name="chevron_right" size={24} />
+            </button>
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-4 px-4 py-7">
+            <Label htmlFor={amountId} className="text-center text-label-md text-on-surface-variant">
+              {amountLabel}
+            </Label>
+            <div className="flex w-full min-w-0 items-baseline justify-center gap-2">
+              <span aria-hidden className="shrink-0 text-title-lg font-semibold text-on-surface-variant">
+                Rp
+              </span>
+              <Input
+                id={amountId}
+                type="text"
+                value={amountInput}
+                onChange={(event) => handleAmountChange(event.target.value)}
+                onFocus={(event) => {
+                  if (amountInput === "0") event.currentTarget.select();
+                }}
+                inputMode="decimal"
+                enterKeyHint="done"
+                autoComplete="off"
+                pattern="[0-9.,]*"
+                style={{ width: `${Math.max(1, amountInput.length) + 0.5}ch` }}
+                className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(2.5rem,13vw,4.25rem)] font-bold leading-[1.05] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
+                placeholder="0"
+                aria-invalid={fieldErrors.amount ? true : undefined}
+                aria-describedby={fieldErrors.amount ? amountErrId : undefined}
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => addPreset(preset.delta)}
+                  className="flex min-h-11 items-center rounded-full bg-surface-container-low px-3 text-body-sm font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={resetAmount}
+                className="flex min-h-11 items-center rounded-full px-3 text-body-sm font-medium text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Reset
+              </button>
+            </div>
+            {fieldErrors.amount ? (
+              <p id={amountErrId} role="alert" className="text-center text-body-sm text-expense">
+                {fieldErrors.amount}
+              </p>
+            ) : null}
+          </div>
+        </section>
+
+        {isCreate && allowRecurring ? (
           <button
             type="button"
-            onClick={resetAmount}
-            className="flex h-11 items-center rounded-full px-3 text-body-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => openSelectionScreen("duplicate")}
+            className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 text-left text-body-md font-medium text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Reset
+            <span className="flex min-w-0 items-center gap-2">
+              <Icon name="content_copy" size={20} className="shrink-0 text-primary" />
+              <span>{duplicateSource ? `Disalin dari ${duplicateSource}` : "Duplikat transaksi sebelumnya"}</span>
+            </span>
+            <Icon name="chevron_right" size={22} className="shrink-0 text-on-surface-variant" />
           </button>
-        </div>
-        {fieldErrors.amount ? (
-          <p
-            id={amountErrId}
-            role="alert"
-            className="text-center text-body-sm text-expense"
-          >
-            {fieldErrors.amount}
-          </p>
         ) : null}
-      </div>
 
       {/* Field rows grouped in one card with dividers. Every control keeps its
           existing value/onChange/id/aria wiring and show-hide conditionals. */}
       <div className="flex min-w-0 max-w-full flex-col divide-y divide-border rounded-xl bg-surface-container-lowest shadow-sm">
         <TransactionFieldRow
           icon="account_balance_wallet"
-          htmlFor={accountFieldId}
-          label="Rekening sumber"
-          error={
-            fieldErrors.account_id ? (
-              <p
-                id={accountErrId}
-                role="alert"
-                className="text-body-sm text-expense"
-              >
-                {fieldErrors.account_id}
-              </p>
-            ) : null
-          }
+          labelId={accountFieldId}
+          label={isTransfer ? "Dari rekening" : "Rekening"}
+          error={fieldErrors.account_id ? (
+            <p id={accountErrId} role="alert" className="text-body-sm text-expense">
+              {fieldErrors.account_id}
+            </p>
+          ) : null}
         >
-          <TransactionSelect
-            id={accountFieldId}
-            value={accountId}
-            onChange={(e) => handleAccountChange(e.target.value)}
-            aria-invalid={fieldErrors.account_id ? true : undefined}
+          <div
+            role="group"
+            aria-labelledby={accountFieldId}
             aria-describedby={fieldErrors.account_id ? accountErrId : undefined}
-            >
-            <option value="">Pilih rekening</option>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </TransactionSelect>
+            className="-mx-1 flex min-w-0 gap-2 overflow-x-auto overscroll-x-contain px-1 pb-2 [scrollbar-width:thin]"
+          >
+            {accounts.map((account) => {
+              const selected = accountId === account.id;
+              return (
+                <button
+                  key={account.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => handleAccountChange(account.id)}
+                  className={`flex min-h-12 shrink-0 items-center gap-2 rounded-full border px-4 text-body-md font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    selected
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-outline-variant bg-surface-container-low text-on-surface hover:bg-surface-container"
+                  }`}
+                >
+                  <Icon name="account_balance_wallet" size={20} />
+                  {account.name}
+                </button>
+              );
+            })}
+          </div>
         </TransactionFieldRow>
 
         {isTransfer ? (
@@ -616,95 +776,29 @@ export function TransactionForm({
         ) : (
           <TransactionFieldRow
             icon="category"
-            htmlFor={categoryFieldId}
+            labelId={categoryFieldId}
             label="Kategori"
-            error={
-              fieldErrors.category_id ? (
-                <p
-                  id={categoryErrId}
-                  role="alert"
-                  className="text-body-sm text-expense"
-                >
-                  {fieldErrors.category_id}
-                </p>
-              ) : null
-            }
+            error={fieldErrors.category_id ? (
+              <p id={categoryErrId} role="alert" className="text-body-sm text-expense">
+                {fieldErrors.category_id}
+              </p>
+            ) : null}
           >
-            <div className="flex flex-col gap-2">
-              <TransactionSelect
-                id={categoryFieldId}
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                aria-invalid={fieldErrors.category_id ? true : undefined}
-                aria-describedby={fieldErrors.category_id ? categoryErrId : undefined}
-              >
-                <option value="">Pilih kategori</option>
-                {categoryOptions.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </TransactionSelect>
-              {showCategoryCreator ? (
-                <div className="flex flex-col gap-2 rounded-lg border border-outline-variant p-3">
-                  <Label htmlFor={newCategoryNameId}>Nama kategori baru</Label>
-                  <Input
-                    id={newCategoryNameId}
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder={isIncome ? "Misal: Freelance" : "Misal: Laundry"}
-                    maxLength={60}
-                    autoComplete="off"
-                    disabled={categoryCreating}
-                  />
-                  {categoryCreateError ? (
-                    <p role="alert" className="text-body-sm text-expense">
-                      {categoryCreateError}
-                    </p>
-                  ) : null}
-                  <div className="flex gap-2">
-                    <Button type="button" onClick={handleCreateCategory} disabled={categoryCreating || !newCategoryName.trim()}>
-                      {categoryCreating ? "Menyimpan..." : "Simpan kategori"}
-                    </Button>
-                    <Button type="button" variant="outline" disabled={categoryCreating} onClick={() => {
-                      setShowCategoryCreator(false);
-                      setNewCategoryName("");
-                      setCategoryCreateError(null);
-                    }}>
-                      Batal
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="self-start"
-                  onClick={() => {
-                    setCategoryCreateError(null);
-                    setShowCategoryCreator(true);
-                  }}
-                >
-                  + Buat kategori baru
-                </Button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => openSelectionScreen("category")}
+              aria-labelledby={categoryFieldId}
+              aria-invalid={fieldErrors.category_id ? true : undefined}
+              aria-describedby={fieldErrors.category_id ? categoryErrId : undefined}
+              className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-input bg-background px-4 text-left text-body-md text-on-surface hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className={categoryId ? "font-medium" : "text-on-surface-variant"}>
+                {categoryOptions.find((item) => item.id === categoryId)?.name || "Pilih kategori"}
+              </span>
+              <Icon name="chevron_right" size={22} className="shrink-0 text-on-surface-variant" />
+            </button>
           </TransactionFieldRow>
         )}
-
-        <TransactionFieldRow
-          icon="calendar_today"
-          htmlFor={dateId}
-          label="Tanggal"
-        >
-          <Input
-            id={dateId}
-            type="date"
-            value={transactionAt}
-            onChange={(e) => setTransactionAt(e.target.value)}
-            className="h-11 w-full min-w-0 max-w-full"
-          />
-        </TransactionFieldRow>
 
         <TransactionFieldRow icon="store" htmlFor={merchantId} label="Toko">
           <Input
@@ -869,6 +963,12 @@ export function TransactionForm({
         </div>
       ) : null}
 
+      {successMessage ? (
+        <p role="status" className="rounded-lg border border-income/40 bg-income/10 px-3 py-3 text-body-sm text-on-surface">
+          {successMessage}
+        </p>
+      ) : null}
+
       {formError ? (
         <p
           role="alert"
@@ -879,15 +979,69 @@ export function TransactionForm({
       ) : null}
 
       <div className="flex flex-col gap-3">
-        <Button type="submit" className="h-11 w-full" disabled={isPending}>
-          {isPending ? "Menyimpan..." : submitLabel}
-        </Button>
+        {isCreate && allowRecurring ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="submit"
+              data-add-another="true"
+              variant="outline"
+              className="min-h-12 whitespace-normal px-2 text-center"
+              disabled={isPending}
+            >
+              {isPending ? "Menyimpan..." : "Simpan & catat lagi"}
+            </Button>
+            <Button
+              type="submit"
+              className="min-h-12 whitespace-normal px-2 text-center"
+              disabled={isPending}
+            >
+              {isPending ? "Menyimpan..." : submitLabel}
+            </Button>
+          </div>
+        ) : (
+          <Button type="submit" className="h-12 w-full" disabled={isPending}>
+            {isPending ? "Menyimpan..." : submitLabel}
+          </Button>
+        )}
         {onCancel ? (
           <Button type="button" variant="outline" className="h-11 w-full" onClick={onCancel} disabled={isPending}>
             Batal
           </Button>
         ) : null}
       </div>
-    </form>
+      </form>
+
+      {activeScreen === "category" ? (
+        <TransactionCategoryScreen
+          categories={categoryOptions}
+          selectedId={categoryId}
+          direction={isIncome ? "income" : "expense"}
+          onPick={(id) => {
+            setCategoryId(id);
+            setFieldErrors((errors) => ({ ...errors, category_id: undefined }));
+            closeSelectionScreen();
+          }}
+          onBack={closeSelectionScreen}
+          createName={newCategoryName}
+          onCreateNameChange={(name) => {
+            setNewCategoryName(name);
+            setCategoryCreateError(null);
+          }}
+          onCreate={handleCreateCategory}
+          creating={categoryCreating}
+          createError={categoryCreateError}
+        />
+      ) : null}
+
+      {activeScreen === "duplicate" ? (
+        <TransactionDuplicateScreen
+          transactions={recentTransactions}
+          accountNames={accountNames}
+          categoryNames={categoryNames}
+          onPick={handleDuplicatePick}
+          onBack={closeSelectionScreen}
+        />
+      ) : null}
+    </>
   );
 }

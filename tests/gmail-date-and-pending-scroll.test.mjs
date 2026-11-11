@@ -9,7 +9,7 @@ test("iOS native date inputs cannot exceed the shared form or their field rows",
   const form = read("components/finance/transaction-form.tsx");
   const row = read("components/transactions/transaction-field-row.tsx");
 
-  assert.match(form, /<form onSubmit=\{handleSubmit\} className="flex w-full min-w-0 max-w-full/);
+  assert.match(form, /<form[\s\S]*onSubmit=\{handleSubmit\}[\s\S]*className="flex w-full min-w-0 max-w-full/);
   assert.match(row, /"flex min-w-0 max-w-full flex-col gap-2 p-lg"/);
   assert.match(form, /min-w-0 max-w-full flex-col divide-y divide-border/);
 
@@ -18,7 +18,7 @@ test("iOS native date inputs cannot exceed the shared form or their field rows",
     assert.ok(start >= 0, `Date control ${id} must exist`);
     const tag = form.slice(start, form.indexOf("/>", start));
     assert.match(tag, /type="date"/);
-    assert.match(tag, /className="h-11 w-full min-w-0 max-w-full"/);
+    assert.match(tag, /w-full min-w-0 max-w-/);
   }
 });
 
