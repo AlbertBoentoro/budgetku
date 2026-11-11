@@ -6,7 +6,8 @@ interface TransactionFieldRowProps {
   // Material Symbols glyph identifying the field.
   icon: string;
   // The control's id, so the label targets it.
-  htmlFor: string;
+  htmlFor?: string;
+  labelId?: string;
   label: string;
   children: React.ReactNode;
   // Rendered below the row; the caller supplies the role="alert" error node.
@@ -20,6 +21,7 @@ interface TransactionFieldRowProps {
 export function TransactionFieldRow({
   icon,
   htmlFor,
+  labelId,
   label,
   children,
   error,
@@ -31,9 +33,15 @@ export function TransactionFieldRow({
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
           <Icon name={icon} size={20} />
         </span>
-        <Label htmlFor={htmlFor} className="text-body-md text-on-surface">
-          {label}
-        </Label>
+        {htmlFor ? (
+          <Label htmlFor={htmlFor} className="text-body-md text-on-surface">
+            {label}
+          </Label>
+        ) : (
+          <span id={labelId} className="text-body-md text-on-surface">
+            {label}
+          </span>
+        )}
       </div>
       {children}
       {error}
