@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -28,6 +28,12 @@ import { TransactionTypeSwitcher } from "@/components/transactions/transaction-t
 import { TransactionFieldRow } from "@/components/transactions/transaction-field-row";
 import { TransactionSelect } from "@/components/transactions/transaction-select";
 import { ToggleSwitch } from "@/components/transactions/toggle-switch";
+import {
+  TransactionCategoryScreen,
+  TransactionDuplicateScreen,
+  type DuplicateTransaction,
+} from "@/components/transactions/transaction-selection-screens";
+import { shiftTransactionDate } from "@/lib/transaction-date-navigation";
 
 export interface TransactionFormInitialValues {
   transaction_type: string;
@@ -56,6 +62,7 @@ interface TransactionFormProps {
   submitText?: string;
   onSuccess?: () => void;
   onCancel?: () => void;
+  recentTransactions?: DuplicateTransaction[];
 }
 
 type FieldErrors = Partial<
@@ -108,6 +115,7 @@ export function TransactionForm({
   submitText,
   onSuccess,
   onCancel,
+  recentTransactions = [],
 }: TransactionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -170,6 +178,45 @@ export function TransactionForm({
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [activeScreen, setActiveScreen] = useState<"category" | "duplicate" | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<string | null>(null);
+
+  // A picker behaves as a separate full-screen page without unmounting the form
+  // or losing the amount, account, merchant and recurrence inputs. Browser Back
+  // closes it as well as the visible back button.
+  useEffect(() => {
+    const onPopState = () => setActiveScreen(null);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!activeScreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSelectionScreen();
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onEscape);
+    };
+  }, [activeScreen]);
+
+  function openSelectionScreen(screen: "category" | "duplicate") {
+    setActiveScreen(screen);
+    window.history.pushState({ budgetkuPicker: screen }, "",
+      screen === "category" ? "#pilih-kategori" : "#duplikat-transaksi");
+  }
+
+  function closeSelectionScreen() {
+    if (!activeScreen) return;
+    setActiveScreen(null);
+    if (window.history.state?.budgetkuPicker) {
+      window.history.back();
+    }
+  }
 
   const amountId = useId();
   const typeLabelId = useId();
@@ -207,6 +254,18 @@ export function TransactionForm({
   ];
 
   // Destination excludes the chosen source so a transfer cannot target itself.
+  const accountNames = useMemo(
+    () => Object.fromEntries(accounts.map((account) => [account.id, account.name])),
+    [accounts],
+  );
+  const categoryNames = useMemo(
+    () => Object.fromEntries(
+      [...incomeCategories, ...expenseCategories, ...createdCategories]
+        .map((category) => [category.id, category.name]),
+    ),
+    [incomeCategories, expenseCategories, createdCategories],
+  );
+
   const destinationOptions = useMemo(
     () => accounts.filter((a) => a.id !== accountId),
     [accounts, accountId],
@@ -243,6 +302,50 @@ export function TransactionForm({
 
   function resetAmount() {
     setAmountInput("");
+  }
+
+  function handleDuplicatePick(original: DuplicateTransaction) {
+    if (!isTransactionType(original.transaction_type)) return;
+    setTransactionType(original.transaction_type);
+    setAmountInput(transactionAmountInputFromValue(original.amount));
+
+    // Archived/deleted accounts cannot be silently reused.
+    const sourceExists = accounts.some((account) => account.id === original.account_id);
+    setAccountId(sourceExists ? original.account_id : "");
+    const destExists = accounts.some(
+      (account) => account.id === original.destination_account_id,
+    );
+    setDestinationAccountId(
+      original.transaction_type === "transfer" && sourceExists && destExists &&
+        original.destination_account_id !== original.account_id
+        ? original.destination_account_id ?? "" : "",
+    );
+
+    const eligibleCategories =
+      original.transaction_type === "income" ? incomeCategories : expenseCategories;
+    const categoryExists = eligibleCategories.some(
+      (category) => category.id === original.category_id,
+    ) || createdCategories.some(
+      (category) => category.id === original.category_id &&
+        category.category_type === original.transaction_type,
+    );
+    setCategoryId(original.transaction_type !== "transfer" && categoryExists
+      ? original.category_id ?? "" : "");
+    setMerchant(original.merchant ?? "");
+    setDescription(original.description ?? "");
+
+    // A duplicate is a NEW manual entry dated today, not a copy of the date,
+    // recurring template, source reference, or transaction id.
+    setTransactionAt(todayValue());
+    setRecurring(false);
+    setFrequency("monthly");
+    setIndefinite(true);
+    setEndDate("");
+    recurringRequestId.current = null;
+    setFieldErrors({});
+    setFormError(null);
+    setDuplicateSource(original.merchant?.trim() || "Transaksi sebelumnya");
+    closeSelectionScreen();
   }
 
   const PRESETS = [
@@ -298,6 +401,7 @@ export function TransactionForm({
       setFieldErrors((current) => ({ ...current, category_id: undefined }));
       setShowCategoryCreator(false);
       setNewCategoryName("");
+      closeSelectionScreen();
     } catch {
       setCategoryCreateError("Kategori belum tersimpan. Coba lagi.");
     } finally {
@@ -417,6 +521,7 @@ export function TransactionForm({
     setCategoryCreateError(null);
     setFieldErrors({});
     setFormError(null);
+    setDuplicateSource(null);
   }
 
   function handleSubmit(e: React.FormEvent) {
