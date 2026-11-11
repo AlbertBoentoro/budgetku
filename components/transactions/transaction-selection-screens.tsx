@@ -84,7 +84,7 @@ export function TransactionCategoryScreen({
   creating,
   createError,
 }: {
-  categories: CategoryRow[];
+  categories: Array<Pick<CategoryRow, "id" | "name"> & { user_id?: string | null }>;
   selectedId: string;
   direction: "income" | "expense";
   onPick: (id: string) => void;
