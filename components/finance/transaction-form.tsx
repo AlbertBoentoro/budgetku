@@ -562,88 +562,128 @@ export function TransactionForm({
   const submitLabel = submitText ?? (mode === "create" ? "Submit" : "Simpan perubahan");
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full min-w-0 max-w-full flex-col gap-6" noValidate>
-      <div className="flex flex-col gap-2">
-        <span id={typeLabelId} className="text-body-md font-medium text-on-surface">
-          Jenis transaksi
-        </span>
-        <TransactionTypeSwitcher
-          value={transactionType}
-          onChange={handleTypeChange}
-          labelId={typeLabelId}
-        />
-        {fieldErrors.transaction_type ? (
-          <p role="alert" className="text-body-sm text-expense">
-            {fieldErrors.transaction_type}
-          </p>
-        ) : null}
-      </div>
-
-      {/* Hero amount card: a large "Rp" prefix + the SAME amount input rendered
-          at display size, with functional preset chips. No fake caret, no
-          perpetual animation, no decorative glow. */}
-      <div className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-lg shadow-sm">
-        <Label
-          htmlFor={amountId}
-          className="text-label-md uppercase text-on-surface-variant"
-        >
-          {amountLabel}
-        </Label>
-        <div className="flex w-full min-w-0 items-baseline justify-center gap-2">
-          <span
-            aria-hidden
-            className="shrink-0 text-currency-display font-semibold text-on-surface-variant"
-          >
-            Rp
-          </span>
-          <Input
-            id={amountId}
-            type="text"
-            value={amountInput}
-            onChange={(e) => handleAmountChange(e.target.value)}
-            onFocus={(e) => {
-              if (amountInput === "0") e.currentTarget.select();
-            }}
-            inputMode="decimal"
-            enterKeyHint="done"
-            autoComplete="off"
-            pattern="[0-9.,]*"
-            style={{ width: `${Math.max(1, amountInput.length) + 0.5}ch` }}
-            className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(1.875rem,8vw,2.75rem)] md:text-[2.75rem] font-bold leading-[1.1] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
-            placeholder="0"
-            aria-invalid={fieldErrors.amount ? true : undefined}
-            aria-describedby={fieldErrors.amount ? amountErrId : undefined}
+    <>
+      <form
+        onSubmit={handleSubmit}
+        className="flex w-full min-w-0 max-w-full flex-col gap-4"
+        noValidate
+        inert={activeScreen !== null}
+        aria-hidden={activeScreen !== null}
+      >
+        <div className="flex flex-col gap-2">
+          <span id={typeLabelId} className="sr-only">Jenis transaksi</span>
+          <TransactionTypeSwitcher
+            value={transactionType}
+            onChange={handleTypeChange}
+            labelId={typeLabelId}
           />
+          {fieldErrors.transaction_type ? (
+            <p role="alert" className="text-body-sm text-expense">
+              {fieldErrors.transaction_type}
+            </p>
+          ) : null}
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {PRESETS.map((preset) => (
+
+        {/* The amount and date navigator share the prominent primary surface. */}
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
+          <div className="flex min-h-16 items-center justify-between gap-1 border-b border-outline-variant px-2 py-2">
             <button
-              key={preset.label}
               type="button"
-              onClick={() => addPreset(preset.delta)}
-              className="flex h-11 items-center rounded-full bg-surface-container-low px-3 text-body-sm font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setTransactionAt((date) => shiftTransactionDate(date, -1))}
+              aria-label="Tanggal sebelumnya"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {preset.label}
+              <Icon name="chevron_left" size={24} />
             </button>
-          ))}
+            <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
+              <Label htmlFor={dateId} className="text-label-xs text-on-surface-variant">
+                Tanggal transaksi
+              </Label>
+              <Input
+                id={dateId}
+                type="date"
+                value={transactionAt}
+                onChange={(event) => setTransactionAt(event.target.value)}
+                className="h-10 w-full min-w-0 max-w-[13rem] border-0 bg-transparent px-1 text-center text-body-md font-semibold shadow-none focus-visible:ring-1"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setTransactionAt((date) => shiftTransactionDate(date, 1))}
+              aria-label="Tanggal berikutnya"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Icon name="chevron_right" size={24} />
+            </button>
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-4 px-4 py-7">
+            <Label htmlFor={amountId} className="text-center text-label-md text-on-surface-variant">
+              {amountLabel}
+            </Label>
+            <div className="flex w-full min-w-0 items-baseline justify-center gap-2">
+              <span aria-hidden className="shrink-0 text-title-lg font-semibold text-on-surface-variant">
+                Rp
+              </span>
+              <Input
+                id={amountId}
+                type="text"
+                value={amountInput}
+                onChange={(event) => handleAmountChange(event.target.value)}
+                onFocus={(event) => {
+                  if (amountInput === "0") event.currentTarget.select();
+                }}
+                inputMode="decimal"
+                enterKeyHint="done"
+                autoComplete="off"
+                pattern="[0-9.,]*"
+                style={{ width: `${Math.max(1, amountInput.length) + 0.5}ch` }}
+                className="h-auto min-w-[1.5ch] max-w-[calc(100%-3.5rem)] flex-none border-0 bg-transparent p-0 text-left text-[clamp(2.5rem,13vw,4.25rem)] font-bold leading-[1.05] tracking-tight tabular-nums shadow-none focus-visible:ring-0"
+                placeholder="0"
+                aria-invalid={fieldErrors.amount ? true : undefined}
+                aria-describedby={fieldErrors.amount ? amountErrId : undefined}
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => addPreset(preset.delta)}
+                  className="flex min-h-11 items-center rounded-full bg-surface-container-low px-3 text-body-sm font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={resetAmount}
+                className="flex min-h-11 items-center rounded-full px-3 text-body-sm font-medium text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Reset
+              </button>
+            </div>
+            {fieldErrors.amount ? (
+              <p id={amountErrId} role="alert" className="text-center text-body-sm text-expense">
+                {fieldErrors.amount}
+              </p>
+            ) : null}
+          </div>
+        </section>
+
+        {isCreate && allowRecurring ? (
           <button
             type="button"
-            onClick={resetAmount}
-            className="flex h-11 items-center rounded-full px-3 text-body-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => openSelectionScreen("duplicate")}
+            className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 text-left text-body-md font-medium text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Reset
+            <span className="flex min-w-0 items-center gap-2">
+              <Icon name="content_copy" size={20} className="shrink-0 text-primary" />
+              <span>{duplicateSource ? `Disalin dari ${duplicateSource}` : "Duplikat transaksi sebelumnya"}</span>
+            </span>
+            <Icon name="chevron_right" size={22} className="shrink-0 text-on-surface-variant" />
           </button>
-        </div>
-        {fieldErrors.amount ? (
-          <p
-            id={amountErrId}
-            role="alert"
-            className="text-center text-body-sm text-expense"
-          >
-            {fieldErrors.amount}
-          </p>
         ) : null}
-      </div>
 
       {/* Field rows grouped in one card with dividers. Every control keeps its
           existing value/onChange/id/aria wiring and show-hide conditionals. */}
