@@ -1,6 +1,6 @@
-import { isTransactionType, type TransactionRow } from "./transactions";
-import { isValidTransactionIdrAmount } from "./idr-money";
-import { transactionAmountInputFromValue } from "./transaction-amount-input";
+import type { TransactionRow } from "./transactions";
+import { isValidTransactionIdrAmount } from "./idr-money.ts";
+import { transactionAmountInputFromValue } from "./transaction-amount-input.ts";
 
 /** Temporary, per-tab form state while moving to the category / duplicate pages.
  * Never includes credentials, source_reference, IDs of Gmail drafts, or writes
@@ -61,8 +61,11 @@ export function draftFromTransaction(
   now = new Date(),
 ): TransactionEntryDraft {
   const draft = defaultEntryDraft("", now);
-  draft.transactionType = isTransactionType(row.transaction_type)
-    ? row.transaction_type : "expense";
+  draft.transactionType =
+    row.transaction_type === "expense" ||
+    row.transaction_type === "income" ||
+    row.transaction_type === "transfer"
+      ? row.transaction_type : "expense";
   draft.amountInput = isValidTransactionIdrAmount(Number(row.amount))
     ? transactionAmountInputFromValue(Number(row.amount)) : "0";
   draft.accountId = activeAccountIds.includes(row.account_id) ? row.account_id : "";
@@ -83,7 +86,7 @@ export function isEntryDraft(value: unknown): value is TransactionEntryDraft {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const v = value as Partial<TransactionEntryDraft>;
   return (
-    isTransactionType(String(v.transactionType ?? "")) &&
+    (v.transactionType === "expense" || v.transactionType === "income" || v.transactionType === "transfer") &&
     typeof v.amountInput === "string" && v.amountInput.length <= 30 &&
     typeof v.accountId === "string" &&
     typeof v.destinationAccountId === "string" &&
