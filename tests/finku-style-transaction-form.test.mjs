@@ -34,6 +34,18 @@ test("Finku-inspired create view keeps three type tabs, hero amount and interact
   assert.match(form, /PRESETS\.map/);
 });
 
+test("desktop amount remains prominent despite the shared Input md:text-sm default", () => {
+  const form = read("components/finance/transaction-form.tsx");
+  const sharedInput = read("components/ui/input.tsx");
+  const amountInput = form.match(/<Input\\s+id=\\{amountId\\}[\\s\\S]*?\\/>/)?.[0];
+  assert.ok(amountInput, "The editable amount input must exist");
+  assert.match(sharedInput, /md:text-sm/, "This regression depends on the shared input breakpoint");
+  assert.match(amountInput, /text-\\[clamp\\(2\\.5rem,13vw,4\\.25rem\\)\\]/, "Keep the current mobile amount size");
+  assert.match(amountInput, /md:text-5xl lg:text-6xl/, "Desktop must explicitly override the shared small input size");
+  assert.match(form, /shrink-0 text-title-lg md:text-2xl lg:text-3xl/, "Rupiah prefix should scale with the desktop amount");
+  assert.match(amountInput, /max-w-\\[calc\\(100%-3\\.5rem\\)\\]/, "Large amounts must remain container-bounded");
+});
+
 test("account chips allow selecting distinct accounts while transfer keeps owned destination logic", () => {
   const form = read("components/finance/transaction-form.tsx");
   assert.match(form, /aria-pressed=\{selected\}/);
