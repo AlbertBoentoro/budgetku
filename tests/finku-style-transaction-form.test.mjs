@@ -83,7 +83,10 @@ test("duplicate picker offers ten newest first and all 100, without automaticall
   assert.match(form, /const sourceExists = accounts\.some/);
   assert.match(form, /const categoryExists = eligibleCategories\.some/);
   assert.doesNotMatch(screen, /createTransaction\(|\.from\("transactions"\)\.insert\(/);
-  assert.ok(!page.includes("source_reference"), "Never expose email import idempotency reference to duplication");
+  const duplicateSelect = page.match(/\.select\("([^"]+)"\)/)?.[1] ?? "";
+  assert.ok(duplicateSelect.includes("account_id"), "Duplicate fetch must include form fields");
+  assert.ok(!duplicateSelect.split(",").includes("source_reference"),
+    "Never fetch email import idempotency references for duplication");
 });
 
 test("existing Gmail review and edit reuse the form without a duplicate action", () => {
