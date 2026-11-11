@@ -28,6 +28,7 @@ const MATERIAL_SYMBOL_NAMES = [
   "chevron_left",
   "chevron_right",
   "close",
+  "content_copy",
   "credit_card",
   "dark_mode",
   "data_object",
