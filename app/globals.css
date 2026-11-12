@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Keep the viewport's classic scrollbar gutter reserved when full-screen
+   category/duplicate screens lock body scrolling. Without this, opening a
+   picker removes the scrollbar and shifts the centered 3xl column ~6-8px. */
+html {
+  scrollbar-gutter: stable;
+}
+
 /*
   Calm Ledger design foundation (LIGHT-first).
   Clean white surfaces on a Slate ramp with navy / emerald / red / slate

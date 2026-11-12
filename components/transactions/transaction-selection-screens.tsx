@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { AmountText } from "@/components/finance/amount-text";
+import { AppHeader } from "@/components/layout/app-header";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -37,25 +39,34 @@ function SelectionScreen({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
-  return (
+  // Render at the document root, outside the nested AppFrame/PageContainer.
+  // A fixed child inside the transaction form can inherit the page shell's
+  // containing block/offset, shifting the entire duplicate/category screen.
+  // The portal keeps the same viewport origin on mobile and desktop.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-[70] flex min-h-0 flex-col bg-surface text-on-surface"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      className="fixed inset-0 z-[70] flex min-h-0 flex-col bg-surface pt-[calc(0.5rem+env(safe-area-inset-top))] text-on-surface"
     >
-      <div className="mx-auto flex min-h-16 w-full max-w-3xl shrink-0 items-center gap-3 border-b border-outline-variant bg-surface px-4">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Kembali ke Tambah transaksi"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Icon name="arrow_back" size={24} />
-        </button>
-        <h2 className="min-w-0 text-title-lg font-semibold">{title}</h2>
-      </div>
+      {/* Reuse the exact Tambah transaksi header layout to keep the back
+          arrow, title size and left alignment consistent at all widths. */}
+      <AppHeader
+        title={title}
+        titleAction={
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Kembali ke Tambah transaksi"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Icon name="arrow_back" size={20} />
+          </button>
+        }
+      />
       <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-5">
         {subtitle ? <p className="mb-5 text-body-sm text-on-surface-variant">{subtitle}</p> : null}
         {children}
@@ -68,7 +79,8 @@ function SelectionScreen({
           <div className="mx-auto w-full max-w-3xl">{footer}</div>
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
