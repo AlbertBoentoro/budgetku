@@ -17,6 +17,7 @@ import {
 /** Never writes to Supabase, even if a form action is called directly. */
 async function doNotSaveInDemo(_input: TransactionFormInput): Promise<ActionResult> {
   "use server";
+  void _input;
   if (!isStagingEmailLoginAllowed()) {
     return { ok: false, message: "Halaman demo tidak tersedia di production." };
   }
