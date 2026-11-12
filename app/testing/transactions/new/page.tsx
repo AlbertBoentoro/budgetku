@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import Link from "next/link";
 
 import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
@@ -38,7 +40,21 @@ export default function NoLoginTransactionDemo() {
         titleAction={<AppBackLink href="/testing" label="Kembali ke demo" />}
       />
       <PageContainer>
-        <div role="note" className="rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3 text-body-sm text-on-surface">
+        <Suspense fallback={<p className="text-body-sm text-on-surface-variant">Memuat demo transaksi…</p>}>
+          <DemoTransactionContent />
+        </Suspense>
+      </PageContainer>
+    </main>
+  );
+}
+
+async function DemoTransactionContent() {
+  // The real form initializes date state from new Date(). In Next 16 PPR it
+  // must render under a request-time Suspense boundary, like the real page.
+  await connection();
+  return (
+    <>
+      <div role="note" className="rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3 text-body-sm text-on-surface">
           <strong>Demo tanpa login</strong> — rekening dan transaksi contoh sudah terisi.
           Coba <strong>Duplikat transaksi sebelumnya</strong> dan <strong>Pilih kategori</strong>.
           Tidak mengubah database atau saldo.
@@ -55,7 +71,6 @@ export default function NoLoginTransactionDemo() {
           recentTransactions={DEMO_TRANSACTIONS}
           currentMonth="2026-11"
         />
-      </PageContainer>
-    </main>
+    </>
   );
 }
