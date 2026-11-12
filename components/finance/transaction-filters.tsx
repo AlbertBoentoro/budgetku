@@ -77,8 +77,13 @@ export function TransactionFilters({
   // The chip is filled while the URL picks something other than that default.
   const paramsRecord = Object.fromEntries(searchParams.entries());
   const parsed = parseTransactionFilters(paramsRecord);
+  // Without an explicit month, searching for a merchant or note spans all months.
+  // The chip mirrors the actual server query scope so it never says "Bulan Ini"
+  // while the user sees matching transactions from previous months.
+  const searchesAllMonths = Boolean(currentQ.trim()) && !searchParams.has("month");
   const showsAllMonths =
-    (searchParams.get("month") ?? "").trim() === ALL_MONTHS_PARAM;
+    (searchParams.get("month") ?? "").trim() === ALL_MONTHS_PARAM ||
+    searchesAllMonths;
   const listMonth = showsAllMonths ? null : (parsed.month ?? currentMonth);
   const monthChipLabel = showsAllMonths
     ? "Semua bulan"
@@ -186,7 +191,7 @@ export function TransactionFilters({
           <Icon name="search" size={20} />
         </span>
         <Label htmlFor={searchId} className="sr-only">
-          Cari transaksi
+          Cari transaksi berdasarkan toko atau catatan
         </Label>
         <Input
           id={searchId}
@@ -194,7 +199,7 @@ export function TransactionFilters({
           value={searchText}
           onChange={(e) => handleSearchChange(e.target.value)}
           className="h-11 rounded-full border-transparent bg-surface-container-low pl-10 pr-10"
-          placeholder="Cari deskripsi atau merchant"
+          placeholder="Cari nama toko atau catatan transaksi"
           autoComplete="off"
         />
         {searchText ? (
