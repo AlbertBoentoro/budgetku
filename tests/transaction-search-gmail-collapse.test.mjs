@@ -7,14 +7,23 @@ const read = (path) =>
 
 test("ledger search finds transaction merchants and notes across months by default", () => {
   const filters = read("components/finance/transaction-filters.tsx");
+  const search = read("components/transactions/transaction-search.tsx");
   const transactions = read("lib/transactions.ts");
   const page = read("app/(app)/transactions/page.tsx");
 
-  assert.match(filters, /placeholder="Cari nama toko atau catatan transaksi"/);
-  assert.match(filters, /Cari transaksi berdasarkan toko atau catatan/);
+  assert.match(search, /placeholder="Cari nama toko atau catatan transaksi"/);
+  assert.match(search, /Cari transaksi/);
   assert.match(filters, /const searchesAllMonths = Boolean\(currentQ\.trim\(\)\) && !searchParams\.has\("month"\)/);
   assert.match(filters, /showsAllMonths =[\s\S]*?searchesAllMonths/);
-  assert.match(filters, /router\.replace\(buildHref\(key, value\), \{ scroll: false \}\)/);
+  assert.match(search, /router\.replace\(buildHref\(value\.trim\(\)\), \{ scroll: false \}\)/);
+  assert.match(search, /type="text"/); // No second native clear X on desktop.
+  assert.doesNotMatch(search, /type="search"/);
+  assert.match(search, /inputMode="search"/);
+  assert.match(search, /absolute inset-y-0 left-3 flex items-center justify-center/);
+  assert.match(search, /border-primary\/40/);
+  assert.doesNotMatch(filters, /placeholder="Cari nama toko atau catatan transaksi"/);
+  assert.ok(page.indexOf("{gmailQueue}") < page.indexOf("<TransactionSearch />"));
+  assert.ok(page.indexOf("<TransactionSearch />") < page.indexOf("<TransactionDayGroups groups={groups} />"));
 
   assert.match(transactions, /description\.ilike\.%\$\{escaped\}%,merchant\.ilike\.%\$\{escaped\}%/);
   assert.match(transactions, /\.eq\("user_id", userId\)/);
