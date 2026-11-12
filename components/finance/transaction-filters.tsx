@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { cn } from "@/lib/utils";
@@ -14,7 +14,6 @@ import type { CategoryRow } from "@/lib/transactions";
 import { formatMonthLabel } from "@/lib/budgets";
 import { MonthPickerPanel } from "@/components/finance/month-picker-panel";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 // Same native-select styling the account form uses, kept in one place so the
@@ -56,7 +55,6 @@ export function TransactionFilters({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const searchId = useId();
   const typeId = useId();
   const accountId = useId();
   const categoryId = useId();
@@ -108,16 +106,6 @@ export function TransactionFilters({
     monthChipRef.current?.focus();
   }
 
-  // Local search text so typing stays responsive; the URL updates on a debounce
-  // so each keystroke does not trigger a navigation.
-  const [searchText, setSearchText] = useState(currentQ);
-
-  // Keep the local field in sync when the URL changes from elsewhere (e.g. the
-  // reset action or a back/forward navigation).
-  useEffect(() => {
-    setSearchText(currentQ);
-  }, [currentQ]);
-
   // Build a URL with one key set or cleared, preserving the other filters.
   const buildHref = useMemo(
     () =>
@@ -150,31 +138,7 @@ export function TransactionFilters({
     closeMonthPanel();
   }
 
-  // Debounce the search term so the ledger does not re-query on every keystroke.
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function handleSearchChange(value: string) {
-    setSearchText(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      updateParam("q", value.trim());
-    }, 300);
-  }
-
-  function clearSearch() {
-    setSearchText("");
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    updateParam("q", "");
-  }
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
-
   function resetFilters() {
-    setSearchText("");
     router.replace(pathname, { scroll: false });
   }
 
@@ -186,34 +150,6 @@ export function TransactionFilters({
 
   return (
     <section className="flex flex-col gap-3" aria-label="Saring transaksi">
-      <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
-          <Icon name="search" size={20} />
-        </span>
-        <Label htmlFor={searchId} className="sr-only">
-          Cari transaksi berdasarkan toko atau catatan
-        </Label>
-        <Input
-          id={searchId}
-          type="search"
-          value={searchText}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="h-11 rounded-full border-transparent bg-surface-container-low pl-10 pr-10"
-          placeholder="Cari nama toko atau catatan transaksi"
-          autoComplete="off"
-        />
-        {searchText ? (
-          <button
-            type="button"
-            onClick={clearSearch}
-            aria-label="Hapus pencarian"
-            className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Icon name="close" size={18} />
-          </button>
-        ) : null}
-      </div>
-
       <div className="flex flex-wrap gap-2 pb-1">
         {typeChips.map((chip) => {
           const isActive = currentType === chip.value;
