@@ -27,6 +27,7 @@ import { currentMonthParam, formatMonthLabel } from "@/lib/budgets";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { TransactionFilters } from "@/components/finance/transaction-filters";
+import { TransactionSearch } from "@/components/transactions/transaction-search";
 import { TransactionDayGroups } from "@/components/transactions/transaction-day-groups";
 import { LedgerSummaryPill } from "@/components/transactions/ledger-summary-pill";
 import type { TransactionRowView } from "@/components/transactions/transaction-ledger-row";
@@ -354,6 +355,9 @@ async function TransactionsContent({
       />
 
       {gmailQueue}
+
+      {/* Keep the highlighted search immediately above the dated transaction ledger. */}
+      <TransactionSearch />
 
       {rows.length === 0 && !hasOtherFilter && monthLabel ? (
         // Empty month: the user has transactions, just not in this month.

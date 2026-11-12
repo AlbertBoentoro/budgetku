@@ -33,6 +33,7 @@ interface GmailPendingQueueProps {
 export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPendingQueueProps) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -77,8 +78,20 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
             {total} draft belum masuk saldo. Terima untuk memeriksa rekening dan kategori, atau Tolak.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          aria-controls="gmail-pending-details"
+          className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-3 text-body-sm font-medium text-on-surface transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span>{expanded ? "Tutup" : "Buka"}</span>
+          <Icon name={expanded ? "expand_less" : "expand_more"} size={20} />
+        </button>
       </div>
 
+      {expanded ? (
+        <div id="gmail-pending-details" className="flex flex-col gap-3">
       {error ? (
         <p role="alert" className="rounded-lg border border-expense/40 p-3 text-body-sm text-expense">
           {error}
@@ -170,6 +183,8 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
       <p className="text-label-md text-on-surface-variant">
         Periksa transaksi yang sudah dicatat manual supaya tidak dihitung dua kali.
       </p>
+        </div>
+      ) : null}
     </section>
   );
 }

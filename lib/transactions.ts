@@ -289,7 +289,11 @@ export function resolveListMonth(
   filters: TransactionFilters,
   currentMonth: string,
 ): string | null {
-  if (firstValue(searchParams.month) === ALL_MONTHS_PARAM) return null;
+  const requestedMonth = firstValue(searchParams.month);
+  if (requestedMonth === ALL_MONTHS_PARAM) return null;
+  // A text search without an explicit month should find older transactions too.
+  // An explicitly chosen month still limits results to that month.
+  if (!requestedMonth && filters.q) return null;
   return filters.month ?? currentMonth;
 }
 
