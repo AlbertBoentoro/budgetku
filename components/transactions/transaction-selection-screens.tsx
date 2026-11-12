@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import type { CategoryRow, TransactionType } from "@/lib/transactions";
+import { groupTransactionCategories } from "@/lib/category-groups";
 import { cn } from "@/lib/utils";
 
 // These are full-viewport child screens of Catat, not separate HTML forms.
@@ -105,8 +106,12 @@ export function TransactionCategoryScreen({
     );
   }, [categories, search]);
 
-  const personal = results.filter((cat) => cat.user_id !== null);
-  const system = results.filter((cat) => cat.user_id === null);
+  // Show the reference's Daily Needs / Household Needs / etc. sections for
+  // existing expenses. Searching only filters rows; no category is rewritten.
+  const grouped = useMemo(
+    () => groupTransactionCategories(results, direction),
+    [results, direction],
+  );
 
   return (
     <SelectionScreen
@@ -168,27 +173,34 @@ export function TransactionCategoryScreen({
           Kategori tidak ditemukan. Gunakan Buat kategori baru untuk menambahkannya.
         </p>
       ) : null}
-      {[
-        { label: "Kategori pribadi", items: personal },
-        { label: "Kategori tersedia", items: system },
-      ].map((group) => group.items.length > 0 ? (
-        <section key={group.label} aria-label={group.label} className="mb-5">
-          <h3 className="mb-2 text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
+      {grouped.map((group) => (
+        <section key={group.key} aria-label={group.label} className="mb-6">
+          <h3 className="mb-2 px-2 text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
             {group.label}
           </h3>
           <div className="divide-y divide-outline-variant">
-            {group.items.map((category) => (
+            {group.items.map(({ category, icon }) => (
               <button
                 key={category.id}
                 type="button"
                 onClick={() => onPick(category.id)}
                 aria-current={selectedId === category.id ? "true" : undefined}
                 className={cn(
-                  "flex min-h-14 w-full items-center justify-between gap-3 px-2 text-left text-body-md hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "flex min-h-14 w-full items-center justify-between gap-3 px-2 py-2 text-left text-body-md hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   selectedId === category.id && "font-semibold text-primary",
                 )}
               >
-                <span className="min-w-0 break-words">{category.name}</span>
+                <span className="flex min-w-0 items-center gap-3">
+                  <span aria-hidden="true" className="flex w-8 shrink-0 items-center justify-center text-2xl">
+                    {icon}
+                  </span>
+                  <span className="min-w-0 break-words">{category.name}</span>
+                  {category.user_id ? (
+                    <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 text-label-xs font-normal text-on-surface-variant">
+                      Pribadi
+                    </span>
+                  ) : null}
+                </span>
                 {selectedId === category.id ? (
                   <Icon name="check_circle" size={22} className="shrink-0 text-primary" />
                 ) : (
@@ -198,7 +210,7 @@ export function TransactionCategoryScreen({
             ))}
           </div>
         </section>
-      ) : null)}
+      ))}
     </SelectionScreen>
   );
 }
