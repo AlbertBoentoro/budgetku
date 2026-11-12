@@ -213,6 +213,8 @@ export async function syncGmail(): Promise<ActionResult> {
   }
 
   revalidatePath("/settings/gmail");
+  revalidatePath("/transactions");
+  revalidatePath("/transactions/gmail");
   return { ok: true };
 }
 
