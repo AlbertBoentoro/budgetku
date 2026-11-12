@@ -9,7 +9,14 @@ test("duplicate picker uses the same responsive headline as other page headers",
   const picker = read("components/transactions/transaction-selection-screens.tsx");
   const header = read("components/layout/app-header.tsx");
   assert.match(header, /<h1 className="min-w-0 text-headline-lg text-on-surface">/);
-  assert.match(picker, /<h2 className="min-w-0 text-headline-lg text-on-surface">\{title\}<\/h2>/);
+  assert.match(picker, /import \{ AppHeader \} from "@\/components\/layout\/app-header"/);
+  assert.match(picker, /<AppHeader[\s\S]*?title=\{title\}[\s\S]*?titleAction=/);
+  assert.match(picker, /<Icon name="arrow_back" size=\{20\} \/>/);
+  assert.match(picker, /className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/);
+  assert.doesNotMatch(picker, /<h2 className="min-w-0 text-headline-lg text-on-surface">/);
+  const backLink = read("components/layout/app-back-link.tsx");
+  assert.match(backLink, /<Icon name="arrow_back" size=\{20\} \/>/);
+  assert.match(backLink, /className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"/);
   assert.match(picker, /title="Duplikat transaksi"/);
   assert.match(picker, /title="Pilih kategori"/);
   assert.match(picker, /aria-label=\{title\}/);
