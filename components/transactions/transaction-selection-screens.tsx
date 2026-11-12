@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { AmountText } from "@/components/finance/amount-text";
 import { AppHeader } from "@/components/layout/app-header";
@@ -38,13 +39,18 @@ function SelectionScreen({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
-  return (
+  // Render at the document root, outside the nested AppFrame/PageContainer.
+  // A fixed child inside the transaction form can inherit the page shell's
+  // containing block/offset, shifting the entire duplicate/category screen.
+  // The portal keeps the same viewport origin on mobile and desktop.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-[70] flex min-h-0 flex-col bg-surface text-on-surface"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      className="fixed inset-0 z-[70] flex min-h-0 flex-col bg-surface pt-[calc(0.5rem+env(safe-area-inset-top))] text-on-surface"
     >
       {/* Reuse the exact Tambah transaksi header layout to keep the back
           arrow, title size and left alignment consistent at all widths. */}
@@ -73,7 +79,8 @@ function SelectionScreen({
           <div className="mx-auto w-full max-w-3xl">{footer}</div>
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
