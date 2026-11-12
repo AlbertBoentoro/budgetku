@@ -54,7 +54,7 @@ function SelectionScreen({
         >
           <Icon name="arrow_back" size={24} />
         </button>
-        <h2 className="min-w-0 text-title-lg font-semibold">{title}</h2>
+        <h2 className="min-w-0 text-headline-lg text-on-surface">{title}</h2>
       </div>
       <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-5">
         {subtitle ? <p className="mb-5 text-body-sm text-on-surface-variant">{subtitle}</p> : null}
