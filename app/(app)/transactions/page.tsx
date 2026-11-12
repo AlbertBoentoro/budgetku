@@ -8,6 +8,7 @@ import {
   GmailPendingQueue,
   type PendingGmailTransaction,
 } from "@/components/transactions/gmail-pending-queue";
+import { GmailSyncBar } from "@/components/transactions/gmail-sync-bar";
 import {
   ALL_MONTHS_PARAM,
   buildTransactionListQuery,
@@ -95,7 +96,7 @@ async function TransactionsContent({
   // display name mappings below. The account filter (already UUID-validated)
   // is looked up by id + user_id, archived included, so only the user's own
   // account can ever narrow the list.
-  const [accounts, incomeCategories, expenseCategories, accountLookup] =
+  const [accounts, incomeCategories, expenseCategories, accountLookup, gmailConnectionLookup] =
     await Promise.all([
       fetchActiveAccounts(supabase, user.id),
       fetchUsableCategories(supabase, user.id, "income"),
@@ -108,6 +109,13 @@ async function TransactionsContent({
             .eq("user_id", user.id)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from("email_connections")
+        .select("email_address, status, last_synced_at")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   // A failed lookup must not present an unfiltered list as this account's
@@ -176,6 +184,21 @@ async function TransactionsContent({
     preview: readGmailPreview(draft.parsed_preview),
   }));
 
+  // Accessible even when there are no drafts or a ledger filter hides the queue.
+  const gmailConnection = gmailConnectionLookup.data;
+  const gmailSyncBar = gmailConnectionLookup.error ? (
+    <p role="alert" className="text-body-sm text-on-surface-variant">
+      Status koneksi Gmail gagal dimuat.{" "}
+      <Link href="/settings/gmail" className="underline">Periksa pengaturan Gmail</Link>
+    </p>
+  ) : (
+    <GmailSyncBar
+      connected={gmailConnection?.status === "active"}
+      emailAddress={gmailConnection?.email_address ?? null}
+      lastSyncedAt={gmailConnection?.last_synced_at ?? null}
+    />
+  );
+
   const gmailQueue = gmailPending?.error ? (
     <p role="alert" className="text-body-sm text-on-surface-variant">
       Draft Gmail belum bisa dimuat.{" "}
@@ -200,6 +223,7 @@ async function TransactionsContent({
     return (
       <div className="flex flex-col gap-6">
         {accountNotFound ? <AccountNotFoundNotice /> : null}
+        {gmailSyncBar}
         {gmailQueue}
         <LedgerEmptyState
           glyph="receipt_long"
@@ -354,6 +378,7 @@ async function TransactionsContent({
         incomplete={monthIncomplete}
       />
 
+      {gmailSyncBar}
       {gmailQueue}
 
       {/* Keep the highlighted search immediately above the dated transaction ledger. */}
