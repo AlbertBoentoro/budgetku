@@ -21,6 +21,21 @@ test("category and duplicate screens mount at document root, not nested in a pag
   assert.match(form, /inert=\{activeScreen !== null\}/);
 });
 
+test("desktop centered picker retains the exact scrollbar gutter of Tambah transaksi", () => {
+  const css = read("app/globals.css");
+  const form = read("components/finance/transaction-form.tsx");
+  const picker = read("components/transactions/transaction-selection-screens.tsx");
+
+  // When the picker hides the body scrollbar, the root keeps the same
+  // 15px classic scrollbar gutter; otherwise the 768px page shifts ~7px.
+  assert.match(css, /html\s*\{\s*scrollbar-gutter:\s*stable;\s*\}/);
+  assert.match(form, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(form, /document\.body\.style\.overflow = previousOverflow/);
+  assert.match(picker, /return createPortal\([\s\S]*?document\.body/);
+  assert.match(picker, /className="fixed inset-0 z-\[70\]/);
+  assert.doesNotMatch(picker, /(?:ml-|translate-x-|left-\[|right-\[)\d/);
+});
+
 test("preview-only demo is gated, synthetic and cannot write to staging or production", () => {
   const proxy = read("proxy.ts");
   const helper = read("lib/auth/staging-email-login.ts");
