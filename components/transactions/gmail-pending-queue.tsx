@@ -99,8 +99,7 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
       ) : null}
 
       {hasScroll ? (
-        <p id="gmail-queue-scroll-hint" className="flex items-center gap-2 text-body-sm text-on-surface-variant">
-          <Icon name="expand_more" size={18} className="shrink-0" />
+        <p id="gmail-queue-scroll-hint" className="text-body-sm text-on-surface-variant">
           Geser daftar untuk melihat {total - 3} draft Gmail lainnya.
         </p>
       ) : null}
