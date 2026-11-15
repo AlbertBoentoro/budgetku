@@ -33,6 +33,10 @@ test("Transaksi shows about three Gmail draft rows, scrolls the rest and keeps a
   assert.match(queue, /tabIndex=\{hasScroll \? 0 : undefined\}/);
   assert.match(queue, /data-pull-refresh-exclude=\{hasScroll \? true : undefined\}/);
   assert.match(queue, /Geser daftar untuk melihat/);
+  const scrollHint = queue.match(/<p id="gmail-queue-scroll-hint"[\s\S]*?<\/p>/)?.[0];
+  assert.ok(scrollHint, "Petunjuk swipe daftar Gmail harus tetap tampil");
+  assert.doesNotMatch(scrollHint, /<Icon\b/, "Petunjuk swipe tidak boleh memiliki ikon dropdown di kiri");
+
   assert.match(queue, /Lihat semua \{total\} draft Gmail/);
   assert.ok(queue.indexOf("Lihat semua {total} draft Gmail") > queue.indexOf("</ul>"),
     "Full-list action must remain visible below the inner scroll viewport");
