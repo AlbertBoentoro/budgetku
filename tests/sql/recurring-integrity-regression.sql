@@ -114,7 +114,7 @@ BEGIN
   ) THEN RAISE EXCEPTION 'F-04: recurring 0.41 amount did not persist'; END IF;
 END $;
 
--- F-04: reject fractional and above-recovery-limit atomic creation.
+-- F-04: reject three fractional digits and amounts above recovery limit.
 DO $$
 DECLARE bad_amount numeric;
 BEGIN
