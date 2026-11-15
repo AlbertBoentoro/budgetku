@@ -91,28 +91,28 @@ SELECT public.create_transaction_with_recurring(
   'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1'::uuid,
   '2026-02-01'::date, null::text, null::text,
   'Fractional IDR schedule', 'monthly', null::date);
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.transactions
     WHERE source_reference='initial-recurring:dddddddd-dddd-4ddd-8ddd-ddddddddddd1'
       AND amount = 0.41
   ) THEN RAISE EXCEPTION 'F-04: valid 0.41 initial occurrence was not recorded'; END IF;
-END $;
+END $$;
 
 -- Also verify the recurring generator writes a cent-accurate due occurrence.
 UPDATE public.recurring_transactions SET amount = 0.41
 WHERE name='Leap-year anchor';
 SELECT public.generate_recurring_now(
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8'::uuid, '2024-02-29'::date);
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.transactions
     WHERE source_reference='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb8:2024-02-29'
       AND amount = 0.41
   ) THEN RAISE EXCEPTION 'F-04: recurring 0.41 amount did not persist'; END IF;
-END $;
+END $$;
 
 -- F-04: reject three fractional digits and amounts above recovery limit.
 DO $$
