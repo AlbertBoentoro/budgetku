@@ -201,12 +201,13 @@ export function buildTransactionListQuery(
     query = query.gte("transaction_at", start).lt("transaction_at", end);
   }
 
-  // Newest first. transaction_at is often a date-only value (midnight), so
-  // many rows on the same day tie; created_at is a unique, monotonic insert
-  // time that breaks the tie so the most recently added row sorts on top.
+  // Newest first. transaction_at and created_at can both tie across rows;
+  // id provides a unique final sort key so offset-based pagination does not
+  // drop or repeat rows that share a date or insertion timestamp.
   return query
     .order("transaction_at", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
 }
 
 // Only the columns the income/expense fold needs, from the generated type.
