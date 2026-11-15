@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import { readGmailPreview } from "@/lib/gmail/preview";
 import {
   GmailPendingQueue,
@@ -142,19 +143,23 @@ async function TransactionsContent({
   const otherFilters = withoutMonth(filters);
   const hasOtherFilter = Object.keys(otherFilters).length > 0;
 
-  const { data, error } = await buildTransactionListQuery(
-    supabase,
-    user.id,
-    listMonth ? { ...otherFilters, month: listMonth } : otherFilters,
-  );
-
-  if (error) {
+  // PostgREST limits a single request to at most 1,000 rows by default.
+  // Read the entire user-scoped filtered ledger in deterministic 500-row pages;
+  // never show a truncated history as though it were complete.
+  let transactions: TransactionRow[];
+  try {
+    transactions = await fetchAllPages((from, to) =>
+      buildTransactionListQuery(
+        supabase,
+        user.id,
+        listMonth ? { ...otherFilters, month: listMonth } : otherFilters,
+      ).range(from, to),
+    );
+  } catch {
     return (
       <TransactionsError message="Transaksi gagal dimuat. Periksa koneksi lalu coba lagi." />
     );
   }
-
-  const transactions = (data ?? []) as TransactionRow[];
 
   // Surface only unapproved Gmail drafts above the current unfiltered ledger.
   // The preview is read-only: pending email MUST NOT affect account totals or
