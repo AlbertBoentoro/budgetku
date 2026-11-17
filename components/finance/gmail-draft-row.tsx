@@ -102,8 +102,6 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
             {received ? ` \u00b7 ${received}` : ""}
           </span>
         </div>
-      </div>
-
       </div> : null}
 
       {preview ? (
