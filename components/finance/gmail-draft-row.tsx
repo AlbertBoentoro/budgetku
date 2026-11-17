@@ -35,6 +35,11 @@ function formatReceived(iso: string | null): string {
   return formatGmailDate(iso, { dateStyle: "medium" });
 }
 
+function previewIsBcaStructured(preview: GmailParsedPreview | null): boolean {
+  return preview?.source === "bca" &&
+    /^(Transfer ke .+|Transaksi QRIS)$/i.test(preview.description ?? "");
+}
+
 // Trim a raw "From" header to a readable label. Prefers the display name,
 // falls back to the bare address.
 function formatSender(sender: string | null): string {
@@ -59,6 +64,8 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
   const [isPending, startTransition] = useTransition();
 
   const received = formatReceived(draft.receivedAt);
+  const bcaStructured = previewIsBcaStructured(draft.preview);
+  const displayedDate = formatReceived(draft.preview?.transactionAt ?? draft.receivedAt);
   const senderLabel = formatSender(draft.sender);
   const isFailed = draft.status === "failed";
   const preview = draft.preview;
@@ -82,7 +89,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
 
   return (
     <li className="flex flex-col gap-3 px-4 py-3">
-      <div className="flex items-start gap-3">
+      {!bcaStructured ? <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
           <Icon name={isFailed ? "error" : "mail"} size={20} />
         </span>
@@ -97,8 +104,29 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
         </div>
       </div>
 
+      </div> : null}
+
       {preview ? (
-        <div className="ml-0 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 sm:ml-[52px]">
+        <div className={`flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 ${bcaStructured ? "" : "sm:ml-[52px]"}`}>
+          {bcaStructured ? (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-body-sm font-semibold text-white">{displayedDate}</p>
+                <span className="rounded-full bg-surface-container px-2.5 py-1 text-label-xs text-on-surface-variant">Dari Gmail</span>
+              </div>
+              <p className="text-body-md font-semibold text-on-surface">{preview.description}</p>
+              {preview.amount !== null ? (
+                <div className="text-2xl font-bold leading-tight">
+                  <AmountText value={-preview.amount} tone="expense" size="lg" />
+                </div>
+              ) : <p className="text-body-md text-on-surface-variant">Nominal belum terbaca</p>}
+              <div>
+                <p className="text-label-xs text-on-surface-variant">Kepada</p>
+                <p className="break-words text-body-md font-medium text-on-surface">{preview.merchant || "Penerima belum terdeteksi"}</p>
+              </div>
+            </>
+          ) : (
+          <>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-label-xs text-on-surface-variant">Nominal</p>
@@ -132,6 +160,8 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
               {merchantLabel}
             </p>
           </div>
+          </>
+          )}
           {preview.confidence === "low" ? (
             <p className="text-body-sm text-on-surface-variant">
               Periksa kembali hasil deteksi sebelum menyimpan.
