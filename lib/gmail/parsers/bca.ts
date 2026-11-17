@@ -63,6 +63,7 @@ const MERCHANT_FIELDS: {
   label: string;
 }[] = [
   { kind: "merchant", label: "merchant" },
+  { kind: "recipient", label: "beneficiary name" },
   { kind: "recipient", label: "payment to" },
   {
     kind: "recipient",
@@ -74,6 +75,13 @@ const MERCHANT_FIELDS: {
 
 const EMAIL_FIELD_LABELS = [
   ...MERCHANT_FIELDS.map((field) => field.label),
+  "transfer amount",
+  "beneficiary account",
+  "source of fund",
+  "source currency",
+  "transfer currency",
+  "remarks",
+  "reference no.",
   "total payment",
   "pay amount",
   "amount",
@@ -189,6 +197,25 @@ export const bcaParser: GmailParser = {
       directionConfident = false;
     }
 
+    // Recognize these two specific English myBCA email formats explicitly.
+    const transferType = extractFieldValue(bodyText, "transfer type");
+    const beneficiary = extractFieldValue(bodyText, "beneficiary name");
+    const qrisType = extractFieldValue(bodyText, "transaction type");
+    const paymentTo = extractFieldValue(bodyText, "payment to");
+    const isBankTransfer = Boolean(
+      transferType && /^transfer\\s+to\\s+.+/i.test(transferType) &&
+      beneficiary && extractFieldValue(bodyText, "transfer amount"),
+    );
+    const isQris = Boolean(
+      qrisType && /^qris\\s+payment$/i.test(qrisType) &&
+      paymentTo && extractFieldValue(bodyText, "total payment"),
+    );
+    const transferBank = transferType?.match(/^transfer\\s+to\\s+(.+?)(?:\\s+account)?$/i)?.[1]?.trim();
+    const shortBank = transferBank ? transferBank.replace(/\\s+account$/i, "").trim() : null;
+    const transactionTitle = isBankTransfer
+      ? `Transfer ke ${shortBank || "rekening"}`
+      : isQris ? "Transaksi QRIS" : null;
+
     const detectedDate = parseIndonesianDate(bodyText, receivedAt);
     const dateConfident = detectedDate !== receivedAtToIsoDate(receivedAt);
 
@@ -198,10 +225,10 @@ export const bcaParser: GmailParser = {
     return {
       ok: true,
       amount,
-      direction,
+      direction: isBankTransfer || isQris ? "expense" : direction,
       transactionAt: detectedDate,
-      merchant: extractBcaDraftSummary(bodyText),
-      description: subject.trim() || "Transaksi BCA",
+      merchant: isBankTransfer ? beneficiary : isQris ? paymentTo : extractBcaDraftSummary(bodyText),
+      description: transactionTitle ?? (subject.trim() || "Transaksi BCA"),
       confidence,
     };
   },
