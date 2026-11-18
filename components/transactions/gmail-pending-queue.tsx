@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { ignoreImport } from "@/app/(app)/settings/gmail/actions";
 import { AmountText } from "@/components/finance/amount-text";
+import { BcaGmailSummary } from "@/components/finance/bca-gmail-summary";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { formatGmailDate } from "@/lib/gmail/date-format";
@@ -17,11 +18,6 @@ export interface PendingGmailTransaction {
   subject: string | null;
   receivedAt: string | null;
   preview: GmailParsedPreview | null;
-}
-
-function isStructuredBca(preview: GmailParsedPreview | null): boolean {
-  return preview?.source === "bca" &&
-    /^(Transfer ke .+|Transaksi QRIS)$/i.test(preview.description ?? "");
 }
 
 interface GmailPendingQueueProps {
@@ -123,46 +119,15 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
         {drafts.map((draft) => {
           const preview = draft.preview;
           const title = preview?.merchant?.trim() || draft.subject?.trim() || "Email transaksi";
-          const structuredBca = isStructuredBca(preview);
-          const date = formatGmailDate(
-            structuredBca ? (preview?.transactionAt ?? draft.receivedAt) : draft.receivedAt,
-            { dateStyle: "medium" },
-          );
+          const structuredBca = preview?.source === "bca";
+          const date = formatGmailDate(draft.receivedAt, { dateStyle: "medium" });
           return (
             <li
               key={draft.id}
               className={cn("flex flex-col gap-2 py-3 first:pt-0 last:pb-0", hasScroll && "min-h-32")}
             >
-              {structuredBca ? (
-                <div className="flex min-w-0 flex-col gap-2 rounded-lg bg-surface-container-low p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-body-sm font-semibold text-on-surface dark:text-white">
-                      {date || "Tanggal belum terbaca"}
-                    </p>
-                    <span className="rounded-full bg-surface-container px-2.5 py-1 text-label-xs text-on-surface-variant">
-                      Dari Gmail
-                    </span>
-                  </div>
-                  <p className="break-words text-body-md font-semibold text-on-surface">
-                    {preview?.description}
-                  </p>
-                  {preview?.amount !== null && preview?.amount !== undefined ? (
-                    <AmountText
-                      value={-preview.amount}
-                      tone="expense"
-                      size="lg"
-                      className="block max-w-full font-bold"
-                    />
-                  ) : (
-                    <p className="text-body-md text-on-surface-variant">Nominal belum terbaca</p>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-label-xs text-on-surface-variant">Kepada</p>
-                    <p className="break-words text-body-md font-medium text-on-surface">
-                      {preview?.merchant || "Penerima belum terdeteksi"}
-                    </p>
-                  </div>
-                </div>
+              {structuredBca && preview ? (
+                <BcaGmailSummary preview={preview} receivedAt={draft.receivedAt} />
               ) : (
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
