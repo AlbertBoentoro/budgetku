@@ -113,7 +113,7 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
         className={cn(
           "divide-y divide-outline-variant",
           hasScroll &&
-            "max-h-[44rem] min-w-0 overflow-y-auto overscroll-contain pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [scrollbar-width:thin]",
+            "max-h-[24rem] min-w-0 overflow-y-auto overscroll-contain pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [scrollbar-width:thin]",
         )}
       >
         {drafts.map((draft) => {
