@@ -9,17 +9,17 @@ function loadTs(path, imports = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
     fileName: path,
   }).outputText;
-  const module = { exports: {} };
+  const compiledModule = { exports: {} };
   const requireLocal = (name) => {
     if (Object.hasOwn(imports, name)) return imports[name];
     throw new Error("Unexpected import: " + name);
   };
   new Function("module", "exports", "require", code)(
-    module,
-    module.exports,
+    compiledModule,
+    compiledModule.exports,
     requireLocal,
   );
-  return module.exports;
+  return compiledModule.exports;
 }
 
 const money = loadTs("../lib/gmail/parsers/money.ts");
