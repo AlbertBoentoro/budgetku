@@ -203,15 +203,15 @@ export const bcaParser: GmailParser = {
     const qrisType = extractFieldValue(bodyText, "transaction type");
     const paymentTo = extractFieldValue(bodyText, "payment to");
     const isBankTransfer = Boolean(
-      transferType && /^transfer\\s+to\\s+.+/i.test(transferType) &&
+      transferType && /^transfer\s+to\s+.+/i.test(transferType) &&
       beneficiary && extractFieldValue(bodyText, "transfer amount"),
     );
     const isQris = Boolean(
-      qrisType && /^qris\\s+payment$/i.test(qrisType) &&
+      qrisType && /^qris\s+payment$/i.test(qrisType) &&
       paymentTo && extractFieldValue(bodyText, "total payment"),
     );
-    const transferBank = transferType?.match(/^transfer\\s+to\\s+(.+?)(?:\\s+account)?$/i)?.[1]?.trim();
-    const shortBank = transferBank ? transferBank.replace(/\\s+account$/i, "").trim() : null;
+    const transferBank = transferType?.match(/^transfer\s+to\s+(.+?)(?:\s+account)?$/i)?.[1]?.trim();
+    const shortBank = transferBank ? transferBank.replace(/\s+account$/i, "").trim() : null;
     const transactionTitle = isBankTransfer
       ? `Transfer ke ${shortBank || "rekening"}`
       : isQris ? "Transaksi QRIS" : null;
