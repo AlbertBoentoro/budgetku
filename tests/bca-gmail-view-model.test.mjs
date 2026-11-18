@@ -14,6 +14,7 @@ const base = {
 
 test("BCA transfer preview keeps title, amount, date, and recipient separate", () => {
   assert.deepEqual(getBcaGmailViewModel(base), {
+    sourceLabel: "Transaksi BCA",
     title: "Transfer ke BCA",
     date: "2026-11-17",
     recipient: "ANDI PRATAMA (DEMO)",
@@ -40,5 +41,29 @@ test("ambiguous legacy BCA drafts do not invent a QRIS or transfer title", () =>
     ...base,
     merchant: "Grab",
     description: "Contoh email staging, bukan transaksi nyata",
-  }).title, "Transaksi BCA");
+  }).title, "Jenis transaksi belum terbaca");
+});
+
+test("BCA wallet top up displays the masked owner and separates source from purpose", () => {
+  const result = getBcaGmailViewModel({
+    ...base,
+    description: "Top up ke ShopeePay",
+    merchant: "TESXXX NAMXXXXX",
+    amount: 52000,
+    transactionAt: "2026-11-18",
+  });
+  assert.equal(result.sourceLabel, "Transaksi BCA");
+  assert.equal(result.title, "Top up ke ShopeePay");
+  assert.equal(result.recipient, "TESXXX NAMXXXXX");
+  assert.equal(result.amount, 52000);
+});
+
+test("old flattened email preview cannot leak account fields into Kepada", () => {
+  const result = getBcaGmailViewModel({
+    ...base,
+    merchant: "Transfer to BCA Account Source of Fund : 123456 Beneficiary Name : SOMEONE",
+    description: "myBCA transfer notification",
+  });
+  assert.equal(result.title, "Jenis transaksi belum terbaca");
+  assert.equal(result.recipient, "Penerima belum terdeteksi");
 });

@@ -179,8 +179,12 @@ export async function syncGmail(
     .or(
       `parsed_preview.is.null,parsed_preview->>parserVersion.is.null,parsed_preview->>parserVersion.neq.${GMAIL_PARSER_VERSION}`,
     )
-    .order("received_at", { ascending: true, nullsFirst: false })
-    .limit(MAX_MESSAGES_PER_SYNC);
+    // Prioritize the newest broken drafts first: a single Sync should repair
+    // today's BCA previews before processing older backlog.
+    .order("received_at", { ascending: false, nullsFirst: false })
+    // Re-fetching each old Gmail body costs an API call; bound this batch to
+    // avoid blocking interactive sync when an inbox has many pending drafts.
+    .limit(Math.min(MAX_MESSAGES_PER_SYNC, 10));
 
   if (previewLookupError) {
     throw new Error(

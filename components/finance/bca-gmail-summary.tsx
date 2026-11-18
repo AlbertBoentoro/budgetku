@@ -10,7 +10,7 @@ export function BcaGmailSummary({
   preview: GmailParsedPreview;
   receivedAt: string | null;
 }) {
-  const { title, date, recipient, amount, direction } = getBcaGmailViewModel(preview);
+  const { sourceLabel, title, date, recipient, amount, direction } = getBcaGmailViewModel(preview);
   const formattedDate = formatGmailDate(date ?? receivedAt, { dateStyle: "medium" });
   const displayValue = amount === null
     ? null
@@ -28,9 +28,10 @@ export function BcaGmailSummary({
           Dari Gmail
         </span>
       </div>
-      <p className="break-words text-body-md font-semibold text-on-surface">
-        {title}
-      </p>
+      <div className="min-w-0 space-y-1">
+        <p className="text-body-sm font-medium text-on-surface-variant">{sourceLabel}</p>
+        <p className="break-words text-body-md font-semibold text-on-surface">{title}</p>
+      </div>
       {displayValue !== null ? (
         <AmountText
           value={displayValue}
