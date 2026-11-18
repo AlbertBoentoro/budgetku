@@ -8,6 +8,7 @@ import {
   type ActionResult,
 } from "@/app/(app)/settings/gmail/actions";
 import { AmountText } from "@/components/finance/amount-text";
+import { BcaGmailSummary } from "@/components/finance/bca-gmail-summary";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { getTransactionDisplayLabel } from "@/lib/transactions/display-label";
@@ -36,8 +37,7 @@ function formatReceived(iso: string | null): string {
 }
 
 function previewIsBcaStructured(preview: GmailParsedPreview | null): boolean {
-  return preview?.source === "bca" &&
-    /^(Transfer ke .+|Transaksi QRIS)$/i.test(preview.description ?? "");
+  return preview?.source === "bca";
 }
 
 // Trim a raw "From" header to a readable label. Prefers the display name,
@@ -65,7 +65,6 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
 
   const received = formatReceived(draft.receivedAt);
   const bcaStructured = previewIsBcaStructured(draft.preview);
-  const displayedDate = formatReceived(draft.preview?.transactionAt ?? draft.receivedAt);
   const senderLabel = formatSender(draft.sender);
   const isFailed = draft.status === "failed";
   const preview = draft.preview;
@@ -105,24 +104,11 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
       </div> : null}
 
       {preview ? (
-        <div className={`flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 ${bcaStructured ? "" : "sm:ml-[52px]"}`}>
+        <div className={bcaStructured
+          ? "flex min-w-0 flex-col gap-2"
+          : "ml-0 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 sm:ml-[52px]"}>
           {bcaStructured ? (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-body-sm font-semibold text-white">{displayedDate}</p>
-                <span className="rounded-full bg-surface-container px-2.5 py-1 text-label-xs text-on-surface-variant">Dari Gmail</span>
-              </div>
-              <p className="text-body-md font-semibold text-on-surface">{preview.description}</p>
-              {preview.amount !== null ? (
-                <div className="text-2xl font-bold leading-tight">
-                  <AmountText value={-preview.amount} tone="expense" size="lg" />
-                </div>
-              ) : <p className="text-body-md text-on-surface-variant">Nominal belum terbaca</p>}
-              <div>
-                <p className="text-label-xs text-on-surface-variant">Kepada</p>
-                <p className="break-words text-body-md font-medium text-on-surface">{preview.merchant || "Penerima belum terdeteksi"}</p>
-              </div>
-            </>
+            <BcaGmailSummary preview={preview} receivedAt={draft.receivedAt} />
           ) : (
           <>
           <div className="flex items-start justify-between gap-3">
