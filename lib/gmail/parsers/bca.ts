@@ -76,6 +76,11 @@ const MERCHANT_FIELDS: {
 const EMAIL_FIELD_LABELS = [
   ...MERCHANT_FIELDS.map((field) => field.label),
   "transfer amount",
+  "name",
+  "phone no.",
+  "admin fee",
+  "status",
+  "note(s)",
   "beneficiary account",
   "source of fund",
   "source currency",
@@ -103,20 +108,48 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function extractFieldValue(bodyText: string, label: string): string | null {
-  const nextField = EMAIL_FIELD_LABELS.map(escapeRegExp).join("|");
-  const pattern = new RegExp(
-    `(?:^|\\s)${escapeRegExp(label)}\\s*:\\s*(.+?)(?=\\s+(?:${nextField})\\s*:|$)`,
-    "i",
-  );
-
-  for (const line of bodyText.split(/\r?\n/)) {
-    const value = line.match(pattern)?.[1]?.trim();
-    if (value) return value;
-  }
-
+/**
+ * myBCA emails can arrive as either neatly separated rows or flattened HTML.
+ * Tokenize field labels first, then read only until the next known field.
+ * A single global scan prevents "Name" inside "Beneficiary Name" from being
+ * mistaken for an independent wallet recipient.
+ */
+function extractBcaFields(bodyText: string): Map<string, string> {
+  const fields = new Map<string, string>();
   const normalized = bodyText.replace(/\s+/g, " ").trim();
-  return normalized.match(pattern)?.[1]?.trim() ?? null;
+  const labels = EMAIL_FIELD_LABELS
+    .slice()
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegExp)
+    .join("|");
+  const pattern = new RegExp("(?:^|\\s)(" + labels + ")\\s*:\\s*", "gi");
+  const matches = Array.from(normalized.matchAll(pattern));
+
+  for (let i = 0; i < matches.length; i += 1) {
+    const match = matches[i];
+    const label = match[1].toLowerCase();
+    const from = (match.index ?? 0) + match[0].length;
+    const to = i + 1 < matches.length ? matches[i + 1].index : normalized.length;
+    const value = normalized.slice(from, to).trim();
+    if (value && !fields.has(label)) fields.set(label, value);
+  }
+  return fields;
+}
+
+function extractFieldValue(bodyText: string, label: string): string | null {
+  return extractBcaFields(bodyText).get(label.toLowerCase()) ?? null;
+}
+
+function walletLabel(value: string): string {
+  const canonical: Record<string, string> = {
+    shopeepay: "ShopeePay",
+    gopay: "GoPay",
+    dana: "DANA",
+    ovo: "OVO",
+    linkaja: "LinkAja",
+  };
+  const trimmed = value.trim();
+  return canonical[trimmed.toLowerCase()] ?? trimmed;
 }
 
 export function extractBcaDraftSummary(bodyText: string): string | null {
@@ -162,19 +195,52 @@ export function extractBcaDraftSummary(bodyText: string): string | null {
 export const bcaParser: GmailParser = {
   source: "bca",
   parse({ subject, bodyText, receivedAt }): ParseResult {
-    const haystack = `${subject}\n${bodyText}`.toLowerCase();
-    const amount = parseRupiah(bodyText) ?? parseRupiah(subject);
+    const haystack = (subject + "\n" + bodyText).toLowerCase();
+    const fields = extractBcaFields(bodyText);
+    const field = (label: string): string | null => fields.get(label) ?? null;
 
-    // Keep a readable merchant or transaction label even when the amount is
-    // missing, so the failed draft still gives the user useful context.
+    const transferType = field("transfer type");
+    const transactionType = field("transaction type");
+    const beneficiary = field("beneficiary name");
+    const walletOwner = field("name");
+    const paymentTo = field("payment to");
+    const isBankTransfer = /^transfer\s+to\s+\S+/i.test(transferType ?? "");
+    const isQris = /^qris\s+payment$/i.test(transactionType ?? "");
+    const walletMatch = transactionType?.match(/^e[-\s]?wallet\s*-\s*(.+)$/i);
+    const isWalletTopUp = Boolean(walletMatch);
+    const wallet = walletMatch ? walletLabel(walletMatch[1]) : null;
+
+    const bankMatch = transferType?.match(/^transfer\s+to\s+(.+?)(?:\s+(?:virtual\s+)?account)?$/i);
+    const bank = bankMatch?.[1]?.trim() || null;
+    const transactionTitle = isBankTransfer
+      ? "Transfer ke " + (bank || "rekening")
+      : isWalletTopUp
+        ? "Top up ke " + (wallet || "e-wallet")
+        : isQris ? "Transaksi QRIS" : null;
+
+    const amountText = isBankTransfer
+      ? field("transfer amount")
+      : field("total payment") ?? field("pay amount") ?? field("amount");
+    // Prefer the exact amount field. Avoid reading an account number, admin
+    // fee, or other unrelated value as the transaction amount.
+    const amount = amountText
+      ? parseRupiah(amountText)
+      : parseRupiah(bodyText) ?? parseRupiah(subject);
+
+    const recipient = isBankTransfer
+      ? beneficiary
+      : isWalletTopUp
+        ? walletOwner
+        : isQris ? paymentTo : extractBcaDraftSummary(bodyText);
+
     if (amount === null) {
       return {
         ok: false,
         amount: null,
         direction: null,
         transactionAt: null,
-        merchant: extractBcaDraftSummary(bodyText),
-        description: null,
+        merchant: recipient,
+        description: transactionTitle,
         confidence: "low",
       };
     }
@@ -184,50 +250,38 @@ export const bcaParser: GmailParser = {
 
     let direction: ParseResult["direction"];
     let directionConfident: boolean;
-    if (expenseHits > incomeHits) {
+    if (isBankTransfer || isQris || isWalletTopUp) {
+      direction = "expense";
+      directionConfident = true;
+    } else if (expenseHits > incomeHits) {
       direction = "expense";
       directionConfident = true;
     } else if (incomeHits > expenseHits) {
       direction = "income";
       directionConfident = true;
     } else {
-      // Ambiguous (both or neither matched): default to expense but flag it so
-      // the user confirms, rather than guessing a sign with high confidence.
       direction = "expense";
       directionConfident = false;
     }
 
-    // Recognize these two specific English myBCA email formats explicitly.
-    const transferType = extractFieldValue(bodyText, "transfer type");
-    const beneficiary = extractFieldValue(bodyText, "beneficiary name");
-    const qrisType = extractFieldValue(bodyText, "transaction type");
-    const paymentTo = extractFieldValue(bodyText, "payment to");
-    const isBankTransfer = Boolean(
-      transferType && /^transfer\s+to\s+.+/i.test(transferType) &&
-      beneficiary && extractFieldValue(bodyText, "transfer amount"),
-    );
-    const isQris = Boolean(
-      qrisType && /^qris\s+payment$/i.test(qrisType) &&
-      paymentTo && extractFieldValue(bodyText, "total payment"),
-    );
-    const transferBank = transferType?.match(/^transfer\s+to\s+(.+?)(?:\s+account)?$/i)?.[1]?.trim();
-    const shortBank = transferBank ? transferBank.replace(/\s+account$/i, "").trim() : null;
-    const transactionTitle = isBankTransfer
-      ? `Transfer ke ${shortBank || "rekening"}`
-      : isQris ? "Transaksi QRIS" : null;
-
-    const detectedDate = parseIndonesianDate(bodyText, receivedAt);
-    const dateConfident = detectedDate !== receivedAtToIsoDate(receivedAt);
+    const transactionDateText = field("transaction date");
+    const parsedExplicitDate = transactionDateText
+      ? parseIndonesianDate(transactionDateText, "")
+      : null;
+    const detectedDate = parsedExplicitDate ?? parseIndonesianDate(bodyText, receivedAt);
+    const dateConfident = Boolean(parsedExplicitDate) ||
+      detectedDate !== receivedAtToIsoDate(receivedAt);
 
     const confidence: ParseResult["confidence"] =
-      directionConfident && dateConfident ? "high" : "low";
+      directionConfident && dateConfident &&
+      (!transactionTitle || Boolean(recipient)) ? "high" : "low";
 
     return {
       ok: true,
       amount,
-      direction: isBankTransfer || isQris ? "expense" : direction,
+      direction,
       transactionAt: detectedDate,
-      merchant: isBankTransfer ? beneficiary : isQris ? paymentTo : extractBcaDraftSummary(bodyText),
+      merchant: recipient,
       description: transactionTitle ?? (subject.trim() || "Transaksi BCA"),
       confidence,
     };
