@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { ignoreImport } from "@/app/(app)/settings/gmail/actions";
 import { AmountText } from "@/components/finance/amount-text";
+import { BcaGmailSummary } from "@/components/finance/bca-gmail-summary";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { formatGmailDate } from "@/lib/gmail/date-format";
@@ -118,30 +119,35 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
         {drafts.map((draft) => {
           const preview = draft.preview;
           const title = preview?.merchant?.trim() || draft.subject?.trim() || "Email transaksi";
+          const structuredBca = preview?.source === "bca";
           const date = formatGmailDate(draft.receivedAt, { dateStyle: "medium" });
           return (
             <li
               key={draft.id}
               className={cn("flex flex-col gap-2 py-3 first:pt-0 last:pb-0", hasScroll && "min-h-32")}
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="break-words text-body-md font-medium text-on-surface">{title}</p>
-                  <p className="text-body-sm text-on-surface-variant">
-                    {date || "Tanggal email tidak tersedia"} · {preview?.source?.toUpperCase() || "Gmail"}
-                  </p>
+              {structuredBca && preview ? (
+                <BcaGmailSummary preview={preview} receivedAt={draft.receivedAt} />
+              ) : (
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-body-md font-medium text-on-surface">{title}</p>
+                    <p className="text-body-sm text-on-surface-variant">
+                      {date || "Tanggal email tidak tersedia"} · {preview?.source?.toUpperCase() || "Gmail"}
+                    </p>
+                  </div>
+                  {preview?.amount !== null && preview?.amount !== undefined ? (
+                    <AmountText
+                      value={preview.amount}
+                      tone={preview.direction === "income" ? "income" : preview.direction === "expense" ? "expense" : "default"}
+                      size="md"
+                      className="shrink-0 tabular-nums"
+                    />
+                  ) : (
+                    <span className="text-body-sm text-on-surface-variant">Periksa nominal</span>
+                  )}
                 </div>
-                {preview?.amount !== null && preview?.amount !== undefined ? (
-                  <AmountText
-                    value={preview.amount}
-                    tone={preview.direction === "income" ? "income" : preview.direction === "expense" ? "expense" : "default"}
-                    size="md"
-                    className="shrink-0 tabular-nums"
-                  />
-                ) : (
-                  <span className="text-body-sm text-on-surface-variant">Periksa nominal</span>
-                )}
-              </div>
+              )}
               {preview?.confidence === "low" ? (
                 <p className="text-body-sm text-on-surface-variant">
                   Hasil deteksi belum pasti. Periksa email sebelum mencatat.

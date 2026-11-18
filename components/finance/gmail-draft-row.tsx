@@ -8,6 +8,7 @@ import {
   type ActionResult,
 } from "@/app/(app)/settings/gmail/actions";
 import { AmountText } from "@/components/finance/amount-text";
+import { BcaGmailSummary } from "@/components/finance/bca-gmail-summary";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { getTransactionDisplayLabel } from "@/lib/transactions/display-label";
@@ -35,6 +36,10 @@ function formatReceived(iso: string | null): string {
   return formatGmailDate(iso, { dateStyle: "medium" });
 }
 
+function previewIsBcaStructured(preview: GmailParsedPreview | null): boolean {
+  return preview?.source === "bca";
+}
+
 // Trim a raw "From" header to a readable label. Prefers the display name,
 // falls back to the bare address.
 function formatSender(sender: string | null): string {
@@ -59,6 +64,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
   const [isPending, startTransition] = useTransition();
 
   const received = formatReceived(draft.receivedAt);
+  const bcaStructured = previewIsBcaStructured(draft.preview);
   const senderLabel = formatSender(draft.sender);
   const isFailed = draft.status === "failed";
   const preview = draft.preview;
@@ -82,7 +88,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
 
   return (
     <li className="flex flex-col gap-3 px-4 py-3">
-      <div className="flex items-start gap-3">
+      {!bcaStructured ? <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
           <Icon name={isFailed ? "error" : "mail"} size={20} />
         </span>
@@ -95,10 +101,16 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
             {received ? ` \u00b7 ${received}` : ""}
           </span>
         </div>
-      </div>
+      </div> : null}
 
       {preview ? (
-        <div className="ml-0 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 sm:ml-[52px]">
+        <div className={bcaStructured
+          ? "flex min-w-0 flex-col gap-2"
+          : "ml-0 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 sm:ml-[52px]"}>
+          {bcaStructured ? (
+            <BcaGmailSummary preview={preview} receivedAt={draft.receivedAt} />
+          ) : (
+          <>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-label-xs text-on-surface-variant">Nominal</p>
@@ -132,6 +144,8 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
               {merchantLabel}
             </p>
           </div>
+          </>
+          )}
           {preview.confidence === "low" ? (
             <p className="text-body-sm text-on-surface-variant">
               Periksa kembali hasil deteksi sebelum menyimpan.
