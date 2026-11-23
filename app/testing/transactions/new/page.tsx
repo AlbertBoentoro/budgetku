@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import Link from "next/link";
 
-import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
+import { isPublicTestingDemoAllowed } from "@/lib/auth/public-testing-demo";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppBackLink } from "@/components/layout/app-back-link";
 import { PageContainer } from "@/components/layout/page-container";
@@ -20,7 +20,7 @@ import {
 async function doNotSaveInDemo(_input: TransactionFormInput): Promise<ActionResult> {
   "use server";
   void _input;
-  if (!isStagingEmailLoginAllowed()) {
+  if (!isPublicTestingDemoAllowed()) {
     return { ok: false, message: "Halaman demo tidak tersedia di production." };
   }
   return {
@@ -31,7 +31,7 @@ async function doNotSaveInDemo(_input: TransactionFormInput): Promise<ActionResu
 
 export default function NoLoginTransactionDemo() {
   // The public, fixture-only route MUST NOT be active under production.
-  if (!isStagingEmailLoginAllowed()) notFound();
+  if (!isPublicTestingDemoAllowed()) notFound();
 
   return (
     <main className="min-h-dvh pt-[calc(0.5rem+env(safe-area-inset-top))]">
