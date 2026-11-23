@@ -5,6 +5,7 @@ import { isPublicTestingDemoAllowed } from "@/lib/auth/public-testing-demo";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { DEMO_ACCOUNTS, DEMO_TRANSACTIONS } from "@/lib/testing/demo-budgetku-data";
+import { BalanceAdjustmentLedgerRow } from "@/components/transactions/balance-adjustment-ledger-row";
 
 /** Read-only, completely synthetic testing gallery; never exposes staging user data. */
 export default function TestingDemoHome() {
@@ -46,6 +47,29 @@ export default function TestingDemoHome() {
             Buka Tambah transaksi dan Duplikat
           </Link>
         </div>
+        <section className="flex flex-col gap-3" aria-label="Contoh penyesuaian saldo">
+          <h2 className="text-title-md font-semibold">Penyesuaian Saldo · Contoh tampilan</h2>
+          <p className="text-body-sm text-on-surface-variant">
+            Contoh perubahan saldo yang akan masuk ke riwayat Transaksi setelah fitur aktif.
+            Ini bukan perubahan saldo dari akun asli.
+          </p>
+          <ul className="rounded-xl border border-outline-variant bg-surface-container-lowest">
+            <BalanceAdjustmentLedgerRow
+              adjustment={{
+                kind: "balance_adjustment",
+                id: "demo-adjustment-1",
+                transaction_type: "balance_adjustment",
+                transaction_at: "2026-11-23T07:30:00.000Z",
+                amount: 100000,
+                account_id: DEMO_ACCOUNTS[0].id,
+                accountName: DEMO_ACCOUNTS[0].name,
+                balanceBefore: 1000000,
+                balanceAfter: 900000,
+                delta: -100000,
+              }}
+            />
+          </ul>
+        </section>
         <section className="flex flex-col gap-3" aria-label="Riwayat contoh">
           <h2 className="text-title-md font-semibold">7 transaksi contoh</h2>
           {DEMO_TRANSACTIONS.map((tx) => (
