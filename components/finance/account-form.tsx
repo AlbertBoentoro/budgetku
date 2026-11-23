@@ -27,13 +27,14 @@ interface AccountFormProps {
   mode: "create" | "edit";
   action: (input: AccountFormInput) => Promise<ActionResult>;
   initialValues?: AccountFormInitialValues;
+  cancelHref?: string;
 }
 
 type FieldErrors = Partial<
   Record<"name" | "account_type" | "initial_balance", string>
 >;
 
-export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
+export function AccountForm({ mode, action, initialValues, cancelHref = "/accounts" }: AccountFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -243,7 +244,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
           {isPending ? "Menyimpan..." : submitLabel}
         </Button>
         <Button asChild type="button" variant="outline" className="h-11">
-          <Link href="/accounts">Batal</Link>
+          <Link href={cancelHref}>Batal</Link>
         </Button>
       </div>
     </form>
