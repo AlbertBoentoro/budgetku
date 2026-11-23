@@ -1,11 +1,16 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
-import { parseIdrInput, type CategoryRow } from "@/lib/budgets";
+import type { CategoryRow } from "@/lib/budgets";
+import {
+  applyOpeningBalanceEdit,
+  openingBalanceInputFromValue,
+  parseOpeningBalanceInput,
+} from "@/lib/opening-balance-input";
 import type {
   BudgetItemFormInput,
   ActionResult,
@@ -41,12 +46,6 @@ type FieldErrors = Partial<
 const selectClassName =
   "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
-const idrPreview = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-});
-
 export function BudgetItemForm({
   mode,
   action,
@@ -77,8 +76,32 @@ export function BudgetItemForm({
     initialValues?.category_id ?? "",
   );
   const [amountInput, setAmountInput] = useState(
-    initialValues ? String(initialValues.planned_amount) : "",
+    initialValues ? openingBalanceInputFromValue(initialValues.planned_amount) : "",
   );
+  const amountRef = useRef<HTMLInputElement>(null);
+  const [amountCaret, setAmountCaret] = useState<{ position: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const field = amountRef.current;
+    if (!field || !amountCaret || document.activeElement !== field) return;
+    field.setSelectionRange(amountCaret.position, amountCaret.position);
+  }, [amountCaret]);
+
+  function handleAmountChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const field = e.currentTarget;
+    // Never silently truncate more than two sen digits.
+    if ((field.value.match(/,/g) ?? []).length > 1 ||
+        (field.value.includes(",") &&
+          field.value.split(",").slice(1).join("").replace(/\\D/g, "").length > 2)) return;
+    const edit = applyOpeningBalanceEdit(
+      amountInput,
+      field.value,
+      field.selectionEnd ?? field.value.length,
+      (e.nativeEvent as InputEvent).inputType,
+    );
+    setAmountInput(edit.value);
+    setAmountCaret({ position: edit.caret });
+  }
   const [isFixed, setIsFixed] = useState(initialValues?.is_fixed ?? false);
   const [notes, setNotes] = useState(initialValues?.notes ?? "");
 
@@ -91,12 +114,6 @@ export function BudgetItemForm({
   const fixedFieldId = useId();
   const categoryErrId = useId();
   const amountErrId = useId();
-
-  const parsedAmount = useMemo(() => parseIdrInput(amountInput), [amountInput]);
-  const amountPreview =
-    amountInput.trim() === "" || parsedAmount === null
-      ? null
-      : idrPreview.format(parsedAmount);
 
   function validateClient(): {
     errors: FieldErrors;
@@ -113,7 +130,7 @@ export function BudgetItemForm({
       errors.category_id = "Kategori ini sudah dianggarkan.";
     }
 
-    const amount = parseIdrInput(amountInput);
+    const amount = parseOpeningBalanceInput(amountInput);
     if (amount === null || amount <= 0) {
       errors.planned_amount = "Batas harus berupa angka lebih dari nol.";
     }
@@ -207,21 +224,17 @@ export function BudgetItemForm({
         <Label htmlFor={amountFieldId}>Batas per bulan</Label>
         <Input
           id={amountFieldId}
+          ref={amountRef}
           value={amountInput}
-          onChange={(e) => setAmountInput(e.target.value)}
-          inputMode="numeric"
+          onChange={handleAmountChange}
+          inputMode="decimal"
           className="h-11 tabular-nums"
-          placeholder="0"
+          placeholder="Rp 0 atau Rp 0,41"
           aria-invalid={fieldErrors.planned_amount ? true : undefined}
           aria-describedby={
             fieldErrors.planned_amount ? amountErrId : undefined
           }
         />
-        {amountPreview ? (
-          <p className="text-sm text-muted-foreground tabular-nums">
-            {amountPreview}
-          </p>
-        ) : null}
         {fieldErrors.planned_amount ? (
           <p id={amountErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.planned_amount}
@@ -239,7 +252,8 @@ export function BudgetItemForm({
         <div className="flex flex-col gap-0.5">
           <Label htmlFor={fixedFieldId}>Pengeluaran tetap</Label>
           <p className="text-sm text-muted-foreground">
-            Tandai bila nilainya relatif sama tiap bulan, misal cicilan.
+            Penanda kategori rutin, misalnya cicilan atau langganan.
+            Tidak membuat transaksi otomatis atau memotong saldo.
           </p>
         </div>
       </div>
