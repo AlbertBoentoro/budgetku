@@ -36,25 +36,34 @@ test("desktop centered picker retains the exact scrollbar gutter of Tambah trans
   assert.doesNotMatch(picker, /(?:ml-|translate-x-|left-\[|right-\[)\d/);
 });
 
-test("preview-only demo is gated, synthetic and cannot write to staging or production", () => {
+test("preview-only demo never unlocks authenticated account routes", () => {
   const proxy = read("proxy.ts");
-  const helper = read("lib/auth/staging-email-login.ts");
+  const helper = read("lib/auth/public-testing-demo.ts");
+  const appLayout = read("app/(app)/layout.tsx");
   const demo = read("app/testing/page.tsx");
-  const formDemo = read("app/testing/transactions/new/page.tsx");
+  const tx = read("app/testing/transactions/new/page.tsx");
+  const account = read("app/testing/accounts/edit/page.tsx");
+  const budget = read("app/testing/budget/edit/page.tsx");
   const fixture = read("lib/testing/demo-budgetku-data.ts");
 
-  assert.match(proxy, /isDemoRoute && isStagingEmailLoginAllowed\(\)/);
+  assert.match(proxy, /isDemoRoute && isPublicTestingDemoAllowed\(\)/);
   assert.match(proxy, /return NextResponse\.next\(\)/);
-  assert.match(helper, /process\.env\.VERCEL_ENV !== "production"/);
-  assert.match(helper, /process\.env\.NEXT_PUBLIC_SUPABASE_URL === STAGING_SUPABASE_URL/);
-  assert.match(demo, /if \(!isStagingEmailLoginAllowed\(\)\) notFound\(\)/);
-  assert.match(formDemo, /if \(!isStagingEmailLoginAllowed\(\)\) notFound\(\)/);
-  assert.match(formDemo, /async function doNotSaveInDemo/);
-  assert.match(formDemo, /Mode demo hanya untuk memeriksa UI\. Data tidak disimpan/);
-  assert.match(formDemo, /recentTransactions=\{DEMO_TRANSACTIONS\}/);
-  assert.match(formDemo, /accounts=\{DEMO_ACCOUNTS\}/);
-  assert.match(formDemo, /<TransactionForm/);
-  assert.match(fixture, /export const DEMO_TRANSACTIONS/);
+  assert.match(helper, /process\.env\.VERCEL_ENV === "preview"/);
+  assert.doesNotMatch(helper, /createClient|SUPABASE_SERVICE_ROLE/);
+  assert.match(appLayout, /AuthGuard/);
+  assert.match(appLayout, /redirect\("\/auth\/login"\)/);
+
+  for (const page of [demo, tx, account, budget]) {
+    assert.match(page, /if \(!isPublicTestingDemoAllowed\(\)\) notFound\(\)/);
+  }
+  assert.match(tx, /async function doNotSaveInDemo/);
+  assert.match(tx, /Mode demo hanya untuk memeriksa UI\. Data tidak disimpan/);
+  assert.match(account, /action=\{demoAccountEdit\}/);
+  assert.match(budget, /action=\{demoBudgetEdit\}/);
+  assert.match(account, /computeTransactionEffects\(DEMO_TRANSACTIONS\)/);
+  assert.match(demo, /href="\/testing\/accounts\/edit"/);
+  assert.match(demo, /href="\/testing\/budget\/edit"/);
   assert.match(fixture, /export const DEMO_ACCOUNTS/);
-  assert.doesNotMatch(formDemo + demo + fixture, /\.from\(|\.insert\(|\.update\(|\.delete\(|createClient\(/);
+  assert.match(fixture, /export const DEMO_TRANSACTIONS/);
+  assert.doesNotMatch([demo, tx, account, budget, fixture].join("\n"), /\.from\(|\.insert\(|\.update\(|\.delete\(|createClient\(/);
 });
