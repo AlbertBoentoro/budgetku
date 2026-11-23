@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.account_balance_adjustments (
   balance_after numeric NOT NULL,
   delta numeric NOT NULL CHECK (delta <> 0),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  CONSTRAINT account_balance_adjustments_delta_check
+  CONSTRAINT account_balance_adjustments_delta_matches_opening_check
     CHECK (delta = opening_balance_after - opening_balance_before),
   CONSTRAINT account_balance_adjustments_balances_check
     CHECK (delta = balance_after - balance_before)
