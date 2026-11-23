@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 
 import { isPublicTestingDemoAllowed } from "@/lib/auth/public-testing-demo";
 import {
@@ -33,6 +34,8 @@ export default function TestingBudgetHistoryPage({ params }: Props) {
 }
 
 async function HistoryContent({ params }: Props) {
+  // groupTransactionsByDay reads the current date; render it after a request-time boundary.
+  await connection();
   const { categoryId } = await params;
   const category = DEMO_EXPENSE_CATEGORIES.find((row) => row.id === categoryId);
   if (!category || !DEMO_BUDGET_LIMITS.some((item) => item.categoryName === category.name)) {
