@@ -1,18 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
+import { isPublicTestingDemoAllowed } from "@/lib/auth/public-testing-demo";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { DEMO_ACCOUNTS, DEMO_TRANSACTIONS } from "@/lib/testing/demo-budgetku-data";
 
 /** Read-only, completely synthetic testing gallery; never exposes staging user data. */
 export default function TestingDemoHome() {
-  if (!isStagingEmailLoginAllowed()) notFound();
+  if (!isPublicTestingDemoAllowed()) notFound();
 
   return (
     <main className="min-h-dvh pt-[calc(0.5rem+env(safe-area-inset-top))]">
-      <AppHeader title="Budgetku Testing" subtitle="Demo tanpa login · data contoh" />
+      <AppHeader title="Budgetku Testing" subtitle="Akses langsung · tanpa akun · data contoh" />
       <PageContainer>
         <div className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
           <h2 className="text-title-md font-semibold">Akun contoh sudah terisi</h2>
@@ -27,6 +27,18 @@ export default function TestingDemoHome() {
               </span>
             ))}
           </div>
+          <Link
+            href="/testing/accounts/edit"
+            className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary"
+          >
+            Coba Edit Rekening (Saldo saat ini)
+          </Link>
+          <Link
+            href="/testing/budget/edit"
+            className="flex min-h-11 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 font-semibold text-on-surface"
+          >
+            Coba Edit Anggaran (Format Rupiah)
+          </Link>
           <Link
             href="/testing/transactions/new"
             className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary"

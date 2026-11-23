@@ -3,7 +3,8 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { AccountRow } from "@/lib/accounts";
+import { computeAccountBalances, type AccountRow } from "@/lib/accounts";
+import { runningBalanceFromOpening } from "@/lib/account-balance-adjustment";
 import { canonicalAccountType } from "@/lib/account-types";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
@@ -70,12 +71,24 @@ async function EditAccountContent({ params }: EditAccountPageProps) {
   }
 
   const account = data as AccountRow;
+  // Never mislabel the opening balance as the current balance when the
+  // transactions query fails; stop the edit form instead.
+  let transactionNet: number;
+  try {
+    const effects = await computeAccountBalances(supabase, user.id);
+    transactionNet = effects.get(account.id) ?? 0;
+  } catch {
+    return <BalanceUnavailableState />;
+  }
+  const currentBalance = runningBalanceFromOpening(account.initial_balance, transactionNet);
+  if (currentBalance === null) return <BalanceUnavailableState />;
 
   const initialValues: AccountFormInitialValues = {
     name: account.name,
     // An old "e_wallet" spelling opens as the E-wallet option.
     account_type: canonicalAccountType(account.account_type),
     initial_balance: account.initial_balance,
+    current_balance: currentBalance,
   };
 
   // Bound server action: the id is fixed server-side, the client only sends
@@ -109,6 +122,19 @@ function EditFormSkeleton() {
           <div className="h-11 w-full rounded-md bg-muted" />
         </div>
       ))}
+    </div>
+  );
+}
+
+function BalanceUnavailableState() {
+  return (
+    <div role="alert" className="flex flex-col items-center gap-4 py-10 text-center">
+      <p className="max-w-xs text-sm text-muted-foreground">
+        Saldo saat ini belum bisa dihitung. Muat ulang sebelum mengubah rekening.
+      </p>
+      <Button asChild variant="outline" className="h-11">
+        <Link href="/accounts">Kembali ke rekening</Link>
+      </Button>
     </div>
   );
 }

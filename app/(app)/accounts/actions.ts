@@ -6,11 +6,15 @@ import { createClient } from "@/lib/supabase/server";
 import { validateAccountInput } from "@/lib/account-types";
 import { accountNameChanged, normalizeAccountName } from "@/lib/account-name";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
+import { computeAccountBalances } from "@/lib/accounts";
+import { openingBalanceForTarget, runningBalanceFromOpening } from "@/lib/account-balance-adjustment";
 
 export interface AccountFormInput {
   name: string;
   account_type: string;
+  // On create: opening balance. On edit: requested current balance.
   initial_balance: number;
+  expected_current_balance?: number;
   color?: string | null;
   icon?: string | null;
 }
@@ -118,11 +122,17 @@ export async function updateAccount(
     return { ok: false, message: "Periksa kembali isian formulir.", fieldErrors };
   }
 
+  // A snapshot makes stale edit forms fail instead of undoing new ledger activity.
+  if (typeof input.expected_current_balance !== "number" ||
+      !Number.isFinite(input.expected_current_balance)) {
+    return { ok: false, message: "Saldo saat ini perlu dimuat ulang sebelum disimpan." };
+  }
+
   // Grandfather existing duplicate names. Editing a balance or account type
   // must not force the user to rename an unrelated historic account.
   const { data: currentAccount, error: currentError } = await supabase
     .from("accounts")
-    .select("name")
+    .select("name, initial_balance")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -140,20 +150,48 @@ export async function updateAccount(
     }
   }
 
+  // Recompute with the same ledger calculation used by the account list.
+  let transactionNet: number;
+  try {
+    const netByAccount = await computeAccountBalances(supabase, user.id);
+    transactionNet = netByAccount.get(id) ?? 0;
+  } catch {
+    return { ok: false, message: "Saldo terkini gagal dimuat. Coba lagi." };
+  }
+  const currentBalance = runningBalanceFromOpening(
+    Number(currentAccount.initial_balance), transactionNet,
+  );
+  if (currentBalance === null) {
+    return { ok: false, message: "Saldo rekening tidak dapat dihitung secara akurat." };
+  }
+  if (Math.round(currentBalance * 100) !==
+      Math.round(input.expected_current_balance * 100)) {
+    return { ok: false, message: "Saldo rekening sudah berubah. Muat ulang halaman sebelum menyimpan." };
+  }
+  const adjustedOpening = openingBalanceForTarget(input.initial_balance, transactionNet);
+  if (adjustedOpening === null) {
+    return {
+      ok: false, message: "Saldo saat ini tidak valid atau terlalu besar.",
+      fieldErrors: { initial_balance: "Masukkan nominal Rupiah yang valid." },
+    };
+  }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("accounts")
     .update({
       name: input.name.trim().replace(/\s+/g, " "),
       account_type: accountType,
-      initial_balance: input.initial_balance,
+      initial_balance: adjustedOpening,
       // Keep the legacy database field consistent with the all-accounts rule.
       include_in_total: true,
       color: input.color ?? null,
       icon: input.icon ?? null,
     })
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .eq("initial_balance", currentAccount.initial_balance)
+    .select("id")
+    .maybeSingle();
 
   if (error?.code === "23505") {
     return { ok: false, message: DUPLICATE_NAME_MESSAGE, fieldErrors: { name: DUPLICATE_NAME_MESSAGE } };
@@ -166,7 +204,12 @@ export async function updateAccount(
     };
   }
 
+  if (!updated) {
+    return { ok: false, message: "Rekening sudah berubah. Muat ulang halaman sebelum menyimpan." };
+  }
+
   revalidatePath("/accounts");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 

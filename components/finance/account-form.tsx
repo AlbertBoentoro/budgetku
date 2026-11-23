@@ -20,19 +20,21 @@ export interface AccountFormInitialValues {
   name: string;
   account_type: string;
   initial_balance: number;
+  current_balance?: number;
 }
 
 interface AccountFormProps {
   mode: "create" | "edit";
   action: (input: AccountFormInput) => Promise<ActionResult>;
   initialValues?: AccountFormInitialValues;
+  cancelHref?: string;
 }
 
 type FieldErrors = Partial<
   Record<"name" | "account_type" | "initial_balance", string>
 >;
 
-export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
+export function AccountForm({ mode, action, initialValues, cancelHref = "/accounts" }: AccountFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -40,9 +42,15 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
   const [accountType, setAccountType] = useState(
     initialValues?.account_type ?? ACCOUNT_TYPES[0].value,
   );
-  // The field shows formatted Rupiah ("Rp 123.133"); it is parsed on submit.
+  // In edit mode display the running balance, not the stored opening anchor.
+  // It is still formatted and parsed by the same IDR input helpers.
   const [balanceInput, setBalanceInput] = useState(
-    initialValues ? openingBalanceInputFromValue(initialValues.initial_balance) : "",
+    initialValues
+      ? openingBalanceInputFromValue(
+          mode === "edit" ? initialValues.current_balance ?? initialValues.initial_balance
+            : initialValues.initial_balance,
+        )
+      : "",
   );
   const balanceRef = useRef<HTMLInputElement>(null);
   // Where the caret goes after the next render. A new object per edit, so the
@@ -102,7 +110,9 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
     }
     const balance = parseOpeningBalanceInput(balanceInput);
     if (balance === null) {
-      errors.initial_balance = "Saldo awal harus berupa angka yang valid.";
+      errors.initial_balance = mode === "edit"
+        ? "Saldo saat ini harus berupa angka yang valid."
+        : "Saldo awal harus berupa angka yang valid.";
     }
 
     if (Object.keys(errors).length > 0 || balance === null) {
@@ -115,6 +125,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
         name: trimmedName,
         account_type: accountType,
         initial_balance: balance,
+        ...(mode === "edit" ? { expected_current_balance: initialValues?.current_balance } : {}),
       },
     };
   }
@@ -190,7 +201,9 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor={balanceId}>Saldo awal</Label>
+        <Label htmlFor={balanceId}>
+          {mode === "edit" ? "Saldo saat ini" : "Saldo awal"}
+        </Label>
         <Input
           id={balanceId}
           ref={balanceRef}
@@ -205,6 +218,11 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
             fieldErrors.initial_balance ? balanceErrId : undefined
           }
         />
+        {mode === "edit" ? (
+          <p className="text-sm text-muted-foreground">
+            Saldo ini sudah termasuk seluruh transaksi. Mengubahnya tidak menghapus riwayat transaksi.
+          </p>
+        ) : null}
         {fieldErrors.initial_balance ? (
           <p id={balanceErrId} role="alert" className="text-sm text-expense">
             {fieldErrors.initial_balance}
@@ -226,7 +244,7 @@ export function AccountForm({ mode, action, initialValues }: AccountFormProps) {
           {isPending ? "Menyimpan..." : submitLabel}
         </Button>
         <Button asChild type="button" variant="outline" className="h-11">
-          <Link href="/accounts">Batal</Link>
+          <Link href={cancelHref}>Batal</Link>
         </Button>
       </div>
     </form>

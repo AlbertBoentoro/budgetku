@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { isMonthParam, toMonthStorage } from "@/lib/budgets";
+import { isValidIdrAmount } from "@/lib/idr-money";
 
 export type ActionResult =
   | { ok: true }
@@ -92,9 +93,7 @@ function validateItem(
   }
 
   if (
-    typeof input.planned_amount !== "number" ||
-    !Number.isFinite(input.planned_amount) ||
-    input.planned_amount <= 0
+    !isValidIdrAmount(input.planned_amount)
   ) {
     fieldErrors.planned_amount = "Batas harus berupa angka lebih dari nol.";
   }
