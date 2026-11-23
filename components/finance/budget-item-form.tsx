@@ -35,6 +35,7 @@ interface BudgetItemFormProps {
   // duplicate; the item's own category stays available on edit.
   usedCategoryIds?: string[];
   initialValues?: BudgetItemFormInitialValues;
+  cancelHref?: string;
 }
 
 type FieldErrors = Partial<
@@ -52,6 +53,7 @@ export function BudgetItemForm({
   monthParam,
   usedCategoryIds = [],
   initialValues,
+  cancelHref,
 }: BudgetItemFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -183,7 +185,7 @@ export function BudgetItemForm({
           Semua kategori pengeluaran sudah dianggarkan untuk bulan ini.
         </p>
         <Button asChild variant="outline" className="h-11">
-          <Link href={`/budget?month=${monthParam}`}>Kembali ke anggaran</Link>
+          <Link href={cancelHref ?? `/budget?month=${monthParam}`}>Kembali ke anggaran</Link>
         </Button>
       </div>
     );
@@ -267,7 +269,7 @@ export function BudgetItemForm({
           {isPending ? "Menyimpan..." : submitLabel}
         </Button>
         <Button asChild type="button" variant="outline" className="h-11">
-          <Link href={`/budget?month=${monthParam}`}>Batal</Link>
+          <Link href={cancelHref ?? `/budget?month=${monthParam}`}>Batal</Link>
         </Button>
       </div>
     </form>
