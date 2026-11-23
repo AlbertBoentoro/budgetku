@@ -1,5 +1,5 @@
 import { updateSession } from "@/lib/supabase/proxy";
-import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
+import { isPublicTestingDemoAllowed } from "@/lib/auth/public-testing-demo";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
@@ -7,7 +7,7 @@ export async function proxy(request: NextRequest) {
   // no database mutations. Production and all other routes retain auth.
   const isDemoRoute = request.nextUrl.pathname === "/testing" ||
     request.nextUrl.pathname.startsWith("/testing/");
-  if (isDemoRoute && isStagingEmailLoginAllowed()) {
+  if (isDemoRoute && isPublicTestingDemoAllowed()) {
     return NextResponse.next();
   }
   return await updateSession(request);
