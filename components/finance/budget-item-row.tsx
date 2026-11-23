@@ -70,16 +70,7 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
             <Icon name="category" size={20} className="text-on-surface-variant" />
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="break-words text-body-md text-on-surface">
-                {label}
-              </span>
-              {item.is_fixed ? (
-                <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 text-label-xs text-on-surface-variant">
-                  Tetap
-                </span>
-              ) : null}
-            </span>
+            <span className="break-words text-body-md text-on-surface">{label}</span>
           </span>
         </Link>
 
