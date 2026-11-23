@@ -30,7 +30,10 @@ test("budget form has no raw value or secondary currency preview", () => {
   assert.doesNotMatch(form, /amountPreview|idrPreview|parseIdrInput/);
 });
 
-test("fixed budget checkbox is descriptive, not an automatic payment", () => {
+test("obsolete fixed expense marker is hidden without resetting existing data", () => {
   const form = readFileSync(new URL("../components/finance/budget-item-form.tsx", import.meta.url), "utf8");
-  assert.match(form, /Tidak membuat transaksi otomatis atau memotong saldo/);
+  const row = readFileSync(new URL("../components/finance/budget-item-row.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(form, /<Checkbox|Pengeluaran tetap|fixedFieldId|setIsFixed/);
+  assert.doesNotMatch(row, /item\.is_fixed|>Tetap</);
+  assert.match(form, /is_fixed: mode === "edit" \? initialValues\?\.is_fixed \?\? false : false/);
 });
