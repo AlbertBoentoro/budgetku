@@ -105,12 +105,6 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href={historyHref}>
-                <Icon name="receipt_long" size={18} />
-                Riwayat transaksi
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
               <Link href={`/budget/items/${item.id}/edit?month=${monthParam}`}>
                 <Icon name="edit" size={18} />
                 Edit
