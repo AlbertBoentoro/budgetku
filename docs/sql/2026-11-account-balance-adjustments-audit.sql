@@ -4,7 +4,8 @@
 CREATE TABLE IF NOT EXISTS public.account_balance_adjustments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  account_id uuid NOT NULL REFERENCES public.accounts(id) ON DELETE RESTRICT,
+  account_id uuid NOT NULL REFERENCES public.accounts(id)
+    ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,
   account_name text NOT NULL,
   opening_balance_before numeric NOT NULL,
   opening_balance_after numeric NOT NULL,
