@@ -27,7 +27,7 @@ test("budget row opens transaction history while preserving the edit action", ()
   assert.match(source, /budgetCategoryHistoryHref\(item\.category_id, monthParam\)/);
   assert.match(source, /href=\{historyHref\}/);
   assert.match(source, /Lihat riwayat transaksi/);
-  assert.match(source, /Riwayat transaksi/);
+  assert.doesNotMatch(source, />\s*Riwayat transaksi\s*</); // no duplicate history menu item
   assert.match(source, /\/budget\/items\/\$\{item\.id\}\/edit\?month=\$\{monthParam\}/);
   assert.match(source, /deleteBudgetItem\(item\.id\)/);
 });
