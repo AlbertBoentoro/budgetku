@@ -210,6 +210,7 @@ export async function updateAccount(
 
   revalidatePath("/accounts");
   revalidatePath("/dashboard");
+  revalidatePath("/transactions");
   return { ok: true };
 }
 
@@ -270,7 +271,7 @@ export async function deleteAccount(id: string): Promise<ActionResult> {
       .eq("user_id", user.id)
       .eq(column, id);
 
-  const [txSource, txDest, recSource, recDest, goals] = await Promise.all([
+  const [txSource, txDest, recSource, recDest, goals, adjustments] = await Promise.all([
     countFor("transactions", "account_id"),
     countFor("transactions", "destination_account_id"),
     countFor("recurring_transactions", "account_id"),
@@ -280,9 +281,14 @@ export async function deleteAccount(id: string): Promise<ActionResult> {
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("account_id", id),
+    supabase
+      .from("account_balance_adjustments")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("account_id", id),
   ]);
 
-  const countErrors = [txSource, txDest, recSource, recDest, goals].some(
+  const countErrors = [txSource, txDest, recSource, recDest, goals, adjustments].some(
     (r) => r.error,
   );
   if (countErrors) {
@@ -297,13 +303,14 @@ export async function deleteAccount(id: string): Promise<ActionResult> {
     (txDest.count ?? 0) +
     (recSource.count ?? 0) +
     (recDest.count ?? 0) +
-    (goals.count ?? 0);
+    (goals.count ?? 0) +
+    (adjustments.count ?? 0);
 
   if (referenceCount > 0) {
     return {
       ok: false,
       message:
-        "Rekening ini masih dipakai transaksi atau data lain. Arsipkan saja agar riwayat tetap aman.",
+        "Rekening masih memiliki transaksi, riwayat penyesuaian saldo, atau data terkait. Arsipkan agar riwayat tetap aman.",
     };
   }
 
