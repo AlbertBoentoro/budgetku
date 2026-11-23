@@ -77,6 +77,45 @@ export type Database = {
         }
         Relationships: []
       }
+      account_balance_adjustments: {
+        Row: {
+          id: string
+          user_id: string
+          account_id: string
+          account_name: string
+          opening_balance_before: number
+          opening_balance_after: number
+          balance_before: number
+          balance_after: number
+          delta: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          account_id: string
+          account_name: string
+          opening_balance_before: number
+          opening_balance_after: number
+          balance_before: number
+          balance_after: number
+          delta: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          account_id?: string
+          account_name?: string
+          opening_balance_before?: number
+          opening_balance_after?: number
+          balance_before?: number
+          balance_after?: number
+          delta?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
       accounts: {
         Row: {
           account_type: string
