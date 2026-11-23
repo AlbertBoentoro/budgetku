@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import type { BudgetItemView } from "@/lib/budgets";
 import { getBudgetLimitStatus } from "@/lib/budget-limit-status";
+import { budgetCategoryHistoryHref } from "@/lib/budget-history-link";
 import {
   deleteBudgetItem,
   type ActionResult,
@@ -30,6 +31,7 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
   const [isPending, startTransition] = useTransition();
   const { usage } = item;
   const label = item.categoryName ?? "Kategori";
+  const historyHref = budgetCategoryHistoryHref(item.category_id, monthParam);
   const pct = Math.round(usage.barPercent);
   const budgetStatus = getBudgetLimitStatus(usage.planned, usage.spent);
   // Four distinct, static Tailwind colors. Keep classes in this component so
@@ -60,7 +62,7 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
     <li className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5">
       <div className="flex items-start gap-3">
         <Link
-          href={`/budget/items/${item.id}/edit?month=${monthParam}`}
+          href={historyHref}
           className="flex min-w-0 flex-1 items-start gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {/* One neutral glyph for every category: the stored category icon is
@@ -71,6 +73,9 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="break-words text-body-md text-on-surface">{label}</span>
+            <span className="text-label-xs text-on-surface-variant">
+              Lihat riwayat transaksi
+            </span>
           </span>
         </Link>
 
@@ -99,6 +104,12 @@ export function BudgetItemRow({ item, monthParam, onError }: BudgetItemRowProps)
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href={historyHref}>
+                <Icon name="receipt_long" size={18} />
+                Riwayat transaksi
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={`/budget/items/${item.id}/edit?month=${monthParam}`}>
                 <Icon name="edit" size={18} />
