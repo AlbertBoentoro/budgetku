@@ -117,3 +117,30 @@ export const DEMO_TRANSACTIONS: DuplicateTransaction[] = [
   demoTransaction(6, "expense", 50000, null, "Hiburan", "Entertainment", "2026-11-04"),
   demoTransaction(7, "expense", 50000, "skibidi", "Contoh pembelian", "Other Expense", "2026-10-08"),
 ];
+
+
+/**
+ * Read-only budgeting fixtures for the public no-login preview.
+ * Separate from Supabase staging rows; never used in production.
+ */
+export const DEMO_BUDGET_LIMITS = [
+  { categoryName: "Food & Beverage", plannedAmount: 550000 },
+  { categoryName: "Transportation", plannedAmount: 250000 },
+  { categoryName: "Entertainment", plannedAmount: 50000 },
+  { categoryName: "Donations & Gifts", plannedAmount: 150000 },
+  { categoryName: "Bills & Utilities", plannedAmount: 559140 },
+  { categoryName: "Shopping", plannedAmount: 180000 },
+  { categoryName: "Other Financial Expenses", plannedAmount: 150000 },
+] as const;
+
+export const DEMO_BUDGET_TRANSACTIONS: DuplicateTransaction[] = [
+  ...DEMO_TRANSACTIONS,
+  demoTransaction(8, "expense", 55000, "Warung Makan Demo", "Makan siang (dummy)", "Food & Beverage", "2026-11-07"),
+  demoTransaction(9, "expense", 28000, "Kopi Sudut Demo", "Kopi dan roti (dummy)", "Food & Beverage", "2026-11-10"),
+  demoTransaction(10, "expense", 46000, "Ayam Bakar Demo", "Makan malam (dummy)", "Food & Beverage", "2026-11-15"),
+  demoTransaction(11, "expense", 76000, "Restoran Demo", "Makan bersama (dummy)", "Food & Beverage", "2026-11-21"),
+  demoTransaction(12, "expense", 90000, "Ride Hailing Demo", "Transport ke kantor (dummy)", "Transportation", "2026-11-12"),
+  demoTransaction(13, "expense", 100000, "Transit Demo", "Transport mingguan (dummy)", "Transportation", "2026-11-19"),
+  demoTransaction(14, "expense", 175000, "Langganan Demo", "Langganan bulanan (dummy)", "Bills & Utilities", "2026-11-03"),
+  demoTransaction(15, "expense", 355000, "Tagihan Demo", "Tagihan utilitas (dummy)", "Bills & Utilities", "2026-11-17"),
+];
