@@ -22,10 +22,10 @@ test("typing into a budget field uses the shared caret-aware formatter", () => {
 
 test("budget form has no raw value or secondary currency preview", () => {
   const form = readFileSync(new URL("../components/finance/budget-item-form.tsx", import.meta.url), "utf8");
-  assert.match(form, /openingBalanceInputFromValue\\(initialValues\\.planned_amount\\)/);
-  assert.match(form, /applyOpeningBalanceEdit\\(/);
-  assert.match(form, /const amount = parseOpeningBalanceInput\\(amountInput\\)/);
-  assert.match(form, /onChange=\\{handleAmountChange\\}/);
+  assert.match(form, /openingBalanceInputFromValue\(initialValues\.planned_amount\)/);
+  assert.match(form, /applyOpeningBalanceEdit\(/);
+  assert.match(form, /const amount = parseOpeningBalanceInput\(amountInput\)/);
+  assert.match(form, /onChange=\{handleAmountChange\}/);
   assert.match(form, /inputMode="decimal"/);
   assert.doesNotMatch(form, /amountPreview|idrPreview|parseIdrInput/);
 });
