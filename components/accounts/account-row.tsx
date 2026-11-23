@@ -51,10 +51,9 @@ interface AccountRowProps {
   onError: (message: string) => void;
 }
 
-// Stitch ledger row for an account: an accent icon circle, a tappable label
-// area linking to the edit screen, the real running balance (navy, red + minus
-// when negative so meaning is not color alone), an honest status label, and an
-// isolated actions menu wired to the existing server actions.
+// Account rows behave like budget category rows: tapping the account opens
+// its existing filtered transaction ledger. Editing remains available through
+// the isolated actions menu, so opening history never changes account details.
 export function AccountRow({ account, onError }: AccountRowProps) {
   const [isPending, startTransition] = useTransition();
   const isNegative = account.balance < 0;
@@ -82,7 +81,8 @@ export function AccountRow({ account, onError }: AccountRowProps) {
   return (
     <li className={cn("flex items-center gap-3 px-4 py-3", account.archived && "opacity-70")}>
       <Link
-        href={`/accounts/${account.id}/edit`}
+        href={`/transactions?account=${encodeURIComponent(account.id)}`}
+        aria-label={`Lihat riwayat transaksi ${account.name}`}
         className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container">
@@ -98,6 +98,9 @@ export function AccountRow({ account, onError }: AccountRowProps) {
           </span>
           <span className="truncate text-body-sm text-on-surface-variant">
             {account.typeLabel}
+          </span>
+          <span className="text-label-xs text-on-surface-variant">
+            Lihat riwayat transaksi
           </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-0.5">
@@ -131,14 +134,6 @@ export function AccountRow({ account, onError }: AccountRowProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild className="min-h-11">
-            <Link
-              href={`/transactions?account=${encodeURIComponent(account.id)}`}
-            >
-              <Icon name="receipt_long" size={18} />
-              Riwayat transaksi
-            </Link>
-          </DropdownMenuItem>
           <DropdownMenuItem asChild className="min-h-11">
             <Link href={`/accounts/${account.id}/edit`}>
               <Icon name="edit" size={18} />
