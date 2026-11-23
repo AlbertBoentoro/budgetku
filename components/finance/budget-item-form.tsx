@@ -92,7 +92,7 @@ export function BudgetItemForm({
     // Never silently truncate more than two sen digits.
     if ((field.value.match(/,/g) ?? []).length > 1 ||
         (field.value.includes(",") &&
-          field.value.split(",").slice(1).join("").replace(/\\D/g, "").length > 2)) return;
+          field.value.split(",").slice(1).join("").replace(/\D/g, "").length > 2)) return;
     const edit = applyOpeningBalanceEdit(
       amountInput,
       field.value,
