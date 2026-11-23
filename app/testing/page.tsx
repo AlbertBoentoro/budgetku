@@ -12,7 +12,7 @@ export default function TestingDemoHome() {
 
   return (
     <main className="min-h-dvh pt-[calc(0.5rem+env(safe-area-inset-top))]">
-      <AppHeader title="Budgetku Testing" subtitle="Demo tanpa login · data contoh" />
+      <AppHeader title="Budgetku Testing" subtitle="Akses langsung · tanpa akun · data contoh" />
       <PageContainer>
         <div className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
           <h2 className="text-title-md font-semibold">Akun contoh sudah terisi</h2>
@@ -27,6 +27,18 @@ export default function TestingDemoHome() {
               </span>
             ))}
           </div>
+          <Link
+            href="/testing/accounts/edit"
+            className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary"
+          >
+            Coba Edit Rekening (Saldo saat ini)
+          </Link>
+          <Link
+            href="/testing/budget/edit"
+            className="flex min-h-11 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 font-semibold text-on-surface"
+          >
+            Coba Edit Anggaran (Format Rupiah)
+          </Link>
           <Link
             href="/testing/transactions/new"
             className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary"
