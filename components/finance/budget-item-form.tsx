@@ -18,7 +18,6 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 
 export interface BudgetItemFormInitialValues {
   category_id: string;
@@ -102,7 +101,6 @@ export function BudgetItemForm({
     setAmountInput(edit.value);
     setAmountCaret({ position: edit.caret });
   }
-  const [isFixed, setIsFixed] = useState(initialValues?.is_fixed ?? false);
   const [notes, setNotes] = useState(initialValues?.notes ?? "");
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -111,7 +109,6 @@ export function BudgetItemForm({
   const categoryFieldId = useId();
   const amountFieldId = useId();
   const notesFieldId = useId();
-  const fixedFieldId = useId();
   const categoryErrId = useId();
   const amountErrId = useId();
 
@@ -145,7 +142,9 @@ export function BudgetItemForm({
       input: {
         category_id: categoryId,
         planned_amount: amount,
-        is_fixed: isFixed,
+        // Preserve historical flags on edit without exposing a dead UI control.
+        // New budget items are always non-fixed. No existing records are reset.
+        is_fixed: mode === "edit" ? initialValues?.is_fixed ?? false : false,
         notes: trimmedNotes.length > 0 ? trimmedNotes : null,
       },
     };
@@ -240,22 +239,6 @@ export function BudgetItemForm({
             {fieldErrors.planned_amount}
           </p>
         ) : null}
-      </div>
-
-      <div className="flex items-start gap-3">
-        <Checkbox
-          id={fixedFieldId}
-          checked={isFixed}
-          onCheckedChange={(checked) => setIsFixed(checked === true)}
-          className="mt-0.5"
-        />
-        <div className="flex flex-col gap-0.5">
-          <Label htmlFor={fixedFieldId}>Pengeluaran tetap</Label>
-          <p className="text-sm text-muted-foreground">
-            Penanda kategori rutin, misalnya cicilan atau langganan.
-            Tidak membuat transaksi otomatis atau memotong saldo.
-          </p>
-        </div>
       </div>
 
       <div className="flex flex-col gap-2">
