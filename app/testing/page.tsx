@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
+import { isPublicTestingDemoAllowed } from "@/lib/auth/public-testing-demo";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
 import { DEMO_ACCOUNTS, DEMO_TRANSACTIONS } from "@/lib/testing/demo-budgetku-data";
 
 /** Read-only, completely synthetic testing gallery; never exposes staging user data. */
 export default function TestingDemoHome() {
-  if (!isStagingEmailLoginAllowed()) notFound();
+  if (!isPublicTestingDemoAllowed()) notFound();
 
   return (
     <main className="min-h-dvh pt-[calc(0.5rem+env(safe-area-inset-top))]">
