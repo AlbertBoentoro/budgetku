@@ -15,7 +15,6 @@ import {
 import { AppBackLink } from "@/components/layout/app-back-link";
 import { updateAccount, type AccountFormInput } from "@/app/(app)/accounts/actions";
 import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
 
 interface EditAccountPageProps {
   params: Promise<{ id: string }>;
@@ -98,19 +97,8 @@ async function EditAccountContent({ params }: EditAccountPageProps) {
     return updateAccount(id, input);
   }
 
-  // Read-only entry to this account's ledger, placed above the form so it is
-  // not mistaken for a form action next to Simpan/Batal.
-  return (
-    <div className="flex flex-col gap-6">
-      <Button asChild variant="outline" className="h-11 w-full">
-        <Link href={`/transactions?account=${encodeURIComponent(account.id)}`}>
-          <Icon name="receipt_long" size={18} />
-          Riwayat transaksi
-        </Link>
-      </Button>
-      <AccountForm mode="edit" action={action} initialValues={initialValues} />
-    </div>
-  );
+  // Editing stays separate from the account row's direct history navigation.
+  return <AccountForm mode="edit" action={action} initialValues={initialValues} />;
 }
 
 function EditFormSkeleton() {
