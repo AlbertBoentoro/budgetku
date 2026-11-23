@@ -217,6 +217,8 @@ test("the form uses the formatter, parses on submit, and has no separate preview
   assert.match(form, /applyOpeningBalanceEdit\(\s*balanceInput,\s*input\.value,/);
   assert.match(form, /setBalanceInput\(edit\.value\)/);
   assert.match(form, /const balance = parseOpeningBalanceInput\(balanceInput\);/);
-  assert.match(form, /openingBalanceInputFromValue\(initialValues\.initial_balance\)/);
+  assert.match(form, /openingBalanceInputFromValue\\(/);
+  assert.match(form, /initialValues\\.current_balance/);
+  assert.match(form, /expected_current_balance: initialValues\\?\\.current_balance/);
   assert.doesNotMatch(form, /balancePreview|idrPreview|parseIdrInput/);
 });
