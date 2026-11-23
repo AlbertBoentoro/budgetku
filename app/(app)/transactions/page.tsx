@@ -32,6 +32,10 @@ import { TransactionSearch } from "@/components/transactions/transaction-search"
 import { TransactionDayGroups } from "@/components/transactions/transaction-day-groups";
 import { LedgerSummaryPill } from "@/components/transactions/ledger-summary-pill";
 import type { TransactionRowView } from "@/components/transactions/transaction-ledger-row";
+import {
+  fetchBalanceAdjustments,
+  type BalanceAdjustmentRowView,
+} from "@/lib/account-balance-adjustments";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { TransactionsLoading } from "@/app/(app)/transactions/loading";
@@ -156,6 +160,20 @@ async function TransactionsContent({
 
   const transactions = (data ?? []) as TransactionRow[];
 
+  // Audit entries are read separately from transactions: never mix their
+  // amounts into the budget, income/expense summary or account balance math.
+  let adjustments: BalanceAdjustmentRowView[];
+  try {
+    adjustments = await fetchBalanceAdjustments(
+      supabase,
+      user.id,
+      listMonth ? { ...otherFilters, month: listMonth } : otherFilters,
+    );
+  } catch {
+    // An unavailable audit ledger must not silently look like no adjustments.
+    return <TransactionsError message="Riwayat penyesuaian saldo gagal dimuat. Coba lagi." />;
+  }
+
   // Surface only unapproved Gmail drafts above the current unfiltered ledger.
   // The preview is read-only: pending email MUST NOT affect account totals or
   // month summary until the existing importDraft action records it.
@@ -215,6 +233,7 @@ async function TransactionsContent({
   // months gets the empty-month state below, next to the month picker.
   const isFirstRun =
     transactions.length === 0 &&
+    adjustments.length === 0 &&
     !hasOtherFilter &&
     (listMonth === null ||
       (await hasAnyTransaction(supabase, user.id)) === false);
@@ -298,7 +317,7 @@ async function TransactionsContent({
     }
   }
 
-  const rows: TransactionRowView[] = transactions.map((t) => ({
+  const transactionRows: TransactionRowView[] = transactions.map((t) => ({
     ...t,
     accountName: t.account_id ? accountNameById.get(t.account_id) ?? null : null,
     destinationAccountName: t.destination_account_id
@@ -308,6 +327,17 @@ async function TransactionsContent({
       ? categoryNameById.get(t.category_id) ?? null
       : null,
   }));
+
+  // Merge only for presentation. Audit rows have their own immutable type and
+  // cannot be opened through normal transaction edit/delete routes.
+  const rows: Array<TransactionRowView | BalanceAdjustmentRowView> =
+    [...transactionRows, ...adjustments].sort((a, b) => {
+      const byDate = Date.parse(b.transaction_at) - Date.parse(a.transaction_at);
+      if (byDate !== 0) return byDate;
+      const aRecorded = "kind" in a ? a.transaction_at : a.created_at;
+      const bRecorded = "kind" in b ? b.transaction_at : b.created_at;
+      return Date.parse(bRecorded) - Date.parse(aRecorded);
+    });
 
   // Categories offered in the filter are the union of usable income + expense,
   // deduplicated, so the select lists each category once.

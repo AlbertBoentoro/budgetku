@@ -220,7 +220,7 @@ export function AccountForm({ mode, action, initialValues, cancelHref = "/accoun
         />
         {mode === "edit" ? (
           <p className="text-sm text-muted-foreground">
-            Saldo ini sudah termasuk seluruh transaksi. Mengubahnya tidak menghapus riwayat transaksi.
+            Saldo sudah termasuk seluruh transaksi. Perubahan saldo akan tercatat sebagai Penyesuaian Saldo di riwayat Transaksi tanpa menghapus transaksi lama.
           </p>
         ) : null}
         {fieldErrors.initial_balance ? (

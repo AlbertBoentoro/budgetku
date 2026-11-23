@@ -3,14 +3,22 @@
 import { useState } from "react";
 
 import type { TransactionDayGroup } from "@/lib/transactions";
+import type { BalanceAdjustmentRowView } from "@/lib/account-balance-adjustments";
+import { BalanceAdjustmentLedgerRow } from "@/components/transactions/balance-adjustment-ledger-row";
 import { AmountText } from "@/components/finance/amount-text";
 import {
   TransactionLedgerRow,
   type TransactionRowView,
 } from "@/components/transactions/transaction-ledger-row";
 
+function isBalanceAdjustment(
+  entry: TransactionRowView | BalanceAdjustmentRowView,
+): entry is BalanceAdjustmentRowView {
+  return "kind" in entry && entry.kind === "balance_adjustment";
+}
+
 interface TransactionDayGroupsProps {
-  groups: TransactionDayGroup<TransactionRowView>[];
+  groups: TransactionDayGroup<TransactionRowView | BalanceAdjustmentRowView>[];
 }
 
 // Renders the date-grouped ledger: each day is a header (date label + per-day
@@ -54,12 +62,19 @@ export function TransactionDayGroups({ groups }: TransactionDayGroupsProps) {
               />
             </div>
             <ul className="flex flex-col divide-y divide-outline-variant rounded-xl border border-outline-variant bg-surface-container-lowest">
-              {group.rows.map((transaction) => (
-                <TransactionLedgerRow
-                  key={transaction.id}
-                  transaction={transaction}
-                  onError={setActionError}
-                />
+              {group.rows.map((entry) => (
+                isBalanceAdjustment(entry) ? (
+                  <BalanceAdjustmentLedgerRow
+                    key={entry.id}
+                    adjustment={entry}
+                  />
+                ) : (
+                  <TransactionLedgerRow
+                    key={entry.id}
+                    transaction={entry}
+                    onError={setActionError}
+                  />
+                )
               ))}
             </ul>
           </section>
