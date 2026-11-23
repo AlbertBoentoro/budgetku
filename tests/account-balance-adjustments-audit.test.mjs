@@ -47,8 +47,12 @@ test("corrections appear in the ledger, not income, spending, or the editable tr
   assert.match(groups, /<BalanceAdjustmentLedgerRow/);
   assert.match(groups, /<TransactionLedgerRow/);
   assert.match(row, /Penyesuaian Saldo/);
-  assert.match(row, /Sebelum/);
-  assert.match(row, /Sesudah/);
+  assert.match(row, /{adjustment.accountName}/);
+  assert.match(row, /value={adjustment.delta}/);
+  assert.match(row, /signed/);
+  assert.doesNotMatch(row, /Koreksi saldo|bukan pemasukan|pengeluaran/);
+  assert.doesNotMatch(row, /wibTime|WIB|transaction_at/);
+  assert.doesNotMatch(row, /Sebelum|Sesudah/);
   assert.doesNotMatch(row, /RowActionsMenu/);
   assert.match(query, /if \(filters\.type \|\| filters\.category\) return \[\]/);
   assert.match(query, /\.eq\("user_id", userId\)/);
