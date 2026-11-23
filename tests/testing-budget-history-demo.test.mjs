@@ -64,7 +64,7 @@ test("public demo routes are preview-only, read-only, and linked from the testin
   assert.match(budget, /isPublicTestingDemoAllowed\(\)/);
   assert.match(history, /isPublicTestingDemoAllowed\(\)/);
   assert.match(budget, /href=\{\`\/testing\/budget\/history\/\$\{category\.id\}\`\}/);
-  assert.match(history, /transaction\.transaction_type === "expense"/.replace("transaction", "row"));
+  assert.match(history, /row\.transaction_type === "expense"/);
   assert.match(history, /row\.transaction_at\.startsWith\(DEMO_MONTH\)/);
   for (const source of [budget, history]) {
     assert.doesNotMatch(source, /createClient\(|from\s+["']@\/lib\/supabase\/|deleteBudgetItem\(|updateBudgetItem\(/);
