@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -19,13 +20,19 @@ import { Icon } from "@/components/ui/icon";
 const DEMO_MONTH = "2026-11";
 
 /** Read-only synthetic category ledger; intentionally not the authenticated transactions route. */
-export default async function TestingBudgetHistoryPage({
-  params,
-}: {
-  params: Promise<{ categoryId: string }>;
-}) {
+type Props = { params: Promise<{ categoryId: string }> };
+
+export default function TestingBudgetHistoryPage({ params }: Props) {
   if (!isPublicTestingDemoAllowed()) notFound();
 
+  return (
+    <Suspense fallback={<main className="px-4 py-10 text-body-sm text-on-surface-variant">Memuat riwayat transaksi demo...</main>}>
+      <HistoryContent params={params} />
+    </Suspense>
+  );
+}
+
+async function HistoryContent({ params }: Props) {
   const { categoryId } = await params;
   const category = DEMO_EXPENSE_CATEGORIES.find((row) => row.id === categoryId);
   if (!category || !DEMO_BUDGET_LIMITS.some((item) => item.categoryName === category.name)) {
