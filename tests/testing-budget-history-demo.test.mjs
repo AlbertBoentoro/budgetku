@@ -66,6 +66,7 @@ test("public demo routes are preview-only, read-only, and linked from the testin
   assert.match(budget, /href=\{\`\/testing\/budget\/history\/\$\{category\.id\}\`\}/);
   assert.match(history, /row\.transaction_type === "expense"/);
   assert.match(history, /row\.transaction_at\.startsWith\(DEMO_MONTH\)/);
+  assert.match(history, /await connection\(\)/); // Date-dependent day labels must render at request time.
   for (const source of [budget, history]) {
     assert.doesNotMatch(source, /createClient\(|from\s+["']@\/lib\/supabase\/|deleteBudgetItem\(|updateBudgetItem\(/);
   }
