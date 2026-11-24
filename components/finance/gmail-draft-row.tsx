@@ -8,6 +8,7 @@ import {
   type ActionResult,
 } from "@/app/(app)/settings/gmail/actions";
 import { AmountText } from "@/components/finance/amount-text";
+import { GrabGmailSummary } from "@/components/finance/grab-gmail-summary";
 import { BcaGmailSummary } from "@/components/finance/bca-gmail-summary";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -65,6 +66,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
 
   const received = formatReceived(draft.receivedAt);
   const bcaStructured = previewIsBcaStructured(draft.preview);
+  const grabStructured = draft.preview?.source === "grab";
   const senderLabel = formatSender(draft.sender);
   const isFailed = draft.status === "failed";
   const preview = draft.preview;
@@ -88,7 +90,7 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
 
   return (
     <li className="flex flex-col gap-3 px-4 py-3">
-      {!bcaStructured ? <div className="flex items-start gap-3">
+      {!bcaStructured && !grabStructured ? <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
           <Icon name={isFailed ? "error" : "mail"} size={20} />
         </span>
@@ -104,10 +106,12 @@ export function GmailDraftRow({ draft, onError }: GmailDraftRowProps) {
       </div> : null}
 
       {preview ? (
-        <div className={bcaStructured
+        <div className={bcaStructured || grabStructured
           ? "flex min-w-0 flex-col gap-2"
           : "ml-0 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3 sm:ml-[52px]"}>
-          {bcaStructured ? (
+          {grabStructured ? (
+            <GrabGmailSummary preview={preview} receivedAt={draft.receivedAt} />
+          ) : bcaStructured ? (
             <BcaGmailSummary preview={preview} receivedAt={draft.receivedAt} />
           ) : (
           <>
