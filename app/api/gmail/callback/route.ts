@@ -9,6 +9,7 @@ import {
   GMAIL_SETTINGS_PATH,
 } from "@/lib/gmail/config";
 import { exchangeCode, fetchConnectedEmail } from "@/lib/gmail/oauth";
+import { PUSH_CONNECTION_FIELDS, pushConfigured, syncPushConnection } from "@/lib/gmail/push";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -105,6 +106,7 @@ export async function GET(request: NextRequest) {
       .update({
         email_address: email as string,
         status: "active",
+        ...(pushConfigured() ? { push_history_id: null, push_watch_expires_at: null, push_last_success_at: null } : {}),
         last_error: null,
         updated_at: nowIso,
       })
@@ -182,5 +184,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  if (pushConfigured()) {
+    try {
+      const { data } = await supabase.from("email_connections").select(PUSH_CONNECTION_FIELDS)
+        .eq("id", connectionId).eq("user_id", user.id).eq("status", "active").single();
+      if (data) await syncPushConnection(supabase, data, true);
+    } catch { /* OAuth remains usable; daily reconciliation retries registration. */ }
+  }
   redirect(`${GMAIL_SETTINGS_PATH}?ok=connected`);
 }
