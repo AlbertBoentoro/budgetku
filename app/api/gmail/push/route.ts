@@ -4,7 +4,6 @@ import { readGmailNotification } from "@/lib/gmail/push-notification";
 import { PUSH_CONNECTION_FIELDS, pushConfigured, syncPushConnection } from "@/lib/gmail/push";
 import { GmailReconnectRequiredError } from "@/lib/gmail/client";
 
-export const runtime = "nodejs";
 export const maxDuration = 60;
 export async function POST(request: Request) {
   if (!pushConfigured()) return new Response(null, { status: 503 });
