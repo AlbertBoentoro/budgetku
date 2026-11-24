@@ -31,7 +31,7 @@ export interface ParseResult {
 // stay pure and do no I/O. `receivedAt` is an ISO-ish timestamp used only as a
 // date fallback when the body has no confident date.
 export interface GmailParser {
-  source: "bca" | "shopee" | "gopay";
+  source: "bca" | "shopee" | "gopay" | "grab";
   parse(input: {
     subject: string;
     from: string;
