@@ -1,4 +1,4 @@
-import "server-only";
+if (typeof window !== "undefined") throw new Error("Gmail push is server-only.");
 import type { gmail_v1 } from "googleapis";
 import { createGmailClient } from "@/lib/gmail/client";
 import { GMAIL_BASE_QUERY } from "@/lib/gmail/config";
@@ -110,12 +110,13 @@ export async function syncPushConnection(db: Db, row: PushConnection, renew = fa
       !profile.historyId || !/^\d+$/.test(profile.historyId)) throw new Error("Gmail mailbox mismatch");
   let expiration = row.push_watch_expires_at;
   let snapshot = profile.historyId;
-  if (renew || !expiration || Date.parse(expiration) < startedAt + DAY) {
+  if (renew) {
     const { data: watch } = await gmail.users.watch({ userId: "me", requestBody: { topicName: process.env.GMAIL_PUSH_TOPIC! } });
     if (!watch.historyId || !/^\d+$/.test(watch.historyId) || !watch.expiration || !Number.isFinite(Number(watch.expiration))) throw new Error("Invalid Gmail watch response");
     expiration = new Date(Number(watch.expiration)).toISOString();
     snapshot = watch.historyId;
   }
+  if (!expiration || !row.push_history_id && !renew) throw new Error("Gmail watch initialization required");
   let batch: { ids: Set<string>; cursor: string };
   if (row.push_history_id) {
     try { batch = await historyIds(gmail, row.push_history_id); }
