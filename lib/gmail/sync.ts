@@ -209,7 +209,8 @@ export async function syncGmail(
           parsed_preview: createGmailPreview(null, emptyParseResult()),
         })
         .eq("id", row.id)
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .in("status", ["pending", "failed"]);
       if (error) {
         throw new Error(`Gagal memperbarui status email: ${error.message}`);
       }
@@ -233,7 +234,8 @@ export async function syncGmail(
             : "Pengirim tidak dikenali untuk impor otomatis.",
       })
       .eq("id", row.id)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .in("status", ["pending", "failed"]);
 
     if (error) {
       throw new Error(`Gagal menyimpan detail email: ${error.message}`);
@@ -408,7 +410,7 @@ interface MessageMeta {
  * message. Prefers text/plain and falls back to tag-stripped text/html, as the
  * parsers expect already-decoded body text (FEAT-002 contract).
  */
-function extractMessageMeta(message: gmail_v1.Schema$Message): MessageMeta {
+export function extractMessageMeta(message: gmail_v1.Schema$Message): MessageMeta {
   const headers = message.payload?.headers ?? [];
   const header = (name: string): string => {
     const found = headers.find(
