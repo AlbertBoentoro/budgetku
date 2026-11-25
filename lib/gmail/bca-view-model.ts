@@ -3,7 +3,7 @@ import type { GmailParsedPreview } from "@/lib/gmail/preview";
 /** Presentation data only: parsing and normalization belong to the BCA parser. */
 export function getBcaGmailViewModel(preview: GmailParsedPreview) {
   const description = preview.description?.trim() ?? "";
-  const title = /^(?:Transfer ke .+|Top up ke .+|Transaksi QRIS)$/i.test(description)
+  const title = /^(?:Transfer ke .+|Top up ke .+|Transaksi QRIS|Top Up Flazz)$/i.test(description)
     ? description
     : "Jenis transaksi belum terbaca";
 
