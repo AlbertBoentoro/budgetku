@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 
 import {
   saveSettings,
@@ -24,6 +24,13 @@ export function PreferencesForm({
   return (
     <form
       action={action}
+      onSubmit={(event) => {
+        // Radix also listens to native form resets, even when controlled.
+        // Dispatch the server action explicitly to avoid React resetting the form.
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        startTransition(() => action(data));
+      }}
       className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
     >
       <input type="hidden" name="dailyReminderEnabled" value={reminderEnabled ? "on" : "off"} />
