@@ -8,6 +8,7 @@ import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
 export type SettingsActionState = {
   message: string;
   ok: boolean;
+  savedReminderEnabled?: boolean;
 };
 
 export async function saveSettings(
@@ -86,6 +87,7 @@ export async function saveSettings(
   revalidatePath("/settings");
   return {
     ok: true,
+    savedReminderEnabled: saved.daily_reminder_enabled,
     message: stagingPreferenceTest && !reminderConfigured && reminderEnabled
       ? "Pengaturan tersimpan. Mode testing: pengiriman notifikasi belum aktif."
       : "Pengaturan tersimpan.",
