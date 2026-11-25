@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
 import { AppBackLink } from "@/components/layout/app-back-link";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageContainer } from "@/components/layout/page-container";
@@ -154,6 +155,7 @@ async function SettingsContent() {
         ) : (
           <PreferencesForm
             dailyReminderEnabled={settings?.daily_reminder_enabled ?? false}
+            stagingPreferenceTest={process.env.VERCEL_ENV === "preview" && isStagingEmailLoginAllowed()}
             reminderConfigured={Boolean(
                 process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY &&
                   process.env.VAPID_PRIVATE_KEY &&

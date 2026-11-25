@@ -3,17 +3,23 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
 
 export type SettingsActionState = {
   message: string;
   ok: boolean;
+  savedReminderEnabled?: boolean;
 };
 
 export async function saveSettings(
   _previousState: SettingsActionState,
   formData: FormData,
 ): Promise<SettingsActionState> {
-  const reminderEnabled = formData.get("dailyReminderEnabled") === "on";
+  const reminderValue = formData.get("dailyReminderEnabled");
+  if (reminderValue !== "on" && reminderValue !== "off") {
+    return { ok: false, message: "Pilihan pengingat tidak valid. Coba lagi." };
+  }
+  const reminderEnabled = reminderValue === "on";
 
   const supabase = await createClient();
   const {
@@ -31,7 +37,8 @@ export async function saveSettings(
     process.env.CRON_SECRET &&
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
-  if (reminderEnabled && !reminderConfigured) {
+  const stagingPreferenceTest = process.env.VERCEL_ENV === "preview" && isStagingEmailLoginAllowed();
+  if (reminderEnabled && !reminderConfigured && !stagingPreferenceTest) {
     const { data: current, error: currentError } = await supabase
       .from("user_settings")
       .select("daily_reminder_enabled")
@@ -55,7 +62,7 @@ export async function saveSettings(
     }
   }
 
-  const { error } = await supabase.from("user_settings").upsert(
+  const { data: saved, error } = await supabase.from("user_settings").upsert(
     {
       user_id: user.id,
       first_day_of_week: "monday",
@@ -66,13 +73,23 @@ export async function saveSettings(
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" },
-  );
+  ).select("daily_reminder_enabled").single();
 
   if (error) {
     console.error("Settings save failed:", error.message);
     return { ok: false, message: "Pengaturan gagal disimpan. Coba lagi." };
   }
 
+  if (saved?.daily_reminder_enabled !== reminderEnabled) {
+    return { ok: false, message: "Status pengingat belum tersimpan. Coba lagi." };
+  }
+
   revalidatePath("/settings");
-  return { ok: true, message: "Pengaturan tersimpan." };
+  return {
+    ok: true,
+    savedReminderEnabled: saved.daily_reminder_enabled,
+    message: stagingPreferenceTest && !reminderConfigured && reminderEnabled
+      ? "Pengaturan tersimpan. Mode testing: pengiriman notifikasi belum aktif."
+      : "Pengaturan tersimpan.",
+  };
 }
