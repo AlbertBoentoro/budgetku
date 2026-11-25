@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import {
   saveSettings,
@@ -19,18 +19,20 @@ export function PreferencesForm({
   reminderConfigured: boolean;
 }) {
   const [state, action, pending] = useActionState(saveSettings, INITIAL_STATE);
+  const [reminderEnabled, setReminderEnabled] = useState(dailyReminderEnabled);
 
   return (
     <form
       action={action}
       className="flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
     >
+      <input type="hidden" name="dailyReminderEnabled" value={reminderEnabled ? "on" : "off"} />
       <div className="flex items-start gap-3">
         <Checkbox
           id="dailyReminderEnabled"
-          name="dailyReminderEnabled"
-          defaultChecked={dailyReminderEnabled}
-          disabled={!reminderConfigured && !dailyReminderEnabled}
+          checked={reminderEnabled}
+          onCheckedChange={(checked) => setReminderEnabled(checked === true)}
+          disabled={pending || (!reminderConfigured && !dailyReminderEnabled)}
           className="size-11 rounded-md"
           aria-label="Aktifkan pengingat harian"
         />
