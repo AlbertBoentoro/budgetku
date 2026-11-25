@@ -58,7 +58,20 @@ test("only the dedicated staging preview can save a reminder without push config
   assert.match(page, gate);
   assert.match(action, gate);
   assert.match(action, /if \(reminderEnabled && !reminderConfigured && !stagingPreferenceTest\)/);
-  assert.match(form, /!reminderConfigured && !dailyReminderEnabled && !stagingPreferenceTest/);
+  assert.match(form, /!reminderConfigured && !savedReminderEnabled && !stagingPreferenceTest/);
   assert.match(action, /pengiriman notifikasi belum aktif/);
   assert.match(form, /notifikasi belum dikirim/);
+});
+
+
+test("save is enabled only for unsaved reminder changes and pending submissions cannot repeat", () => {
+  const form = read("components/settings/preferences-form.tsx");
+  const action = read("app/(app)/settings/actions.ts");
+  assert.match(form, /state\.savedReminderEnabled \?\? dailyReminderEnabled/);
+  assert.match(form, /hasChanges = reminderEnabled !== savedReminderEnabled/);
+  assert.match(form, /saveDisabled = pending \|\| !hasChanges/);
+  assert.match(form, /disabled=\{saveDisabled\}/);
+  assert.match(form, /if \(saveDisabled\) return;/);
+  assert.match(form, /disabled:bg-surface-container-high/);
+  assert.match(action, /savedReminderEnabled: saved\.daily_reminder_enabled/);
 });
