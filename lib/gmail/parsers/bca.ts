@@ -76,6 +76,8 @@ const MERCHANT_FIELDS: {
 const EMAIL_FIELD_LABELS = [
   ...MERCHANT_FIELDS.map((field) => field.label),
   "transfer amount",
+  "flazz card number",
+  "top up amount",
   "name",
   "phone no.",
   "admin fee",
@@ -205,6 +207,7 @@ export const bcaParser: GmailParser = {
     const walletOwner = field("name");
     const paymentTo = field("payment to");
     const isBankTransfer = /^transfer\s+to\s+\S+/i.test(transferType ?? "");
+    const isFlazz = /^flazz\s+top\s*up$/i.test(transactionType ?? "");
     const isQris = /^qris\s+payment$/i.test(transactionType ?? "");
     const walletMatch = transactionType?.match(/^e[-\s]?wallet\s*-\s*(.+)$/i);
     const isWalletTopUp = Boolean(walletMatch);
@@ -212,22 +215,22 @@ export const bcaParser: GmailParser = {
 
     const bankMatch = transferType?.match(/^transfer\s+to\s+(.+?)(?:\s+(?:virtual\s+)?account)?$/i);
     const bank = bankMatch?.[1]?.trim() || null;
-    const transactionTitle = isBankTransfer
+    const transactionTitle = isFlazz ? "Top Up Flazz" : isBankTransfer
       ? "Transfer ke " + (bank || "rekening")
       : isWalletTopUp
         ? "Top up ke " + (wallet || "e-wallet")
         : isQris ? "Transaksi QRIS" : null;
 
-    const amountText = isBankTransfer
+    const amountText = isFlazz ? field("top up amount") : isBankTransfer
       ? field("transfer amount")
       : field("total payment") ?? field("pay amount") ?? field("amount");
     // Prefer the exact amount field. Avoid reading an account number, admin
     // fee, or other unrelated value as the transaction amount.
     const amount = amountText
       ? parseRupiah(amountText)
-      : parseRupiah(bodyText) ?? parseRupiah(subject);
+      : isFlazz ? null : parseRupiah(bodyText) ?? parseRupiah(subject);
 
-    const recipient = isBankTransfer
+    const recipient = isFlazz ? "BCA" : isBankTransfer
       ? beneficiary
       : isWalletTopUp
         ? walletOwner
@@ -250,7 +253,7 @@ export const bcaParser: GmailParser = {
 
     let direction: ParseResult["direction"];
     let directionConfident: boolean;
-    if (isBankTransfer || isQris || isWalletTopUp) {
+    if (isBankTransfer || isQris || isWalletTopUp || isFlazz) {
       direction = "expense";
       directionConfident = true;
     } else if (expenseHits > incomeHits) {
