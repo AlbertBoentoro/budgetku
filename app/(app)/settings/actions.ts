@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { isStagingEmailLoginAllowed } from "@/lib/auth/staging-email-login";
 
 export type SettingsActionState = {
   message: string;
@@ -35,7 +36,8 @@ export async function saveSettings(
     process.env.CRON_SECRET &&
     process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
-  if (reminderEnabled && !reminderConfigured) {
+  const stagingPreferenceTest = process.env.VERCEL_ENV === "preview" && isStagingEmailLoginAllowed();
+  if (reminderEnabled && !reminderConfigured && !stagingPreferenceTest) {
     const { data: current, error: currentError } = await supabase
       .from("user_settings")
       .select("daily_reminder_enabled")
@@ -82,5 +84,10 @@ export async function saveSettings(
   }
 
   revalidatePath("/settings");
-  return { ok: true, message: "Pengaturan tersimpan." };
+  return {
+    ok: true,
+    message: stagingPreferenceTest && !reminderConfigured && reminderEnabled
+      ? "Pengaturan tersimpan. Mode testing: pengiriman notifikasi belum aktif."
+      : "Pengaturan tersimpan.",
+  };
 }
