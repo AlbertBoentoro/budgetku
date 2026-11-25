@@ -22,6 +22,9 @@ export function PreferencesForm({
 }) {
   const [state, action, pending] = useActionState(saveSettings, INITIAL_STATE);
   const [reminderEnabled, setReminderEnabled] = useState(dailyReminderEnabled);
+  const savedReminderEnabled = state.savedReminderEnabled ?? dailyReminderEnabled;
+  const hasChanges = reminderEnabled !== savedReminderEnabled;
+  const saveDisabled = pending || !hasChanges;
 
   return (
     <form
@@ -30,6 +33,7 @@ export function PreferencesForm({
         // Radix also listens to native form resets, even when controlled.
         // Dispatch the server action explicitly to avoid React resetting the form.
         event.preventDefault();
+        if (saveDisabled) return;
         const data = new FormData(event.currentTarget);
         startTransition(() => action(data));
       }}
@@ -41,7 +45,7 @@ export function PreferencesForm({
           id="dailyReminderEnabled"
           checked={reminderEnabled}
           onCheckedChange={(checked) => setReminderEnabled(checked === true)}
-          disabled={pending || (!reminderConfigured && !dailyReminderEnabled && !stagingPreferenceTest)}
+          disabled={pending || (!reminderConfigured && !savedReminderEnabled && !stagingPreferenceTest)}
           className="size-11 rounded-md"
           aria-label="Aktifkan pengingat harian"
         />
@@ -68,7 +72,7 @@ export function PreferencesForm({
         </div>
       </div>
 
-      {state.message ? (
+      {state.message && (!state.ok || !hasChanges) ? (
         <p
           role={state.ok ? "status" : "alert"}
           className={
@@ -83,8 +87,8 @@ export function PreferencesForm({
 
       <Button
         type="submit"
-        disabled={pending}
-        className="h-11 w-full sm:w-auto sm:self-end"
+        disabled={saveDisabled}
+        className="h-11 w-full sm:w-auto sm:self-end disabled:bg-surface-container-high disabled:text-on-surface-variant disabled:opacity-100 disabled:shadow-none"
       >
         {pending ? "Menyimpan..." : "Simpan pengaturan"}
       </Button>
