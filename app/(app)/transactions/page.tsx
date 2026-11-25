@@ -36,6 +36,7 @@ import {
   fetchBalanceAdjustments,
   type BalanceAdjustmentRowView,
 } from "@/lib/account-balance-adjustments";
+import { compareLedgerRows } from "@/lib/transactions/ledger-order";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { TransactionsLoading } from "@/app/(app)/transactions/loading";
@@ -331,13 +332,7 @@ async function TransactionsContent({
   // Merge only for presentation. Audit rows have their own immutable type and
   // cannot be opened through normal transaction edit/delete routes.
   const rows: Array<TransactionRowView | BalanceAdjustmentRowView> =
-    [...transactionRows, ...adjustments].sort((a, b) => {
-      const byDate = Date.parse(b.transaction_at) - Date.parse(a.transaction_at);
-      if (byDate !== 0) return byDate;
-      const aRecorded = "kind" in a ? a.transaction_at : a.created_at;
-      const bRecorded = "kind" in b ? b.transaction_at : b.created_at;
-      return Date.parse(bRecorded) - Date.parse(aRecorded);
-    });
+    [...transactionRows, ...adjustments].sort(compareLedgerRows);
 
   // Categories offered in the filter are the union of usable income + expense,
   // deduplicated, so the select lists each category once.
