@@ -14,9 +14,11 @@ const INITIAL_STATE: SettingsActionState = { ok: false, message: "" };
 export function PreferencesForm({
   dailyReminderEnabled,
   reminderConfigured,
+  stagingPreferenceTest = false,
 }: {
   dailyReminderEnabled: boolean;
   reminderConfigured: boolean;
+  stagingPreferenceTest?: boolean;
 }) {
   const [state, action, pending] = useActionState(saveSettings, INITIAL_STATE);
   const [reminderEnabled, setReminderEnabled] = useState(dailyReminderEnabled);
@@ -39,7 +41,7 @@ export function PreferencesForm({
           id="dailyReminderEnabled"
           checked={reminderEnabled}
           onCheckedChange={(checked) => setReminderEnabled(checked === true)}
-          disabled={pending || (!reminderConfigured && !dailyReminderEnabled)}
+          disabled={pending || (!reminderConfigured && !dailyReminderEnabled && !stagingPreferenceTest)}
           className="size-11 rounded-md"
           aria-label="Aktifkan pengingat harian"
         />
@@ -58,7 +60,9 @@ export function PreferencesForm({
           </p>
           {!reminderConfigured ? (
             <p className="text-body-sm text-on-surface-variant">
-              Menunggu konfigurasi Web Push di server.
+              {stagingPreferenceTest
+                ? "Mode testing: pengaturan dapat disimpan, tetapi notifikasi belum dikirim."
+                : "Menunggu konfigurasi Web Push di server."}
             </p>
           ) : null}
         </div>
