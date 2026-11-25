@@ -13,7 +13,7 @@ export interface GmailParsedPreview {
   confidence: "high" | "low";
 }
 
-export const GMAIL_PARSER_VERSION = 5;
+export const GMAIL_PARSER_VERSION = 7;
 
 export const GMAIL_SOURCE_LABELS: Record<GmailSource, string> = {
   bca: "BCA",
