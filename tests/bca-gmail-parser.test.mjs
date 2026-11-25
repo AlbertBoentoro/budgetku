@@ -122,3 +122,21 @@ test("missing masked Name stays missing rather than substituting a phone or bank
   assert.equal(result.merchant, null);
   assert.equal(result.confidence, "low");
 });
+
+
+test("Flazz top up uses BCA merchant and short description, not card number", () => {
+  const bodyText = "Status : Successful Transaction Date : 25 Nov 2026 06:21:31 Transaction Type : Flazz Top Up Flazz Card Number : 0000000000000000 Source of Fund : 1234****50 Top Up Amount : IDR 20,000.00 Reference No. : DEMO";
+  const result = bcaParser.parse({ ...input, bodyText });
+  assert.equal(result.amount, 20000);
+  assert.equal(result.merchant, "BCA");
+  assert.equal(result.description, "Top Up Flazz");
+  assert.equal(result.direction, "expense");
+  assert.equal(result.transactionAt, "2026-11-25");
+  assert.equal(result.confidence, "high");
+});
+
+test("Flazz without labeled top up amount fails closed", () => {
+  const result = bcaParser.parse({ ...input, bodyText: "Transaction Type : Flazz Top Up Flazz Card Number : 1234567890 Admin Fee : IDR 5,000.00" });
+  assert.equal(result.ok, false);
+  assert.equal(result.amount, null);
+});
