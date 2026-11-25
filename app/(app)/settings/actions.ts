@@ -13,7 +13,11 @@ export async function saveSettings(
   _previousState: SettingsActionState,
   formData: FormData,
 ): Promise<SettingsActionState> {
-  const reminderEnabled = formData.get("dailyReminderEnabled") === "on";
+  const reminderValue = formData.get("dailyReminderEnabled");
+  if (reminderValue !== "on" && reminderValue !== "off") {
+    return { ok: false, message: "Pilihan pengingat tidak valid. Coba lagi." };
+  }
+  const reminderEnabled = reminderValue === "on";
 
   const supabase = await createClient();
   const {
@@ -55,7 +59,7 @@ export async function saveSettings(
     }
   }
 
-  const { error } = await supabase.from("user_settings").upsert(
+  const { data: saved, error } = await supabase.from("user_settings").upsert(
     {
       user_id: user.id,
       first_day_of_week: "monday",
@@ -66,11 +70,15 @@ export async function saveSettings(
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" },
-  );
+  ).select("daily_reminder_enabled").single();
 
   if (error) {
     console.error("Settings save failed:", error.message);
     return { ok: false, message: "Pengaturan gagal disimpan. Coba lagi." };
+  }
+
+  if (saved?.daily_reminder_enabled !== reminderEnabled) {
+    return { ok: false, message: "Status pengingat belum tersimpan. Coba lagi." };
   }
 
   revalidatePath("/settings");
