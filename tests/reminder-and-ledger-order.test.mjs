@@ -48,3 +48,17 @@ test("reminder form retains controlled state and submits explicit on or off", ()
   assert.match(action, /\.select\("daily_reminder_enabled"\)\.single\(\)/);
   assert.match(action, /saved\?\.daily_reminder_enabled !== reminderEnabled/);
 });
+
+
+test("only the dedicated staging preview can save a reminder without push configuration", () => {
+  const page = read("app/(app)/settings/page.tsx");
+  const action = read("app/(app)/settings/actions.ts");
+  const form = read("components/settings/preferences-form.tsx");
+  const gate = /process\.env\.VERCEL_ENV === "preview" && isStagingEmailLoginAllowed\(\)/;
+  assert.match(page, gate);
+  assert.match(action, gate);
+  assert.match(action, /if \(reminderEnabled && !reminderConfigured && !stagingPreferenceTest\)/);
+  assert.match(form, /!reminderConfigured && !dailyReminderEnabled && !stagingPreferenceTest/);
+  assert.match(action, /pengiriman notifikasi belum aktif/);
+  assert.match(form, /notifikasi belum dikirim/);
+});
