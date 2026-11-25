@@ -41,6 +41,8 @@ test("reminder form retains controlled state and submits explicit on or off", ()
   assert.match(form, /onCheckedChange=/);
   assert.match(form, /name="dailyReminderEnabled" value=\{reminderEnabled \? "on" : "off"\}/);
   assert.doesNotMatch(form, /defaultChecked=/);
+  assert.match(form, /event\.preventDefault\(\)/);
+  assert.match(form, /startTransition\(\(\) => action\(data\)\)/);
   const action = read("app/(app)/settings/actions.ts");
   assert.match(action, /reminderValue !== "on" && reminderValue !== "off"/);
   assert.match(action, /\.select\("daily_reminder_enabled"\)\.single\(\)/);
