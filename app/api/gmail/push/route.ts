@@ -1,6 +1,6 @@
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { readGmailNotification } from "@/lib/gmail/push-notification";
+import { inspectGmailNotification } from "@/lib/gmail/push-notification";
 import { PUSH_CONNECTION_FIELDS, pushConfigured, syncPushConnection } from "@/lib/gmail/push";
 import { GmailReconnectRequiredError } from "@/lib/gmail/client";
 
@@ -18,10 +18,20 @@ export async function POST(request: Request) {
   let notification;
   try {
     const raw = await request.text();
-    if (raw.length > 16384) return new Response(null, { status: 400 });
-    notification = readGmailNotification(JSON.parse(raw), process.env.GMAIL_PUSH_SUBSCRIPTION!);
-  } catch { return new Response(null, { status: 400 }); }
-  if (!notification) return new Response(null, { status: 400 });
+    if (raw.length > 16384) {
+      console.warn("Gmail push rejected: body_size");
+      return new Response(null, { status: 400 });
+    }
+    const result = inspectGmailNotification(JSON.parse(raw), process.env.GMAIL_PUSH_SUBSCRIPTION!);
+    if (!result.ok) {
+      console.warn("Gmail push rejected: " + result.reason);
+      return new Response(null, { status: 400 });
+    }
+    notification = result.notification;
+  } catch {
+    console.warn("Gmail push rejected: request_json");
+    return new Response(null, { status: 400 });
+  }
   try {
     const db = createAdminClient();
     const { data, error } = await db.from("email_connections").select(PUSH_CONNECTION_FIELDS)
@@ -31,6 +41,7 @@ export async function POST(request: Request) {
       try { await syncPushConnection(db, row); }
       catch (e) { if (!(e instanceof GmailReconnectRequiredError)) throw e; }
     }
+    console.info("Gmail push acknowledged");
     return new Response(null, { status: 204 });
   } catch {
     // Do not log provider exceptions: they may contain email or token data.
