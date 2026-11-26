@@ -3,7 +3,7 @@ import type { gmail_v1 } from "googleapis";
 import { createGmailClient } from "@/lib/gmail/client";
 import { GMAIL_BASE_QUERY } from "@/lib/gmail/config";
 import { resolveParser } from "@/lib/gmail/parsers";
-import { isTestingForwardSubject, readTestingForward } from "@/lib/gmail/testing-forward";
+import { isTestingForwardSubject, readTestingForward, testingForwardEnabled } from "@/lib/gmail/testing-forward";
 import { createGmailPreview } from "@/lib/gmail/preview";
 import { extractMessageMeta } from "@/lib/gmail/sync";
 import type { createClient } from "@/lib/supabase/server";
@@ -33,7 +33,7 @@ async function stillActive(db: Db, row: PushConnection) {
     .eq("email_address", row.email_address).maybeSingle();
   if (error || !data) throw new Error("Gmail connection changed");
 }
-async function ingest(db: Db, row: PushConnection, gmail: gmail_v1.Gmail, id: string) {
+async function ingest(db: Db, row: PushConnection, gmail: gmail_v1.Gmail, id: string, forwardOnly = false) {
   const { data: existing, error } = await db.from("email_imports").select("id")
     .eq("user_id", row.user_id).eq("gmail_message_id", id).maybeSingle();
   if (error) throw new Error("Gmail dedup lookup failed");
@@ -49,17 +49,22 @@ async function ingest(db: Db, row: PushConnection, gmail: gmail_v1.Gmail, id: st
     const subject = headers.find(h => h.name?.toLowerCase() === "subject")?.value ?? "";
     const parser = resolveParser(from);
     const direct = parser && (parser.source !== "grab" || subject.trim().toLowerCase() === "your grab e-receipt");
-    if (!direct && !isTestingForwardSubject(subject)) return;
+    const forwardCandidate = isTestingForwardSubject(subject);
+    if (forwardOnly && !forwardCandidate) return;
+    if (!direct && !forwardCandidate) return;
+    if (forwardCandidate) console.info("Gmail staging forward candidate");
     message = (await gmail.users.messages.get({ userId: "me", id, format: "full" })).data;
   } catch (e) { if (missing(e)) return; throw e; }
   const meta = extractMessageMeta(message);
   const fixture = readTestingForward(meta.subject, meta.bodyText);
+  if (isTestingForwardSubject(meta.subject) && !fixture) console.info("Gmail staging forward skipped: header block not recognized");
+  if (forwardOnly && !fixture) return;
   const input = fixture ?? meta;
   const parser = resolveParser(input.from);
   if (!parser || (parser.source === "grab" && input.subject.trim().toLowerCase() !== "your grab e-receipt")) return;
   const result = parser.parse({ subject: input.subject, from: input.from, bodyText: input.bodyText, receivedAt: meta.receivedAtIso });
-  if (fixture) console.info("Gmail staging forwarded receipt parsed");
   const pending = result.ok && result.amount !== null;
+  if (fixture) console.info("Gmail staging forwarded receipt: " + (pending ? "pending" : "amount_not_detected"));
   await stillActive(db, row);
   const { error: insertError } = await db.from("email_imports").insert({
     user_id: row.user_id, connection_id: row.id, gmail_message_id: id,
@@ -133,6 +138,18 @@ export async function syncPushConnection(db: Db, row: PushConnection, renew = fa
     batch = { ids: await catchUp(gmail, row, startedAt), cursor: snapshot };
   }
   for (const id of batch.ids) await ingest(db, row, gmail, id);
+  // Testing-only replay for recent forwarded receipts skipped by earlier preview builds.
+  // A normal Gmail notification (including a label change) triggers this bounded lookup.
+  if (testingForwardEnabled()) {
+    const { data: recent } = await gmail.users.messages.list({
+      userId: "me", q: "newer_than:1d {subject:Fwd subject:FW subject:Terusan} -in:spam -in:trash -in:sent", maxResults: 20,
+    });
+    const refs = recent.messages ?? [];
+    console.info("Gmail staging forward replay candidates: " + refs.length);
+    for (const ref of refs) if (ref.id && !batch.ids.has(ref.id)) await ingest(db, row, gmail, ref.id, true);
+  } else if (process.env.VERCEL_ENV === "preview") {
+    console.info("Gmail staging forward gate disabled");
+  }
   // Compare-and-set: a concurrent delivery cannot overwrite a newer cursor.
   // A lost race is retried by Pub/Sub, not acknowledged as a completed sync.
   let update = db.from("email_connections").update({
