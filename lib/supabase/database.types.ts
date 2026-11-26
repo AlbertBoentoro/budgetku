@@ -353,6 +353,9 @@ export type Database = {
           provider: string
           status: string
           sync_cursor: string | null
+          push_history_id: string | null
+          push_watch_expires_at: string | null
+          push_last_success_at: string | null
           updated_at: string
           user_id: string
         }
@@ -365,6 +368,9 @@ export type Database = {
           provider?: string
           status?: string
           sync_cursor?: string | null
+          push_history_id?: string | null
+          push_watch_expires_at?: string | null
+          push_last_success_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -377,6 +383,9 @@ export type Database = {
           provider?: string
           status?: string
           sync_cursor?: string | null
+          push_history_id?: string | null
+          push_watch_expires_at?: string | null
+          push_last_success_at?: string | null
           updated_at?: string
           user_id?: string
         }

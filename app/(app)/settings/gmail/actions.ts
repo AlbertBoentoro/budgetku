@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { createOAuthClient } from "@/lib/gmail/oauth";
 import { decryptSecret } from "@/lib/crypto";
+import { createGmailClient } from "@/lib/gmail/client";
+import { pushConfigured } from "@/lib/gmail/push";
 import { syncGmail as runSync } from "@/lib/gmail/sync";
 import { createClient } from "@/lib/supabase/server";
 import { isTransactionType } from "@/lib/transactions";
@@ -479,6 +481,13 @@ export async function disconnectGmail(): Promise<ActionResult> {
     return { ok: true };
   }
 
+  if (pushConfigured()) {
+    try {
+      const gmail = await createGmailClient(supabase, user.id, connection.id);
+      await gmail.users.stop({ userId: "me" });
+    } catch { /* Revocation and local disconnect must still complete. */ }
+  }
+
   // Best-effort revoke at Google using the decrypted refresh token; ignore any
   // failure (the token may already be revoked/expired). The decrypted token
   // exists only in server memory here and is never logged or returned.
@@ -519,6 +528,7 @@ export async function disconnectGmail(): Promise<ActionResult> {
       status: "disconnected",
       last_error: null,
       sync_cursor: null,
+      ...(pushConfigured() ? { push_history_id: null, push_watch_expires_at: null, push_last_success_at: null } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", connection.id)

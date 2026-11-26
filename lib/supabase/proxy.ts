@@ -52,6 +52,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/api/cron/") ||
+    pathname === "/api/gmail/push" ||
     pathname === "/service-worker.js" ||
     // The PWA manifest holds no user data, and browsers also fetch it on the
     // public pages (/, login), so it must not redirect to /auth/login.

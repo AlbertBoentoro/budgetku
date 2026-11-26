@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -28,6 +28,15 @@ export function GmailSyncBar({
   const [isSyncing, startSync] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Refresh the visible draft list, not Gmail itself. The backend receives push.
+  useEffect(() => {
+    if (!connected) return;
+    const refresh = () => { if (document.visibilityState === "visible") router.refresh(); };
+    const interval = window.setInterval(refresh, 20000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", refresh); };
+  }, [connected, router]);
 
   function handleSync() {
     if (isSyncing) return;
