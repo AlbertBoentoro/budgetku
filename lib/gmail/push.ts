@@ -3,6 +3,7 @@ import type { gmail_v1 } from "googleapis";
 import { createGmailClient } from "@/lib/gmail/client";
 import { GMAIL_BASE_QUERY } from "@/lib/gmail/config";
 import { resolveParser } from "@/lib/gmail/parsers";
+import { isTestingForwardSubject, readTestingForward } from "@/lib/gmail/testing-forward";
 import { createGmailPreview } from "@/lib/gmail/preview";
 import { extractMessageMeta } from "@/lib/gmail/sync";
 import type { createClient } from "@/lib/supabase/server";
@@ -47,13 +48,17 @@ async function ingest(db: Db, row: PushConnection, gmail: gmail_v1.Gmail, id: st
     const from = headers.find(h => h.name?.toLowerCase() === "from")?.value ?? "";
     const subject = headers.find(h => h.name?.toLowerCase() === "subject")?.value ?? "";
     const parser = resolveParser(from);
-    if (!parser || (parser.source === "grab" && subject.trim().toLowerCase() !== "your grab e-receipt")) return;
+    const direct = parser && (parser.source !== "grab" || subject.trim().toLowerCase() === "your grab e-receipt");
+    if (!direct && !isTestingForwardSubject(subject)) return;
     message = (await gmail.users.messages.get({ userId: "me", id, format: "full" })).data;
   } catch (e) { if (missing(e)) return; throw e; }
   const meta = extractMessageMeta(message);
-  const parser = resolveParser(meta.from);
-  if (!parser) return;
-  const result = parser.parse({ subject: meta.subject, from: meta.from, bodyText: meta.bodyText, receivedAt: meta.receivedAtIso });
+  const fixture = readTestingForward(meta.subject, meta.bodyText);
+  const input = fixture ?? meta;
+  const parser = resolveParser(input.from);
+  if (!parser || (parser.source === "grab" && input.subject.trim().toLowerCase() !== "your grab e-receipt")) return;
+  const result = parser.parse({ subject: input.subject, from: input.from, bodyText: input.bodyText, receivedAt: meta.receivedAtIso });
+  if (fixture) console.info("Gmail staging forwarded receipt parsed");
   const pending = result.ok && result.amount !== null;
   await stillActive(db, row);
   const { error: insertError } = await db.from("email_imports").insert({
