@@ -1,9 +1,15 @@
 // Forwarded receipts are untrusted fixtures, not authenticated bank messages.
 // Never enable this path on production or on another database.
-export function testingForwardEnabled(env: Record<string, string | undefined> = process.env) {
+export function testingForwardEnabled(env: Record<string, string | undefined> = {
+  VERCEL_ENV: process.env.VERCEL_ENV,
+  VERCEL_GIT_COMMIT_REF: process.env.VERCEL_GIT_COMMIT_REF,
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  GMAIL_PUSH_TOPIC: process.env.GMAIL_PUSH_TOPIC,
+}) {
   return env.VERCEL_ENV === "preview" &&
-    env.VERCEL_GIT_COMMIT_REF === "feat/gmail-push-sync" &&
-    env.NEXT_PUBLIC_SUPABASE_URL === "https://omnzuolrlwczvnxrvenw.supabase.co";
+    (env.VERCEL_GIT_COMMIT_REF === "feat/gmail-push-sync" ||
+      (!env.VERCEL_GIT_COMMIT_REF && env.GMAIL_PUSH_TOPIC === "projects/budgetku-511415/topics/budgetku-gmail-staging")) &&
+    env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "") === "https://omnzuolrlwczvnxrvenw.supabase.co";
 }
 
 export function isTestingForwardSubject(subject: string, enabled = testingForwardEnabled()) {
