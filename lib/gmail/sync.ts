@@ -6,6 +6,7 @@ import {
   MAX_MESSAGES_PER_SYNC,
 } from "@/lib/gmail/config";
 import { resolveParser } from "@/lib/gmail/parsers";
+import { readTestingForward } from "@/lib/gmail/testing-forward";
 import type { ParseResult } from "@/lib/gmail/parsers";
 import {
   createGmailPreview,
@@ -328,7 +329,8 @@ export async function reparseDraftMessage(
     return { kind: "transient" };
   }
 
-  const parser = resolveParser(meta.from);
+  const input = readTestingForward(meta.subject, meta.bodyText) ?? meta;
+  const parser = resolveParser(input.from);
 
   if (!parser) {
     // Unknown sender: honest empty candidate, nothing fabricated. The user can
@@ -341,9 +343,9 @@ export async function reparseDraftMessage(
   }
 
   const candidate = parser.parse({
-    subject: meta.subject,
-    from: meta.from,
-    bodyText: meta.bodyText,
+    subject: input.subject,
+    from: input.from,
+    bodyText: input.bodyText,
     receivedAt: meta.receivedAtIso,
   });
 
