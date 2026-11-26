@@ -13,7 +13,9 @@ export function testingForwardEnabled(env: Record<string, string | undefined> = 
 }
 
 export function isTestingForwardSubject(subject: string, enabled = testingForwardEnabled()) {
-  return enabled && /^(?:fwd?|terusan)\s*:\s*\S/i.test(subject.trim());
+  const clean = subject.trim();
+  return enabled && (/^(?:fwd?|terusan)\s*:\s*\S/i.test(clean) ||
+    /^(?:Internet Transaction Journal|Your Grab E-Receipt)$/i.test(clean));
 }
 
 export function readTestingForward(subject: string, bodyText: string, enabled = testingForwardEnabled()) {
