@@ -49,7 +49,7 @@ async function ingest(db: Db, row: PushConnection, gmail: gmail_v1.Gmail, id: st
     const subject = headers.find(h => h.name?.toLowerCase() === "subject")?.value ?? "";
     const parser = resolveParser(from);
     const direct = parser && (parser.source !== "grab" || subject.trim().toLowerCase() === "your grab e-receipt");
-    const forwardCandidate = isTestingForwardSubject(subject);
+    const forwardCandidate = !direct && isTestingForwardSubject(subject);
     if (forwardOnly && !forwardCandidate) return;
     if (!direct && !forwardCandidate) return;
     if (forwardCandidate) console.info("Gmail staging forward candidate");
@@ -142,7 +142,7 @@ export async function syncPushConnection(db: Db, row: PushConnection, renew = fa
   // A normal Gmail notification (including a label change) triggers this bounded lookup.
   if (testingForwardEnabled()) {
     const { data: recent } = await gmail.users.messages.list({
-      userId: "me", q: "newer_than:1d {subject:Fwd subject:FW subject:Terusan} -in:spam -in:trash -in:sent", maxResults: 20,
+      userId: "me", q: "newer_than:1d {subject:Fwd subject:FW subject:Terusan subject:\"Internet Transaction Journal\" subject:\"Your Grab E-Receipt\"} -in:spam -in:trash -in:sent", maxResults: 20,
     });
     const refs = recent.messages ?? [];
     console.info("Gmail staging forward replay candidates: " + refs.length);
