@@ -6,7 +6,7 @@ import {
   MAX_MESSAGES_PER_SYNC,
 } from "@/lib/gmail/config";
 import { resolveParser } from "@/lib/gmail/parsers";
-import { readTestingForward } from "@/lib/gmail/testing-forward";
+import { readTestingForward, testingForwardEnabled } from "@/lib/gmail/testing-forward";
 import type { ParseResult } from "@/lib/gmail/parsers";
 import {
   createGmailPreview,
@@ -69,8 +69,44 @@ export async function syncGmail(
     maxResults: MAX_MESSAGES_PER_SYNC,
   });
 
-  const messages = list.data.messages ?? [];
-  const capped = messages.length >= MAX_MESSAGES_PER_SYNC;
+  const incremental = list.data.messages ?? [];
+  const capped = incremental.length >= MAX_MESSAGES_PER_SYNC;
+  // Grab was absent from the old sender query: recover recent receipts
+  // independently of the shared cursor. Review at most 20 additional new
+  // messages per sync, scanning at most four 50-message pages.
+  const incrementalIds = new Set(incremental.map(ref => ref.id));
+  const recovered: gmail_v1.Schema$Message[] = [];
+  let grabPageToken: string | undefined;
+  for (let page = 0; page < 4 && recovered.length < 20; page++) {
+    const { data: grab } = await gmail.users.messages.list({
+      userId: "me",
+      q: testingForwardEnabled()
+        ? 'subject:"Your Grab E-Receipt" newer_than:30d -in:chats -in:spam -in:trash -in:sent'
+        : 'from:no-reply@grab.com subject:"Your Grab E-Receipt" newer_than:30d -in:chats -in:spam -in:trash -in:sent',
+      maxResults: MAX_MESSAGES_PER_SYNC,
+      pageToken: grabPageToken,
+    });
+    const candidates = (grab.messages ?? []).filter(ref => !!ref.id && !incrementalIds.has(ref.id));
+    const ids = candidates.map(ref => ref.id!);
+    if (ids.length) {
+      const { data: existing, error } = await supabase.from("email_imports")
+        .select("gmail_message_id").eq("user_id", userId).in("gmail_message_id", ids);
+      if (error) throw new Error("Gagal memeriksa riwayat impor Grab.");
+      const known = new Set((existing ?? []).map(row => row.gmail_message_id));
+      for (const ref of candidates) {
+        if (recovered.length >= 20) break;
+        if (!known.has(ref.id!)) {
+          recovered.push(ref);
+          known.add(ref.id!);
+        }
+      }
+    }
+    grabPageToken = grab.nextPageToken ?? undefined;
+    if (!grabPageToken) break;
+  }
+  const messages = [...new Map([...incremental, ...recovered]
+    .filter(ref => !!ref.id).map(ref => [ref.id!, ref])).values()];
+
 
   let inserted = 0;
   let skipped = 0;
@@ -109,14 +145,18 @@ export async function syncGmail(
 
     const meta = extractMessageMeta(full.data);
     const receivedMs = meta.internalDateMs;
-    if (receivedMs !== null) {
+    if (receivedMs !== null && incrementalIds.has(messageId)) {
       newestProcessedMs =
         newestProcessedMs === null
           ? receivedMs
           : Math.max(newestProcessedMs, receivedMs);
     }
 
-    const parser = resolveParser(meta.from);
+    const fixture = readTestingForward(meta.subject, meta.bodyText);
+    const input = fixture ?? meta;
+    const parser = resolveParser(input.from);
+    if (!incrementalIds.has(messageId) && parser?.source !== "grab") continue;
+    if (parser?.source === "grab" && input.subject.trim().toLowerCase() !== "your grab e-receipt") continue;
     let status: "pending" | "failed";
     let failureReason: string | null = null;
     let parsedPreview: Json | null = null;
@@ -127,9 +167,9 @@ export async function syncGmail(
       parsedPreview = createGmailPreview(null, emptyParseResult());
     } else {
       const result = parser.parse({
-        subject: meta.subject,
-        from: meta.from,
-        bodyText: meta.bodyText,
+        subject: input.subject,
+        from: input.from,
+        bodyText: input.bodyText,
         receivedAt: meta.receivedAtIso,
       });
       parsedPreview = createGmailPreview(parser.source, result);
