@@ -70,17 +70,39 @@ export async function syncGmail(
 
   const incremental = list.data.messages ?? [];
   const capped = incremental.length >= MAX_MESSAGES_PER_SYNC;
-  // Grab was not part of the old sender query. Look back independently of
-  // the shared cursor so recently missed receipts can be reviewed after rollout.
-  // Bound the additional list to 50 receipts from the last 30 days.
-  const grab = await gmail.users.messages.list({
-    userId: "me",
-    q: 'from:no-reply@grab.com subject:"Your Grab E-Receipt" newer_than:30d -in:chats -in:spam -in:trash -in:sent',
-    maxResults: MAX_MESSAGES_PER_SYNC,
-  });
-  const messages = [...new Map([...incremental, ...(grab.data.messages ?? [])]
-    .filter(ref => !!ref.id).map(ref => [ref.id!, ref])).values()];
+  // Grab was absent from the old sender query: recover recent receipts
+  // independently of the shared cursor. Review at most 20 additional new
+  // messages per sync, scanning at most four 50-message pages.
   const incrementalIds = new Set(incremental.map(ref => ref.id));
+  const recovered: gmail_v1.Schema$Message[] = [];
+  let grabPageToken: string | undefined;
+  for (let page = 0; page < 4 && recovered.length < 20; page++) {
+    const { data: grab } = await gmail.users.messages.list({
+      userId: "me",
+      q: 'from:no-reply@grab.com subject:"Your Grab E-Receipt" newer_than:30d -in:chats -in:spam -in:trash -in:sent',
+      maxResults: MAX_MESSAGES_PER_SYNC,
+      pageToken: grabPageToken,
+    });
+    const candidates = (grab.messages ?? []).filter(ref => !!ref.id && !incrementalIds.has(ref.id));
+    const ids = candidates.map(ref => ref.id!);
+    if (ids.length) {
+      const { data: existing, error } = await supabase.from("email_imports")
+        .select("gmail_message_id").eq("user_id", userId).in("gmail_message_id", ids);
+      if (error) throw new Error("Gagal memeriksa riwayat impor Grab.");
+      const known = new Set((existing ?? []).map(row => row.gmail_message_id));
+      for (const ref of candidates) {
+        if (recovered.length >= 20) break;
+        if (!known.has(ref.id!)) {
+          recovered.push(ref);
+          known.add(ref.id!);
+        }
+      }
+    }
+    grabPageToken = grab.nextPageToken ?? undefined;
+    if (!grabPageToken) break;
+  }
+  const messages = [...new Map([...incremental, ...recovered]
+    .filter(ref => !!ref.id).map(ref => [ref.id!, ref])).values()];
 
   let inserted = 0;
   let skipped = 0;
