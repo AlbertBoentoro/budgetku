@@ -68,8 +68,19 @@ export async function syncGmail(
     maxResults: MAX_MESSAGES_PER_SYNC,
   });
 
-  const messages = list.data.messages ?? [];
-  const capped = messages.length >= MAX_MESSAGES_PER_SYNC;
+  const incremental = list.data.messages ?? [];
+  const capped = incremental.length >= MAX_MESSAGES_PER_SYNC;
+  // Grab was not part of the old sender query. Look back independently of
+  // the shared cursor so recently missed receipts can be reviewed after rollout.
+  // Bound the additional list to 50 receipts from the last 30 days.
+  const grab = await gmail.users.messages.list({
+    userId: "me",
+    q: 'from:no-reply@grab.com subject:"Your Grab E-Receipt" newer_than:30d -in:chats -in:spam -in:trash -in:sent',
+    maxResults: MAX_MESSAGES_PER_SYNC,
+  });
+  const messages = [...new Map([...incremental, ...(grab.data.messages ?? [])]
+    .filter(ref => !!ref.id).map(ref => [ref.id!, ref])).values()];
+  const incrementalIds = new Set(incremental.map(ref => ref.id));
 
   let inserted = 0;
   let skipped = 0;
@@ -108,7 +119,7 @@ export async function syncGmail(
 
     const meta = extractMessageMeta(full.data);
     const receivedMs = meta.internalDateMs;
-    if (receivedMs !== null) {
+    if (receivedMs !== null && incrementalIds.has(messageId)) {
       newestProcessedMs =
         newestProcessedMs === null
           ? receivedMs
@@ -116,6 +127,7 @@ export async function syncGmail(
     }
 
     const parser = resolveParser(meta.from);
+    if (parser?.source === "grab" && meta.subject.trim().toLowerCase() !== "your grab e-receipt") continue;
     let status: "pending" | "failed";
     let failureReason: string | null = null;
     let parsedPreview: Json | null = null;
