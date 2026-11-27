@@ -26,6 +26,7 @@ export const GMAIL_SENDERS = {
     "no-reply@mail.shopee.co.id",
   ],
   gopay: ["noreply@gopay.co.id", "no-reply@gopay.co.id", "noreply@gojek.com"],
+  grab: ["no-reply@grab.com"],
 } as const;
 
 // Gmail list query: OR of the known from-domains, excluding chats/spam/trash.
@@ -34,7 +35,7 @@ export const GMAIL_SENDERS = {
 // those domains; such mail parses to failed/low-confidence and is reviewed by
 // the user rather than silently dropped.
 export const GMAIL_BASE_QUERY =
-  "(from:bca.co.id OR from:shopee.co.id OR from:mail.shopee.co.id OR from:gopay.co.id OR from:gojek.com) " +
+  "(from:bca.co.id OR from:shopee.co.id OR from:mail.shopee.co.id OR from:gopay.co.id OR from:gojek.com OR (from:no-reply@grab.com subject:\"Your Grab E-Receipt\")) " +
   "-in:chats -in:spam -in:trash";
 
 // Upper bound on messages fetched per manual sync, to bound work and API usage.

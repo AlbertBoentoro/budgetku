@@ -1,7 +1,7 @@
 import type { Json } from "@/lib/supabase/database.types";
 import type { ParseResult } from "@/lib/gmail/parsers";
 
-export type GmailSource = "bca" | "shopee" | "gopay";
+export type GmailSource = "bca" | "shopee" | "gopay" | "grab";
 
 export interface GmailParsedPreview {
   source: GmailSource | null;
@@ -13,12 +13,13 @@ export interface GmailParsedPreview {
   confidence: "high" | "low";
 }
 
-export const GMAIL_PARSER_VERSION = 5;
+export const GMAIL_PARSER_VERSION = 6;
 
 export const GMAIL_SOURCE_LABELS: Record<GmailSource, string> = {
   bca: "BCA",
   shopee: "ShopeePay",
   gopay: "GoPay",
+  grab: "Grab",
 };
 
 export function createGmailPreview(
@@ -51,7 +52,8 @@ export function readGmailPreview(value: Json | null): GmailParsedPreview | null 
   const source =
     sourceValue === "bca" ||
     sourceValue === "shopee" ||
-    sourceValue === "gopay"
+    sourceValue === "gopay" ||
+    sourceValue === "grab"
       ? sourceValue
       : sourceValue === null
         ? null

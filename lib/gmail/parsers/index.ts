@@ -3,12 +3,14 @@
 // caller marks that email needs_review with no fabricated fields (never guesses
 // a parser). Pure: no I/O.
 
+import { grabParser } from "./grab";
 import { bcaParser } from "./bca";
 import { gopayParser } from "./gopay";
 import { shopeeParser } from "./shopee";
 import type { GmailParser } from "./types";
 
 export type { GmailParser, ParseResult } from "./types";
+export { grabParser } from "./grab";
 export { bcaParser } from "./bca";
 export { gopayParser } from "./gopay";
 export { shopeeParser } from "./shopee";
@@ -37,6 +39,7 @@ function extractDomain(sender: string): string {
 export function resolveParser(sender: string): GmailParser | null {
   const domain = extractDomain(sender);
   if (domain === "") return null;
+  if (domain === "grab.com") return grabParser;
 
   if (domain === "bca.co.id" || domain.endsWith(".bca.co.id")) {
     return bcaParser;

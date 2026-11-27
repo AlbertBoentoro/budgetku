@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { ignoreImport } from "@/app/(app)/settings/gmail/actions";
 import { AmountText } from "@/components/finance/amount-text";
+import { GrabGmailSummary } from "@/components/finance/grab-gmail-summary";
 import { BcaGmailSummary } from "@/components/finance/bca-gmail-summary";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -126,7 +127,9 @@ export function GmailPendingQueue({ drafts, total, showAllLink = true }: GmailPe
               key={draft.id}
               className={cn("flex flex-col gap-2 py-3 first:pt-0 last:pb-0", hasScroll && "min-h-32")}
             >
-              {structuredBca && preview ? (
+              {preview?.source === "grab" ? (
+                <GrabGmailSummary preview={preview} receivedAt={draft.receivedAt} />
+              ) : structuredBca && preview ? (
                 <BcaGmailSummary preview={preview} receivedAt={draft.receivedAt} />
               ) : (
                 <div className="flex flex-wrap items-start justify-between gap-2">
